@@ -32,6 +32,12 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+
+    // Swagger / OpenAPI
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+
+    // CI 테스트 편의
+    runtimeOnly 'com.h2database:h2'
 }
 
 tasks.named('test') {
