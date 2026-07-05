@@ -1,10 +1,13 @@
 package com.cotato.blankit.global.exception;
 
 import com.cotato.blankit.global.response.ApiResponse;
+import com.cotato.blankit.global.response.FieldErrorResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -18,10 +21,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<ApiResponse<List<FieldErrorResponse>>> handleValidationException(MethodArgumentNotValidException e) {
+        List<FieldErrorResponse> fieldErrors = e.getBindingResult().getFieldErrors().stream()
+                .map(fe -> new FieldErrorResponse(fe.getField(), fe.getDefaultMessage()))
+                .toList();
         return ResponseEntity
                 .status(ErrorCode.INVALID_INPUT.getHttpStatus())
-                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT));
+                .body(ApiResponse.failWithData(ErrorCode.INVALID_INPUT, fieldErrors));
     }
 
     @ExceptionHandler(Exception.class)

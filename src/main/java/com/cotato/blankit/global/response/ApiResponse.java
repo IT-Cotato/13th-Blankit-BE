@@ -21,4 +21,8 @@ public record ApiResponse<T>(
     public static ApiResponse<Void> fail(ErrorCode errorCode) {
         return new ApiResponse<>(errorCode.getCode(), errorCode.getMessage(), null);
     }
+
+    public static <T> ApiResponse<T> failWithData(ErrorCode errorCode, T data) {
+        return new ApiResponse<>(errorCode.getCode(), errorCode.getMessage(), data);
+    }
 }
