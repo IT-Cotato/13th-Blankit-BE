@@ -19,7 +19,7 @@ services:
       start_period: 30s
 
   app:
-    image: ockk/blankit-be:latest
+    image: ${APP_IMAGE_TAG}
     container_name: blankit-app
     restart: unless-stopped
     depends_on:
