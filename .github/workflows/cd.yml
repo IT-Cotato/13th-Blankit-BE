@@ -79,6 +79,10 @@ jobs:
                 echo "App is healthy"
                 exit 0
               fi
+              if [ "$STATUS" = "unhealthy" ]; then
+                echo "App is unhealthy"
+                exit 1
+              fi
               echo "Attempt $i/24: status=$STATUS, retrying in 10s..."
               sleep 10
             done
