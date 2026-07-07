@@ -72,3 +72,19 @@ jobs:
             chmod 600 .env
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            echo "Waiting for app to be healthy..."
+            for i in $(seq 1 24); do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' blankit-app 2>/dev/null)
+              if [ "$STATUS" = "healthy" ]; then
+                echo "App is healthy"
+                exit 0
+              fi
+              if [ "$STATUS" = "unhealthy" ]; then
+                echo "App is unhealthy"
+                exit 1
+              fi
+              echo "Attempt $i/24: status=$STATUS, retrying in 10s..."
+              sleep 10
+            done
+            echo "App failed to become healthy within 240s"
+            exit 1
