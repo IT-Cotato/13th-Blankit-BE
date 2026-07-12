@@ -9,14 +9,19 @@ import com.cotato.blankit.domain.auth.dto.response.SignupResponse;
 import com.cotato.blankit.domain.auth.dto.response.UserSummaryResponse;
 import com.cotato.blankit.domain.auth.entity.RefreshToken;
 import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
+import com.cotato.blankit.domain.auth.service.social.SocialTokenVerifier;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import com.cotato.blankit.global.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.OptimisticLockException;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +30,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final SocialTokenVerifier socialTokenVerifier;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -41,11 +47,17 @@ public class AuthService {
                 request.recommendedDailyTime()
         );
 
-        return SignupResponse.from(userRepository.save(user));
+        try {
+            return SignupResponse.from(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT, e);
+        }
     }
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        socialTokenVerifier.verify(request.socialProvider(), request.socialToken(), request.socialId());
+
         User user = userRepository.findBySocialProviderAndSocialId(request.socialProvider(), request.socialId())
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
@@ -68,11 +80,16 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
-        String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-        storedRefreshToken.rotate(newRefreshToken, jwtTokenProvider.getRefreshTokenExpiresAt());
+        try {
+            String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
+            String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+            storedRefreshToken.rotate(newRefreshToken, jwtTokenProvider.getRefreshTokenExpiresAt());
+            refreshTokenRepository.flush();
 
-        return TokenReissueResponse.of(newAccessToken, newRefreshToken);
+            return TokenReissueResponse.of(newAccessToken, newRefreshToken);
+        } catch (ObjectOptimisticLockingFailureException | OptimisticLockException e) {
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN, e);
+        }
     }
 
     @Transactional
@@ -96,7 +113,7 @@ public class AuthService {
         try {
             return jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
         } catch (CustomException e) {
-            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN, e);
         }
     }
 }

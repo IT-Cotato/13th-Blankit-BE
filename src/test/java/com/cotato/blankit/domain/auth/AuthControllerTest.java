@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.hamcrest.Matchers.not;
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Transactional
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:auth-controller-test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
         "spring.datasource.driver-class-name=org.h2.Driver",
@@ -125,7 +127,8 @@ class AuthControllerTest {
                         .content("""
                                 {
                                   "socialProvider": "KAKAO",
-                                  "socialId": "login-1"
+                                  "socialId": "login-1",
+                                  "socialToken": "verified:KAKAO:login-1"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -145,7 +148,8 @@ class AuthControllerTest {
                         .content("""
                                 {
                                   "socialProvider": "KAKAO",
-                                  "socialId": "reissue-1"
+                                  "socialId": "reissue-1",
+                                  "socialToken": "verified:KAKAO:reissue-1"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -196,6 +200,24 @@ class AuthControllerTest {
     }
 
     @Test
+    void socialLoginWithInvalidSocialTokenFails() throws Exception {
+        userRepository.save(User.create(SocialProvider.KAKAO, "invalid-token-1", "user@example.com", "서윤", null, 90));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "invalid-token-1",
+                                  "socialToken": "invalid-token"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    }
+
+    @Test
     void socialLoginWithUnknownAccountFails() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
@@ -203,7 +225,8 @@ class AuthControllerTest {
                         .content("""
                                 {
                                   "socialProvider": "KAKAO",
-                                  "socialId": "unknown"
+                                  "socialId": "unknown",
+                                  "socialToken": "verified:KAKAO:unknown"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
@@ -247,7 +270,8 @@ class AuthControllerTest {
                         .content("""
                                 {
                                   "socialProvider": "KAKAO",
-                                  "socialId": "withdraw-1"
+                                  "socialId": "withdraw-1",
+                                  "socialToken": "verified:KAKAO:withdraw-1"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -279,7 +303,8 @@ class AuthControllerTest {
                         .content("""
                                 {
                                   "socialProvider": "KAKAO",
-                                  "socialId": "logout-1"
+                                  "socialId": "logout-1",
+                                  "socialToken": "verified:KAKAO:logout-1"
                                 }
                                 """))
                 .andExpect(status().isOk())

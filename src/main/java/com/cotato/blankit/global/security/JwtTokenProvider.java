@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -25,25 +26,25 @@ public class JwtTokenProvider {
     private static final String REFRESH_TOKEN_TYPE = "REFRESH";
 
     private final SecretKey secretKey;
-    private final long accessTokenExpiration;
-    private final long refreshTokenExpiration;
+    private final long accessTokenExpirationMillis;
+    private final long refreshTokenExpirationMillis;
 
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.access-token-expiration}") long accessTokenExpiration,
-            @Value("${jwt.refresh-token-expiration}") long refreshTokenExpiration
+            @Value("${jwt.access-token-expiration}") long accessTokenExpirationMillis,
+            @Value("${jwt.refresh-token-expiration}") long refreshTokenExpirationMillis
     ) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.accessTokenExpiration = accessTokenExpiration;
-        this.refreshTokenExpiration = refreshTokenExpiration;
+        this.accessTokenExpirationMillis = accessTokenExpirationMillis;
+        this.refreshTokenExpirationMillis = refreshTokenExpirationMillis;
     }
 
     public String createAccessToken(Long userId) {
-        return createToken(userId, ACCESS_TOKEN_TYPE, accessTokenExpiration);
+        return createToken(userId, ACCESS_TOKEN_TYPE, accessTokenExpirationMillis);
     }
 
     public String createRefreshToken(Long userId) {
-        return createToken(userId, REFRESH_TOKEN_TYPE, refreshTokenExpiration);
+        return createToken(userId, REFRESH_TOKEN_TYPE, refreshTokenExpirationMillis);
     }
 
     public Long getUserIdFromAccessToken(String token) {
@@ -55,7 +56,7 @@ public class JwtTokenProvider {
     }
 
     public LocalDateTime getRefreshTokenExpiresAt() {
-        return LocalDateTime.now().plusNanos(refreshTokenExpiration * 1_000_000);
+        return LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpirationMillis));
     }
 
     private String createToken(Long userId, String tokenType, long expirationMillis) {
@@ -83,7 +84,7 @@ public class JwtTokenProvider {
             }
             return Long.valueOf(claims.getSubject());
         } catch (JwtException | IllegalArgumentException e) {
-            throw new CustomException(ErrorCode.INVALID_TOKEN);
+            throw new CustomException(ErrorCode.INVALID_TOKEN, e);
         }
     }
 }

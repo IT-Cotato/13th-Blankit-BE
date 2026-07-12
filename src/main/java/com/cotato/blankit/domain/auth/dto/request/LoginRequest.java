@@ -13,6 +13,10 @@ public record LoginRequest(
 
         @Schema(description = "소셜 제공자의 사용자 식별자", example = "123456789")
         @NotBlank(message = "소셜 ID는 필수입니다.")
-        String socialId
+        String socialId,
+
+        @Schema(description = "소셜 제공자에서 발급받은 Access Token 또는 ID Token", example = "eyJhbGciOi...")
+        @NotBlank(message = "소셜 토큰은 필수입니다.")
+        String socialToken
 ) {
 }

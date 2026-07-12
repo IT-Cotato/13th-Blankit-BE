@@ -9,13 +9,20 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "`user`")
+@Table(
+        name = "`user`",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_user_social_provider_social_id",
+                columnNames = {"social_provider", "social_id"}
+        )
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
 
