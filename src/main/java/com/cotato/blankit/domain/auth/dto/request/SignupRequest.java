@@ -1,0 +1,33 @@
+package com.cotato.blankit.domain.auth.dto.request;
+
+import com.cotato.blankit.domain.user.entity.SocialProvider;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+@Schema(description = "소셜 회원가입 요청")
+public record SignupRequest(
+        @Schema(description = "소셜 제공자", example = "KAKAO", allowableValues = {"KAKAO", "GOOGLE"})
+        @NotNull(message = "소셜 제공자는 필수입니다.")
+        SocialProvider socialProvider,
+
+        @Schema(description = "소셜 제공자의 사용자 식별자", example = "123456789")
+        @NotBlank(message = "소셜 ID는 필수입니다.")
+        String socialId,
+
+        @Schema(description = "이메일", example = "user@example.com")
+        @Email(message = "이메일 형식이 올바르지 않습니다.")
+        String email,
+
+        @Schema(description = "닉네임", example = "블랭킷")
+        @NotBlank(message = "닉네임은 필수입니다.")
+        String nickname,
+
+        @Schema(description = "프로필 이미지 URL", example = "https://example.com/profile.png")
+        String profileImageUrl,
+
+        @Schema(description = "ERD user.recommended_daily_time 값", example = "120")
+        Integer recommendedDailyTime
+) {
+}
