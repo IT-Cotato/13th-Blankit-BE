@@ -34,6 +34,8 @@ public class AuthService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
+        socialTokenVerifier.verify(request.socialProvider(), request.socialToken(), request.socialId());
+
         if (userRepository.existsBySocialProviderAndSocialId(request.socialProvider(), request.socialId())) {
             throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT);
         }
@@ -63,7 +65,11 @@ public class AuthService {
 
         String accessToken = jwtTokenProvider.createAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-        saveOrRotateRefreshToken(user, refreshToken);
+        try {
+            saveOrRotateRefreshToken(user, refreshToken);
+        } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException | OptimisticLockException e) {
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_CONFLICT, e);
+        }
         return LoginResponse.of(accessToken, refreshToken, UserSummaryResponse.from(user));
     }
 
@@ -107,6 +113,7 @@ public class AuthService {
                                 jwtTokenProvider.getRefreshTokenExpiresAt()
                         ))
                 );
+        refreshTokenRepository.flush();
     }
 
     private Long getUserIdFromRefreshToken(String refreshToken) {

@@ -18,6 +18,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import tools.jackson.databind.ObjectMapper;
@@ -34,7 +35,6 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/swagger-ui.html",
-            "/h2-console/**",
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -43,12 +43,14 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:8081}")
     private String allowedOrigins;
 
+    @Value("${blankit.security.h2-console-enabled:false}")
+    private boolean h2ConsoleEnabled;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
@@ -64,9 +66,13 @@ public class SecurityConfig {
                         }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(PERMIT_ALL_PATHS).permitAll()
+                        .requestMatchers(permitAllPaths()).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        if (h2ConsoleEnabled) {
+            http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
+        }
 
         return http.build();
     }
@@ -91,5 +97,13 @@ public class SecurityConfig {
                 .map(String::trim)
                 .filter(origin -> !origin.isBlank())
                 .toList();
+    }
+
+    private String[] permitAllPaths() {
+        List<String> paths = new ArrayList<>(Arrays.asList(PERMIT_ALL_PATHS));
+        if (h2ConsoleEnabled) {
+            paths.add("/h2-console/**");
+        }
+        return paths.toArray(String[]::new);
     }
 }

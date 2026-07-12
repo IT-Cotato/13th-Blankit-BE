@@ -18,6 +18,10 @@ public record SignupRequest(
         @NotBlank(message = "소셜 ID는 필수입니다.")
         String socialId,
 
+        @Schema(description = "소셜 제공자에서 발급받은 Access Token 또는 ID Token", example = "eyJhbGciOi...")
+        @NotBlank(message = "소셜 토큰은 필수입니다.")
+        String socialToken,
+
         @Schema(description = "이메일", example = "user@example.com")
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         String email,

@@ -68,6 +68,7 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "signup-1",
+                                  "socialToken": "verified:KAKAO:signup-1",
                                   "email": "user@example.com",
                                   "nickname": "서윤",
                                   "profileImageUrl": "https://example.com/profile.png",
@@ -92,6 +93,7 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "duplicate-1",
+                                  "socialToken": "verified:KAKAO:duplicate-1",
                                   "email": "other@example.com",
                                   "nickname": "다른사용자"
                                 }
@@ -109,12 +111,49 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "NAVER",
                                   "socialId": "unsupported-1",
+                                  "socialToken": "verified:NAVER:unsupported-1",
                                   "email": "user@example.com",
                                   "nickname": "서윤"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
+    void socialSignupWithInvalidSocialTokenFails() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "signup-invalid-token-1",
+                                  "socialToken": "invalid-token",
+                                  "email": "user@example.com",
+                                  "nickname": "서윤"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    }
+
+    @Test
+    void socialSignupWithMismatchedSocialTokenFails() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "signup-mismatch-1",
+                                  "socialToken": "verified:KAKAO:other-social-id",
+                                  "email": "user@example.com",
+                                  "nickname": "서윤"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 
     @Test
