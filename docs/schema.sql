@@ -19,6 +19,12 @@
 --     (명세 2.14.6: 매주·매월·매년. DAILY 없음)
 -- 12. repeat_rule.days_of_month 표현 규칙: 콤마 구분 + 마지막날은 'L'
 --     예: '1,15,L' (1일, 15일, 매월 마지막날) ← 프론트와 파싱 규칙 공유 필요
+-- 13. 전 테이블 감사 컬럼 통일          : 모든 테이블에 created_at/updated_at 포함
+--     (BaseEntity(@MappedSuperclass) 전체 상속 전제. playlist_item.added_at → created_at,
+--      search_history.searched_at → created_at 으로 통일)
+-- 14. refresh_token 테이블 신규        : JWT 리프레시 토큰 저장
+--     (재발급 검증 + 로그아웃/탈취 시 무효화용, 명세 4.2 로그아웃 지원.
+--      기능명세에 없는 기술 요구사항이며, Redis 미도입 환경이라 DB 저장 채택)
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -54,6 +60,7 @@ CREATE TABLE category (
                           is_default   TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '기본 카테고리(학업/일상/기념일)',
                           is_deleted   TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '[추가] soft delete - 완료 과업 카테고리 3년 보존 (명세 4.3.1)',
                           created_at   DATETIME     NOT NULL,
+                          updated_at   DATETIME     NOT NULL,
                           PRIMARY KEY (category_id),
                           KEY idx_category_user (user_id),
                           CONSTRAINT fk_category_user FOREIGN KEY (user_id) REFERENCES `user` (user_id)
@@ -95,6 +102,7 @@ CREATE TABLE task_step (
                            progress_rate  INT          NOT NULL DEFAULT 0 COMMENT '0~100',
                            sort_order     INT          NOT NULL DEFAULT 0,
                            created_at     DATETIME     NOT NULL,
+                           updated_at     DATETIME     NOT NULL,
                            PRIMARY KEY (task_step_id),
                            KEY idx_task_step_task (task_id),
                            CONSTRAINT fk_task_step_task FOREIGN KEY (task_id) REFERENCES task (task_id) ON DELETE CASCADE
@@ -129,6 +137,7 @@ CREATE TABLE playlist (
                           playlist_id  BIGINT   NOT NULL AUTO_INCREMENT,
                           user_id      BIGINT   NOT NULL,
                           created_at   DATETIME NOT NULL,
+                          updated_at   DATETIME NOT NULL,
                           PRIMARY KEY (playlist_id),
     -- 사용자당 플레이리스트 1개
                           UNIQUE KEY uk_playlist_user (user_id),
@@ -144,7 +153,8 @@ CREATE TABLE playlist_item (
                                task_id           BIGINT      NOT NULL,
                                sort_order        INT         NOT NULL DEFAULT 0 COMMENT '드래그로 순서 변경 (명세 2.8.5)',
                                source_mode       VARCHAR(30) NULL COMMENT '[추가] 추가 경로: FIRE/BALANCE/TASTE/CLEAR 등 모드명, 수동 추가 시 NULL (명세 2.7.4, 2.8.5)',
-                               added_at          DATETIME    NOT NULL,
+                               created_at        DATETIME    NOT NULL,
+                               updated_at        DATETIME    NOT NULL,
                                PRIMARY KEY (playlist_item_id),
     -- 같은 과업 중복 추가 방지
                                UNIQUE KEY uk_playlist_item (playlist_id, task_id),
@@ -163,6 +173,8 @@ CREATE TABLE task_session (
                               ended_at         DATETIME NULL,
                               elapsed_time     INT      NOT NULL DEFAULT 0 COMMENT '누적 소요 시간(초)',
                               status           ENUM('PLAYING','PAUSED','DONE') NOT NULL DEFAULT 'PAUSED' COMMENT '최초 진입은 중지 상태 (명세 2.4.1)',
+                              created_at       DATETIME NOT NULL,
+                              updated_at       DATETIME NOT NULL,
                               PRIMARY KEY (task_session_id),
                               KEY idx_task_session_task (task_id),
     -- 통계 일별 조회용
@@ -205,6 +217,8 @@ CREATE TABLE timetable (
                            title         VARCHAR(100) NOT NULL,
                            place         VARCHAR(100) NULL,
                            color         VARCHAR(20)  NOT NULL,
+                           created_at    DATETIME     NOT NULL,
+                           updated_at    DATETIME     NOT NULL,
                            PRIMARY KEY (timetable_id),
                            KEY idx_timetable_user_day (user_id, day_of_week),
                            CONSTRAINT fk_timetable_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
@@ -219,6 +233,8 @@ CREATE TABLE notification_setting (
                                       task_id                  BIGINT     NOT NULL,
                                       notify_before            INT        NOT NULL DEFAULT 1440 COMMENT '알림 시점(분 단위), 기본 1일 전=1440 (명세 2.10.3)',
                                       is_enabled               TINYINT(1) NOT NULL DEFAULT 1,
+                                      created_at               DATETIME   NOT NULL,
+                                      updated_at               DATETIME   NOT NULL,
                                       PRIMARY KEY (notification_setting_id),
     -- 알림 단일 선택 (명세 2.13.1)
                                       UNIQUE KEY uk_notification_task (task_id),
@@ -252,6 +268,7 @@ CREATE TABLE daily_recommendation (
                                       available_minutes          INT         NULL COMMENT '오늘 가용 시간(분)',
                                       total_recommended_minutes  INT         NOT NULL COMMENT '오늘의 권장 시간(분) - 로직문서 5번',
                                       created_at                 DATETIME    NOT NULL,
+                                      updated_at                 DATETIME    NOT NULL,
                                       PRIMARY KEY (daily_recommendation_id),
                                       KEY idx_daily_rec_user_date (user_id, recommended_date),
                                       CONSTRAINT fk_daily_rec_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
@@ -267,6 +284,8 @@ CREATE TABLE daily_recommendation_item (
                                            rank_order                    INT           NOT NULL,
                                            score                         DECIMAL(8,2)  NULL COMMENT '우선순위 점수 = 기본순위*0.8 + 진행순위*0.2 (로직문서 1번)',
                                            recommended_minutes           INT           NULL,
+                                           created_at                    DATETIME      NOT NULL,
+                                           updated_at                    DATETIME      NOT NULL,
                                            PRIMARY KEY (daily_recommendation_item_id),
                                            KEY idx_daily_rec_item_rec (daily_recommendation_id),
                                            CONSTRAINT fk_daily_rec_item_rec FOREIGN KEY (daily_recommendation_id) REFERENCES daily_recommendation (daily_recommendation_id) ON DELETE CASCADE,
@@ -279,10 +298,29 @@ CREATE TABLE daily_recommendation_item (
 CREATE TABLE search_history (
                                 search_history_id  BIGINT       NOT NULL AUTO_INCREMENT,
                                 user_id            BIGINT       NOT NULL,
-                                keyword            VARCHAR(100) NOT NULL,
-                                searched_at        DATETIME     NOT NULL,
+                                keyword            VARCHAR(100) NOT NULL COMMENT '검색 시각은 created_at 사용',
+                                created_at         DATETIME     NOT NULL,
+                                updated_at         DATETIME     NOT NULL,
                                 PRIMARY KEY (search_history_id),
     -- 최근 5개 조회용
-                                KEY idx_search_history_user (user_id, searched_at DESC),
+                                KEY idx_search_history_user (user_id, created_at DESC),
                                 CONSTRAINT fk_search_history_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- ------------------------------------------------------------
+-- refresh_token (JWT 리프레시 토큰 - 재발급 검증/로그아웃 무효화) [신규]
+-- ------------------------------------------------------------
+CREATE TABLE refresh_token (
+                               refresh_token_id  BIGINT       NOT NULL AUTO_INCREMENT,
+                               user_id           BIGINT       NOT NULL,
+                               token             VARCHAR(512) NOT NULL COMMENT '토큰 원문 대신 SHA-256 해시 저장 권장 (DB 유출 대비)',
+                               expires_at        DATETIME     NOT NULL COMMENT '만료 시각 - 스케줄러로 주기 삭제 필요 (Redis TTL 부재 보완)',
+                               created_at        DATETIME     NOT NULL,
+                               updated_at        DATETIME     NOT NULL,
+                               PRIMARY KEY (refresh_token_id),
+    -- 사용자당 유효 토큰 1개(단일 세션 정책) - 재로그인 시 upsert. 멀티 디바이스 허용 시 이 제약 제거 + device 컬럼 추가
+                               UNIQUE KEY uk_refresh_token_user (user_id),
+    -- 재발급 요청 시 토큰 값으로 조회
+                               KEY idx_refresh_token_token (token(255)),
+                               CONSTRAINT fk_refresh_token_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
