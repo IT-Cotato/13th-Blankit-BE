@@ -30,10 +30,10 @@ public class CategoryController {
     @GetMapping
     public ApiResponse<List<CategoryResponse>> getCategories() {
         return ApiResponse.success(List.of(
-                new CategoryResponse(1L, "학업", "#FF5C5C", 0, true, false),
-                new CategoryResponse(2L, "일상", "#5C9EFF", 1, true, false),
-                new CategoryResponse(3L, "기념일", "#5CFF8A", 2, true, false),
-                new CategoryResponse(4L, "자격증 준비", "#FFB85C", 3, false, false)
+                new CategoryResponse(1L, "학업", "#FF5C5C", 0, true),
+                new CategoryResponse(2L, "일상", "#5C9EFF", 1, true),
+                new CategoryResponse(3L, "기념일", "#5CFF8A", 2, true),
+                new CategoryResponse(4L, "자격증 준비", "#FFB85C", 3, false)
         ));
     }
 
@@ -48,7 +48,7 @@ public class CategoryController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CategoryResponse> createCategory(@RequestBody @Valid CategoryCreateRequest request) {
-        return ApiResponse.success(new CategoryResponse(5L, request.name(), request.color(), request.sortOrder(), false, false));
+        return ApiResponse.success(new CategoryResponse(5L, request.name(), request.color(), request.sortOrder(), false));
     }
 
     @Operation(summary = "카테고리 수정",
@@ -67,15 +67,17 @@ public class CategoryController {
                 request.name() != null ? request.name() : "학업",
                 request.color() != null ? request.color() : "#FF5C5C",
                 request.sortOrder() != null ? request.sortOrder() : 0,
-                false, false));
+                false));
     }
 
     @Operation(summary = "카테고리 삭제",
-            description = "카테고리를 소프트 삭제합니다. 완료 과업과 연결된 카테고리는 3년간 보존됩니다.")
+            description = "카테고리를 삭제합니다. " +
+                    "해당 카테고리에 과업이 하나라도 존재하면 삭제할 수 없습니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "카테고리 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "카테고리 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "과업이 존재하는 카테고리는 삭제 불가")
     })
     @DeleteMapping("/{categoryId}")
     public ApiResponse<Void> deleteCategory(@PathVariable Long categoryId) {

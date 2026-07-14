@@ -18,9 +18,6 @@ public record CategoryResponse(
         int sortOrder,
 
         @Schema(description = "기본 카테고리 여부 (학업·일상·기념일)", example = "true")
-        boolean isDefault,
-
-        @Schema(description = "소프트 삭제 여부", example = "false")
-        boolean isDeleted
+        boolean isDefault
 ) {
 }

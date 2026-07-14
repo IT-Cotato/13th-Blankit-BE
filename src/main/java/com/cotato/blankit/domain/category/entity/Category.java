@@ -33,6 +33,4 @@ public class Category extends BaseEntity {
     @Column(nullable = false)
     private boolean isDefault;
 
-    @Column(nullable = false)
-    private boolean isDeleted;
 }
