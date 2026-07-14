@@ -77,6 +77,9 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.accessToken", not(blankOrNullString())))
+                .andExpect(jsonPath("$.data.refreshToken", not(blankOrNullString())))
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.userId").exists())
                 .andExpect(jsonPath("$.data.socialProvider").value("KAKAO"))
                 .andExpect(jsonPath("$.data.recommendedDailyTime").value(120));

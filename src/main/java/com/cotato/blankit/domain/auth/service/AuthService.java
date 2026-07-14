@@ -49,10 +49,18 @@ public class AuthService {
                 request.recommendedDailyTime()
         );
 
+        User savedUser;
         try {
-            return SignupResponse.from(userRepository.saveAndFlush(user));
+            savedUser = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT, e);
+        }
+
+        try {
+            AuthTokens authTokens = issueAuthTokens(savedUser);
+            return SignupResponse.of(authTokens.accessToken(), authTokens.refreshToken(), savedUser);
+        } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException | OptimisticLockException e) {
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_CONFLICT, e);
         }
     }
 
@@ -63,14 +71,12 @@ public class AuthService {
         User user = userRepository.findBySocialProviderAndSocialId(request.socialProvider(), request.socialId())
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
         try {
-            saveOrRotateRefreshToken(user, refreshToken);
+            AuthTokens authTokens = issueAuthTokens(user);
+            return LoginResponse.of(authTokens.accessToken(), authTokens.refreshToken(), UserSummaryResponse.from(user));
         } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException | OptimisticLockException e) {
             throw new CustomException(ErrorCode.REFRESH_TOKEN_CONFLICT, e);
         }
-        return LoginResponse.of(accessToken, refreshToken, UserSummaryResponse.from(user));
     }
 
     @Transactional
@@ -103,6 +109,13 @@ public class AuthService {
         refreshTokenRepository.deleteByUserId(userId);
     }
 
+    private AuthTokens issueAuthTokens(User user) {
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+        saveOrRotateRefreshToken(user, refreshToken);
+        return new AuthTokens(accessToken, refreshToken);
+    }
+
     private void saveOrRotateRefreshToken(User user, String refreshToken) {
         refreshTokenRepository.findByUserId(user.getId())
                 .ifPresentOrElse(
@@ -122,5 +135,8 @@ public class AuthService {
         } catch (CustomException e) {
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN, e);
         }
+    }
+
+    private record AuthTokens(String accessToken, String refreshToken) {
     }
 }
