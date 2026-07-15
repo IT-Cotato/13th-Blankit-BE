@@ -40,7 +40,7 @@ CREATE TABLE `user` (
                         email                 VARCHAR(255) NULL,
                         profile_image_url     VARCHAR(500) NULL,
                         timetable_start_time  TIME         NOT NULL DEFAULT '08:00:00' COMMENT '[추가] 시간표 표시 시작 (명세 4.6.1)',
-                        timetable_end_time    TIME         NOT NULL DEFAULT '24:00:00' COMMENT '[추가] 시간표 표시 종료 (명세 4.6.1)',
+                        timetable_end_time    TIME         NOT NULL DEFAULT '00:00:00' COMMENT '[추가] 시간표 표시 종료 (명세 4.6.1)',
                         created_at            DATETIME     NOT NULL,
                         updated_at            DATETIME     NOT NULL,
                         PRIMARY KEY (user_id),
