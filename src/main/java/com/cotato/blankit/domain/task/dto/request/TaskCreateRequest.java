@@ -2,6 +2,7 @@ package com.cotato.blankit.domain.task.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -28,6 +29,7 @@ public record TaskCreateRequest(
         Long similarTaskId,
 
         @Schema(description = "알림 시점 (마감일 기준 분 전, 기본 1440=1일 전)", example = "1440")
+        @Min(value = 10, message = "알림 시점은 최소 10분 이상이어야 합니다.")
         Integer notifyBefore,
 
         @Schema(description = "반복 설정 (선택)")
