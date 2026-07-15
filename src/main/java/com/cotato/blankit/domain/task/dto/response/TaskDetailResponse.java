@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.task.dto.response;
 
+import com.cotato.blankit.domain.category.dto.response.CategoryResponse;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.RepeatRule;
 import com.cotato.blankit.domain.task.entity.Task;

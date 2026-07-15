@@ -1,6 +1,6 @@
 package com.cotato.blankit.domain.auth;
 
-import com.cotato.blankit.domain.task.repository.CategoryRepository;
+import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.repository.UserRepository;

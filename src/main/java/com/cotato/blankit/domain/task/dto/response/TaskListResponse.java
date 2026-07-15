@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.task.dto.response;
 
+import com.cotato.blankit.domain.category.dto.response.CategoryResponse;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.domain.task.entity.TaskStatus;

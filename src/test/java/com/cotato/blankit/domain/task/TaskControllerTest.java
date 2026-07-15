@@ -9,7 +9,7 @@ import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskSession;
 import com.cotato.blankit.domain.task.entity.TaskSessionStatus;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
-import com.cotato.blankit.domain.task.repository.CategoryRepository;
+import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;

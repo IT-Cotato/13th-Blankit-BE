@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.task.dto.response;
 
+import com.cotato.blankit.domain.category.dto.response.CategoryResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.List;

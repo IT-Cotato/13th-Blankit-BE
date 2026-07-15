@@ -1,15 +1,16 @@
 package com.cotato.blankit.domain.task.service;
 
+import com.cotato.blankit.domain.category.dto.response.CategoryResponse;
+import com.cotato.blankit.domain.category.entity.Category;
+import com.cotato.blankit.domain.category.service.CategoryService;
 import com.cotato.blankit.domain.task.dto.request.RepeatRuleRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskCreateRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskUpdateRequest;
-import com.cotato.blankit.domain.task.dto.response.CategoryResponse;
 import com.cotato.blankit.domain.task.dto.response.ReminderRangeResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDetailResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskFormOptionsResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskHistoryResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskListResponse;
-import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.NotifyBeforeOption;
 import com.cotato.blankit.domain.task.entity.RepeatMonthDays;

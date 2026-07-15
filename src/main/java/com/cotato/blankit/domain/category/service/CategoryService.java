@@ -1,10 +1,10 @@
-package com.cotato.blankit.domain.task.service;
+package com.cotato.blankit.domain.category.service;
 
-import com.cotato.blankit.domain.task.dto.request.CategoryCreateRequest;
-import com.cotato.blankit.domain.task.dto.request.CategoryUpdateRequest;
-import com.cotato.blankit.domain.task.dto.response.CategoryResponse;
+import com.cotato.blankit.domain.category.dto.request.CategoryCreateRequest;
+import com.cotato.blankit.domain.category.dto.request.CategoryUpdateRequest;
+import com.cotato.blankit.domain.category.dto.response.CategoryResponse;
 import com.cotato.blankit.domain.category.entity.Category;
-import com.cotato.blankit.domain.task.repository.CategoryRepository;
+import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
