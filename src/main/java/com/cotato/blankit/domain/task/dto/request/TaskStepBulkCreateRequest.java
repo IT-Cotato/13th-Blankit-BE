@@ -1,6 +1,7 @@
 package com.cotato.blankit.domain.task.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -11,6 +12,7 @@ import java.util.List;
 public record TaskStepBulkCreateRequest(
 
         @Schema(description = "세부 단계 목록")
+        @Valid
         @NotEmpty(message = "세부 단계는 최소 1개 이상이어야 합니다.")
         List<StepItem> steps
 ) {
