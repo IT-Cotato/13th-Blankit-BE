@@ -2,7 +2,7 @@ package com.cotato.blankit.domain.recommendation.controller;
 
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
-import com.cotato.blankit.domain.task.entity.enums.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.global.config.swagger.NotImplementedYet;
 import com.cotato.blankit.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;

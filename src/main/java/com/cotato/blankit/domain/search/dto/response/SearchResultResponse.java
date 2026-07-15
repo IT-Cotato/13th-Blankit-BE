@@ -1,7 +1,7 @@
 package com.cotato.blankit.domain.search.dto.response;
 
-import com.cotato.blankit.domain.task.entity.enums.TaskPriority;
-import com.cotato.blankit.domain.task.entity.enums.TaskStatus;
+import com.cotato.blankit.domain.task.entity.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;

@@ -2,8 +2,8 @@ package com.cotato.blankit.domain.search.controller;
 
 import com.cotato.blankit.domain.search.dto.response.SearchHistoryResponse;
 import com.cotato.blankit.domain.search.dto.response.SearchResultResponse;
-import com.cotato.blankit.domain.task.entity.enums.TaskPriority;
-import com.cotato.blankit.domain.task.entity.enums.TaskStatus;
+import com.cotato.blankit.domain.task.entity.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.global.config.swagger.NotImplementedYet;
 import com.cotato.blankit.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
