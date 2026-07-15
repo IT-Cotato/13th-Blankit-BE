@@ -450,7 +450,7 @@ class TaskControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .param("date", "2026-08-19"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[0].title").value("주간 회의"));
+                .andExpect(jsonPath("$.data.content.length()").value(0));
 
         mockMvc.perform(post("/api/tasks")
                         .with(csrf())
@@ -477,7 +477,7 @@ class TaskControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .param("date", "2026-09-30"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[?(@.title == '월말')]").exists());
+                .andExpect(jsonPath("$.data.content[?(@.title == '월말')]").doesNotExist());
 
         mockMvc.perform(post("/api/tasks")
                         .with(csrf())
@@ -530,8 +530,9 @@ class TaskControllerTest {
     }
 
     @Test
-    void refreshExpiredRepeatDeadlineIsIdempotentAndSkipsGeneralTasks() {
+    void repeatedTaskGenerationCreatesOccurrenceFromDoneSourceAndIsIdempotent() {
         Task repeatTask = taskRepository.save(Task.create(user, studyCategory, "지난 반복", LocalDate.parse("2026-05-25"), null));
+        repeatTask.updateStatus(TaskStatus.DONE);
         repeatRuleRepository.save(RepeatRule.create(
                 repeatTask,
                 RecurrenceType.WEEKLY,
@@ -545,13 +546,24 @@ class TaskControllerTest {
         notificationSettingRepository.save(NotificationSetting.create(repeatTask, 1440, true));
         notificationSettingRepository.save(NotificationSetting.create(generalTask, 1440, true));
 
-        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.refreshExpiredDeadlines()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isEqualTo(1);
+        Task occurrence = taskRepository.findBySourceTaskIdAndDeadline(repeatTask.getId(), LocalDate.parse("2026-06-01"))
+                .orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(occurrence.getSourceTask().getId()).isEqualTo(repeatTask.getId());
+        org.assertj.core.api.Assertions.assertThat(occurrence.getStatus()).isEqualTo(TaskStatus.TODO);
+        org.assertj.core.api.Assertions.assertThat(occurrence.getEstimatedTime()).isEqualTo(repeatTask.getEstimatedTime());
+        org.assertj.core.api.Assertions.assertThat(repeatRuleRepository.existsByTaskId(occurrence.getId())).isFalse();
+        org.assertj.core.api.Assertions.assertThat(notificationSettingRepository.findByTaskId(occurrence.getId()))
+                .isPresent()
+                .get()
+                .extracting(NotificationSetting::getNotifyBefore)
+                .isEqualTo(1440);
         org.assertj.core.api.Assertions.assertThat(taskRepository.findById(repeatTask.getId()).orElseThrow().getDeadline())
-                .isEqualTo(LocalDate.parse("2026-06-01"));
+                .isEqualTo(LocalDate.parse("2026-05-25"));
         org.assertj.core.api.Assertions.assertThat(taskRepository.findById(generalTask.getId()).orElseThrow().getDeadline())
                 .isEqualTo(LocalDate.parse("2026-05-25"));
 
-        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.refreshExpiredDeadlines()).isZero();
+        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isZero();
     }
 
     @Test

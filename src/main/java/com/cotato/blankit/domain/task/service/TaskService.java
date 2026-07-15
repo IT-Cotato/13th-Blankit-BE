@@ -33,13 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,8 +46,6 @@ public class TaskService {
     public static final int DEFAULT_NOTIFY_BEFORE = 1440;
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_KEYWORD_LENGTH = 100;
-    private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
-
     private final TaskRepository taskRepository;
     private final NotificationSettingRepository notificationSettingRepository;
     private final RepeatRuleRepository repeatRuleRepository;
@@ -124,9 +119,8 @@ public class TaskService {
                 categoryId,
                 normalizeKeyword(keyword)
         );
-        Map<Long, RepeatRule> repeatRules = getRepeatRuleMap(candidates);
         List<Task> filtered = candidates.stream()
-                .filter(task -> date == null || occursOn(task, repeatRules.get(task.getId()), date))
+                .filter(task -> date == null || task.getDeadline().equals(date))
                 .toList();
         int fromIndex = Math.min(normalizedPage * normalizedSize, filtered.size());
         int toIndex = Math.min(fromIndex + normalizedSize, filtered.size());
@@ -173,6 +167,7 @@ public class TaskService {
     public void deleteTask(Long userId, Long taskId) {
         Task task = getTaskByUser(taskId, userId);
         taskRepository.clearSimilarTaskBySimilarTaskIdAndUserId(task.getId(), userId);
+        taskRepository.clearSourceTaskBySourceTaskIdAndUserId(task.getId(), userId);
         taskSessionRepository.deleteByTaskId(task.getId());
         repeatRuleRepository.deleteByTaskId(task.getId());
         notificationSettingRepository.findByTaskId(task.getId()).ifPresent(notificationSettingRepository::delete);
@@ -215,6 +210,9 @@ public class TaskService {
     }
 
     private void updateDeadlineAndRepeatRule(Task task, TaskUpdateRequest request, RepeatRule existingRepeatRule) {
+        if (task.getSourceTask() != null && (request.repeatRule() != null || Boolean.TRUE.equals(request.clearRepeatRule()))) {
+            throw new CustomException(ErrorCode.INVALID_RECURRENCE);
+        }
         if (Boolean.TRUE.equals(request.clearRepeatRule())) {
             if (existingRepeatRule != null && request.deadline() == null) {
                 throw new CustomException(ErrorCode.INVALID_DUE_DATE);
@@ -416,13 +414,6 @@ public class TaskService {
         }
     }
 
-    private boolean occursOn(Task task, RepeatRule repeatRule, LocalDate date) {
-        if (task.getDeadline().equals(date)) {
-            return true;
-        }
-        return repeatRule != null && repeatDeadlineCalculator.matches(repeatRule, date);
-    }
-
     private List<Integer> toSortedDistinctList(Collection<Integer> values) {
         if (values == null) {
             return List.of();
@@ -486,15 +477,6 @@ public class TaskService {
                 repeatRuleRepository.findByTaskId(task.getId()).orElse(null),
                 taskSessionRepository.sumElapsedTimeByTaskIdAndUserId(task.getId(), userId)
         );
-    }
-
-    private Map<Long, RepeatRule> getRepeatRuleMap(List<Task> tasks) {
-        List<Long> taskIds = tasks.stream().map(Task::getId).toList();
-        if (taskIds.isEmpty()) {
-            return Map.of();
-        }
-        return repeatRuleRepository.findByTaskIdIn(taskIds).stream()
-                .collect(Collectors.toMap(repeatRule -> repeatRule.getTask().getId(), Function.identity()));
     }
 
     private Map<Long, Long> getElapsedTimeMap(Long userId, List<Task> tasks) {

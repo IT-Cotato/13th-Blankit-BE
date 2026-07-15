@@ -15,7 +15,7 @@ public class RepeatDeadlineRefreshScheduler {
             cron = "${blankit.task.repeat-deadline.cron:0 5 0 * * *}",
             zone = "${blankit.task.repeat-deadline.zone:Asia/Seoul}"
     )
-    public void refreshExpiredRepeatDeadlines() {
-        repeatDeadlineRefreshService.refreshExpiredDeadlines();
+    public void generateDueRepeatedTasks() {
+        repeatDeadlineRefreshService.generateDueOccurrences();
     }
 }

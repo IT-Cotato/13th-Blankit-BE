@@ -25,11 +25,14 @@ public interface RepeatRuleRepository extends JpaRepository<RepeatRule, Long> {
             select rr
             from RepeatRule rr
             join fetch rr.task t
+            join fetch t.category
+            left join fetch t.similarTask
             where t.deadline < :today
               and t.status in :statuses
+              and t.sourceTask is null
               and (rr.endDate is null or rr.endDate >= :today)
             """)
-    List<RepeatRule> findDeadlineRefreshTargets(
+    List<RepeatRule> findOccurrenceGenerationTargets(
             @Param("today") LocalDate today,
             @Param("statuses") Collection<TaskStatus> statuses
     );

@@ -30,6 +30,8 @@ public record TaskListResponse(
         boolean hasSimilarTask,
         @Schema(description = "비슷한 이전 과업 ID", example = "12", nullable = true)
         Long similarTaskId,
+        @Schema(description = "반복 생성 원본 과업 ID. 원본 과업이면 null입니다.", example = "1", nullable = true)
+        Long sourceTaskId,
         @Schema(description = "생성일")
         LocalDateTime createdAt,
         @Schema(description = "수정일")
@@ -38,6 +40,7 @@ public record TaskListResponse(
 
     public static TaskListResponse from(Task task) {
         Long similarTaskId = task.getSimilarTask() == null ? null : task.getSimilarTask().getId();
+        Long sourceTaskId = task.getSourceTask() == null ? null : task.getSourceTask().getId();
         return new TaskListResponse(
                 task.getId(),
                 task.getTitle(),
@@ -49,6 +52,7 @@ public record TaskListResponse(
                 task.getDeadline(),
                 similarTaskId != null,
                 similarTaskId,
+                sourceTaskId,
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );

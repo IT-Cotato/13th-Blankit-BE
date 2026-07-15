@@ -28,7 +28,8 @@ import java.time.LocalDate;
                 @Index(name = "idx_task_user_deadline", columnList = "user_id,deadline"),
                 @Index(name = "idx_task_user_status", columnList = "user_id,status"),
                 @Index(name = "idx_task_user_category", columnList = "user_id,category_id"),
-                @Index(name = "idx_task_similar_task", columnList = "similar_task_id")
+                @Index(name = "idx_task_similar_task", columnList = "similar_task_id"),
+                @Index(name = "idx_task_source_deadline", columnList = "source_task_id,deadline")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -50,6 +51,10 @@ public class Task extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "similar_task_id")
     private Task similarTask;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_task_id")
+    private Task sourceTask;
 
     @Column(nullable = false, length = 255)
     private String title;
@@ -89,9 +94,25 @@ public class Task extends BaseEntity {
         task.title = title;
         task.deadline = deadline;
         task.similarTask = similarTask;
+        task.sourceTask = null;
         task.priority = null;
         task.starred = false;
         task.estimatedTime = estimatedTime;
+        task.status = TaskStatus.TODO;
+        return task;
+    }
+
+    public static Task createRepeatedOccurrence(Task sourceTask, LocalDate deadline) {
+        Task task = new Task();
+        task.user = sourceTask.user;
+        task.category = sourceTask.category;
+        task.title = sourceTask.title;
+        task.deadline = deadline;
+        task.similarTask = sourceTask.similarTask;
+        task.sourceTask = sourceTask;
+        task.priority = null;
+        task.starred = sourceTask.starred;
+        task.estimatedTime = sourceTask.estimatedTime;
         task.status = TaskStatus.TODO;
         return task;
     }

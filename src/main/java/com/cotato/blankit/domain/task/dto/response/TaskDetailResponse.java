@@ -40,6 +40,10 @@ public record TaskDetailResponse(
         Long similarTaskId,
         @Schema(description = "비슷한 이전 과업명", example = "자료구조 과제 제출", nullable = true)
         String similarTaskTitle,
+        @Schema(description = "반복으로 생성된 과업의 원본 과업 ID. 원본 과업이면 null입니다.", example = "1", nullable = true)
+        Long sourceTaskId,
+        @Schema(description = "반복으로 생성된 과업의 원본 과업명. 원본 과업이면 null입니다.", example = "주간 회의", nullable = true)
+        String sourceTaskTitle,
         @Schema(description = "총 수행 시간(초). task_session.elapsed_time 합계입니다.", example = "5400")
         Long totalElapsedTime
 ) {
@@ -51,6 +55,7 @@ public record TaskDetailResponse(
             long totalElapsedTime
     ) {
         Task similarTask = task.getSimilarTask();
+        Task sourceTask = task.getSourceTask();
         return new TaskDetailResponse(
                 task.getId(),
                 task.getTitle(),
@@ -66,6 +71,8 @@ public record TaskDetailResponse(
                 task.getUpdatedAt(),
                 similarTask == null ? null : similarTask.getId(),
                 similarTask == null ? null : similarTask.getTitle(),
+                sourceTask == null ? null : sourceTask.getId(),
+                sourceTask == null ? null : sourceTask.getTitle(),
                 totalElapsedTime
         );
     }

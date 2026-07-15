@@ -70,7 +70,7 @@ public class TaskController {
 
     @Operation(
             summary = "과업 목록 조회",
-            description = "홈 화면 과업 목록을 조회합니다. date는 KST 기준 LocalDate로 해석하며 일반 과업과 repeat_rule 기반 반복 과업 발생 여부를 함께 조회합니다."
+            description = "홈 화면 과업 목록을 조회합니다. date는 KST 기준 LocalDate로 해석하며 실제 저장된 과업의 deadline이 조회 날짜와 같은 항목만 반환합니다. 반복 과업은 스케줄러가 발생일에 sourceTaskId가 있는 새 과업으로 생성합니다."
     )
     @GetMapping
     public ApiResponse<PageResponse<TaskListResponse>> getTasks(
