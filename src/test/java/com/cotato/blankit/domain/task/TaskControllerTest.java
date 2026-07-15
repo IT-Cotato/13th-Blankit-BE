@@ -1,7 +1,6 @@
 package com.cotato.blankit.domain.task;
 
-import com.cotato.blankit.domain.task.entity.Category;
-import com.cotato.blankit.domain.task.entity.CategoryColor;
+import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.RecurrenceType;
 import com.cotato.blankit.domain.task.entity.RepeatMonthDays;
@@ -118,9 +117,9 @@ class TaskControllerTest {
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "task-user", "user@example.com", "서윤", null, 120));
         otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "other-task-user", "other@example.com", "다른사용자", null, 120));
-        studyCategory = categoryRepository.save(Category.create(user, "학업", CategoryColor.BLUE, 0, true));
-        workCategory = categoryRepository.save(Category.create(user, "업무", CategoryColor.GREEN, 1, false));
-        categoryRepository.save(Category.create(otherUser, "학업", CategoryColor.BLUE, 0, true));
+        studyCategory = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", 0, true));
+        workCategory = categoryRepository.save(Category.create(user, "업무", "#5CFF8A", 1, false));
+        categoryRepository.save(Category.create(otherUser, "학업", "#5C9EFF", 0, true));
         token = jwtTokenProvider.createAccessToken(user.getId());
     }
 
@@ -132,7 +131,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data.defaultCategoryId").value(studyCategory.getId()))
                 .andExpect(jsonPath("$.data.defaultReminderOffsetMinutes").value(1440))
                 .andExpect(jsonPath("$.data.defaultRepeatEnabled").value(false))
-                .andExpect(jsonPath("$.data.categories[0].color").value("BLUE"))
+                .andExpect(jsonPath("$.data.categories[0].color").value("#5C9EFF"))
                 .andExpect(jsonPath("$.data.reminderOptions[0]").value(10))
                 .andExpect(jsonPath("$.data.reminderOptions[1]").value(60))
                 .andExpect(jsonPath("$.data.reminderOptions[2]").value(1440))
@@ -149,12 +148,12 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "name": "학업",
-                                  "color": "RED"
+                                  "color": "#FF5C5C"
                                 }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.categoryName").value("학업"))
-                .andExpect(jsonPath("$.data.color").value("RED"));
+                .andExpect(jsonPath("$.data.color").value("#FF5C5C"));
 
         mockMvc.perform(post("/api/categories")
                         .with(csrf())
@@ -163,7 +162,7 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "name": "색상 중복",
-                                  "color": "RED"
+                                  "color": "#FF5C5C"
                                 }
                                 """))
                 .andExpect(status().isConflict())
@@ -177,7 +176,7 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "name": "다른 사용자",
-                                  "color": "RED"
+                                  "color": "#FF5C5C"
                                 }
                                 """))
                 .andExpect(status().isCreated());
@@ -186,7 +185,14 @@ class TaskControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .param("editingCategoryId", String.valueOf(studyCategory.getId())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasItem("BLUE")));
+                .andExpect(jsonPath("$.data", hasItem("#5C9EFF")));
+
+        Category customColorCategory = categoryRepository.save(Category.create(user, "커스텀", "#12AB34", 3, false));
+        mockMvc.perform(get("/api/categories/available-colors")
+                        .header("Authorization", "Bearer " + token)
+                        .param("editingCategoryId", String.valueOf(customColorCategory.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasItem("#12AB34")));
 
         mockMvc.perform(delete("/api/categories/{categoryId}", workCategory.getId())
                         .with(csrf())
@@ -357,7 +363,7 @@ class TaskControllerTest {
 
     @Test
     void createTaskRejectsInvalidCategoryAndNotification() throws Exception {
-        Category deletedCategory = categoryRepository.save(Category.create(user, "삭제", CategoryColor.PURPLE, 2, false));
+        Category deletedCategory = categoryRepository.save(Category.create(user, "삭제", "#B55CFF", 2, false));
         deletedCategory.delete();
 
         mockMvc.perform(post("/api/tasks")
@@ -374,7 +380,7 @@ class TaskControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
 
-        Category otherCategory = categoryRepository.save(Category.create(otherUser, "타인", CategoryColor.ORANGE, 1, false));
+        Category otherCategory = categoryRepository.save(Category.create(otherUser, "타인", "#FFB85C", 1, false));
         mockMvc.perform(post("/api/tasks")
                         .with(csrf())
                         .header("Authorization", "Bearer " + token)
@@ -570,7 +576,7 @@ class TaskControllerTest {
     void historyReturnsDoneTasksWithTaskSessionElapsedTime() throws Exception {
         Task done = saveTask(user, studyCategory, "이전 완료", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
         saveTask(user, studyCategory, "진행 중", LocalDate.parse("2026-08-02"), null, TaskStatus.IN_PROGRESS);
-        saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인", CategoryColor.PURPLE, 1, false)), "타인 완료", LocalDate.parse("2026-08-03"), null, TaskStatus.DONE);
+        saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", 1, false)), "타인 완료", LocalDate.parse("2026-08-03"), null, TaskStatus.DONE);
         taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1200, TaskSessionStatus.DONE));
         taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1800, TaskSessionStatus.DONE));
 
@@ -688,7 +694,7 @@ class TaskControllerTest {
 
     @Test
     void otherUserTaskAccessFails() throws Exception {
-        Task otherTask = saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인2", CategoryColor.ORANGE, 2, false)), "타인 과업", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
+        Task otherTask = saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인2", "#FFB85C", 2, false)), "타인 과업", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
 
         mockMvc.perform(get("/api/tasks/{taskId}", otherTask.getId())
                         .header("Authorization", "Bearer " + token))

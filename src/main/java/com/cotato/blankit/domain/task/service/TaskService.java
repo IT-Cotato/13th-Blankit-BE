@@ -9,7 +9,7 @@ import com.cotato.blankit.domain.task.dto.response.TaskDetailResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskFormOptionsResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskHistoryResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskListResponse;
-import com.cotato.blankit.domain.task.entity.Category;
+import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.NotifyBeforeOption;
 import com.cotato.blankit.domain.task.entity.RepeatMonthDays;

@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.task.entity;
 
+import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.global.entity.BaseEntity;
 import jakarta.persistence.Column;

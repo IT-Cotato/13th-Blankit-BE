@@ -1,10 +1,9 @@
 package com.cotato.blankit.domain.task.dto.response;
 
-import com.cotato.blankit.domain.task.entity.Category;
-import com.cotato.blankit.domain.task.entity.CategoryColor;
+import com.cotato.blankit.domain.category.entity.Category;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "카테고리 응답")
+@Schema(name = "TaskCategoryResponse", description = "카테고리 응답")
 public record CategoryResponse(
         @Schema(description = "카테고리 ID", example = "1")
         Long categoryId,
@@ -12,8 +11,8 @@ public record CategoryResponse(
         @Schema(description = "카테고리명", example = "학교")
         String categoryName,
 
-        @Schema(description = "카테고리 색상", example = "BLUE")
-        CategoryColor color
+        @Schema(description = "카테고리 색상값", example = "#FFB85C")
+        String color
 ) {
 
     public static CategoryResponse from(Category category) {

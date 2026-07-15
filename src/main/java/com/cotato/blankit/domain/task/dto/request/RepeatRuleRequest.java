@@ -14,13 +14,13 @@ public record RepeatRuleRequest(
         @Schema(description = "WEEKLY 요일. 0=일요일, 6=토요일", example = "[1, 3, 5]")
         List<Integer> daysOfWeek,
 
-        @Schema(description = "MONTHLY/YEARLY 날짜. 1~31. 마지막 날은 lastDayOfMonth=true로 전달합니다.", example = "[1, 15, 31]")
+        @Schema(description = "MONTHLY/YEARLY 날짜. 1~31. 마지막 날은 lastDayOfMonth=true로 전달합니다. WEEKLY에서는 보내지 않습니다.", example = "[]")
         List<Integer> daysOfMonth,
 
-        @Schema(description = "MONTHLY/YEARLY 마지막 날 반복 여부. DB에는 days_of_month의 L로 저장됩니다.", example = "false")
+        @Schema(description = "MONTHLY/YEARLY 마지막 날 반복 여부. DB에는 days_of_month의 L로 저장됩니다. WEEKLY에서는 보내지 않습니다.", example = "false")
         Boolean lastDayOfMonth,
 
-        @Schema(description = "YEARLY 반복 월. 1~12", example = "5")
+        @Schema(description = "YEARLY 반복 월. 1~12. WEEKLY/MONTHLY에서는 보내지 않습니다.", nullable = true)
         Integer monthOfYear,
 
         @Schema(description = "반복 시작일", example = "2026-08-12")

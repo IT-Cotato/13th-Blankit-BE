@@ -13,6 +13,8 @@ import com.cotato.blankit.global.response.PageResponse;
 import com.cotato.blankit.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -56,7 +58,47 @@ public class TaskController {
 
     @Operation(
             summary = "과업 생성",
-            description = "일반 과업은 deadline이 필수이며 사용자가 선택한 날짜를 저장합니다. 반복 과업은 repeatRule.startDate와 반복 조건으로 서버가 가장 가까운 deadline을 계산하며, endDate는 생략할 수 있습니다. notifyBefore 생략 시 1440, notificationEnabled 생략 시 true입니다. notifyBefore는 10, 60, 1440, 4320, 10080만 허용합니다. repeatRule이 없으면 repeat_rule 레코드를 만들지 않습니다. similarTaskId는 nullable입니다. similarTaskId가 없으면 직접 입력한 estimatedTime(분)을 저장하고, 있으면 유사 과업의 총 소요시간을 estimatedTime으로 반영합니다."
+            description = "일반 과업은 deadline이 필수이며 사용자가 선택한 날짜를 저장합니다. 반복 과업은 repeatRule.startDate와 반복 조건으로 서버가 가장 가까운 deadline을 계산하며, endDate는 생략할 수 있습니다. notifyBefore 생략 시 1440, notificationEnabled 생략 시 true입니다. notifyBefore는 10, 60, 1440, 4320, 10080만 허용합니다. repeatRule이 없으면 repeat_rule 레코드를 만들지 않습니다. similarTaskId는 nullable입니다. similarTaskId가 없으면 직접 입력한 estimatedTime(분)을 저장하고, 있으면 유사 과업의 총 소요시간을 estimatedTime으로 반영합니다.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "일반 과업 - 유사 과업 없음",
+                                            value = """
+                                                    {
+                                                      "title": "알고리즘 과제 제출",
+                                                      "deadline": "2026-08-12",
+                                                      "notifyBefore": 1440,
+                                                      "notificationEnabled": true,
+                                                      "categoryId": 1,
+                                                      "estimatedTime": 90,
+                                                      "similarTaskId": null
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "매주 반복 과업",
+                                            value = """
+                                                    {
+                                                      "title": "주간 회의",
+                                                      "notifyBefore": 1440,
+                                                      "notificationEnabled": true,
+                                                      "categoryId": 1,
+                                                      "repeatRule": {
+                                                        "frequency": "WEEKLY",
+                                                        "daysOfWeek": [1, 3, 5],
+                                                        "startDate": "2026-08-12",
+                                                        "endDate": "2026-12-31"
+                                                      },
+                                                      "estimatedTime": 60,
+                                                      "similarTaskId": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
     )
     @PostMapping
     public ResponseEntity<ApiResponse<TaskDetailResponse>> createTask(
@@ -119,7 +161,55 @@ public class TaskController {
     @Operation(
             summary = "과업 수정",
             description = "전달된 필드만 수정합니다. similarTask 연결 해제는 clearSimilarTask=true로 요청합니다."
-                    + " repeatRule 필드가 전달되면 반복 설정 전체를 교체하고 deadline도 다시 계산합니다. clearRepeatRule=true이면 repeat_rule을 삭제하며 단일 deadline을 함께 전달해야 합니다."
+                    + " repeatRule 필드가 전달되면 반복 설정 전체를 교체하고 deadline도 다시 계산합니다. clearRepeatRule=true이면 repeat_rule을 삭제하며 단일 deadline을 함께 전달해야 합니다.",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "일반 수정",
+                                            value = """
+                                                    {
+                                                      "title": "알고리즘 과제 최종 제출",
+                                                      "deadline": "2026-08-12",
+                                                      "notifyBefore": 1440,
+                                                      "notificationEnabled": true,
+                                                      "categoryId": 1,
+                                                      "status": "TODO",
+                                                      "starred": false
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "매주 반복으로 수정",
+                                            value = """
+                                                    {
+                                                      "title": "알고리즘 과제 최종 제출",
+                                                      "notifyBefore": 1440,
+                                                      "notificationEnabled": true,
+                                                      "repeatRule": {
+                                                        "frequency": "WEEKLY",
+                                                        "daysOfWeek": [1, 3, 5],
+                                                        "startDate": "2026-08-12",
+                                                        "endDate": "2026-12-31"
+                                                      },
+                                                      "categoryId": 1,
+                                                      "status": "TODO",
+                                                      "starred": false
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "유사 과업 연결 해제",
+                                            value = """
+                                                    {
+                                                      "clearSimilarTask": true
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
     )
     @PatchMapping("/{taskId}")
     public ApiResponse<TaskDetailResponse> updateTask(

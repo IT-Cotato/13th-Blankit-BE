@@ -1,6 +1,5 @@
 package com.cotato.blankit.domain.task.dto.response;
 
-import com.cotato.blankit.domain.task.entity.CategoryColor;
 import com.cotato.blankit.domain.task.entity.Task;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -16,8 +15,8 @@ public record TaskHistoryResponse(
         Long categoryId,
         @Schema(description = "카테고리명", example = "학교")
         String categoryName,
-        @Schema(description = "카테고리 색상", example = "BLUE")
-        CategoryColor categoryColor,
+        @Schema(description = "카테고리 색상값", example = "#FFB85C")
+        String categoryColor,
         @Schema(description = "과업 카드 완료 일자. 실제 완료 시각이 아니라 task.deadline입니다.", example = "2026-08-12")
         LocalDate deadline,
         @Schema(description = "총 수행 시간(초). task_session.elapsed_time 합계입니다.", example = "5400")

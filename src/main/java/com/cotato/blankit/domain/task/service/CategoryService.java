@@ -3,8 +3,7 @@ package com.cotato.blankit.domain.task.service;
 import com.cotato.blankit.domain.task.dto.request.CategoryCreateRequest;
 import com.cotato.blankit.domain.task.dto.request.CategoryUpdateRequest;
 import com.cotato.blankit.domain.task.dto.response.CategoryResponse;
-import com.cotato.blankit.domain.task.entity.Category;
-import com.cotato.blankit.domain.task.entity.CategoryColor;
+import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.task.repository.CategoryRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.User;
@@ -15,17 +14,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class CategoryService {
 
+    private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#[0-9A-Fa-f]{6}$");
+
     private static final List<DefaultCategory> DEFAULT_CATEGORIES = List.of(
-            new DefaultCategory("학업", CategoryColor.BLUE, 0),
-            new DefaultCategory("일상", CategoryColor.GREEN, 1),
-            new DefaultCategory("기념일", CategoryColor.YELLOW, 2)
+            new DefaultCategory("학업", "#5C9EFF", 0),
+            new DefaultCategory("일상", "#5CFF8A", 1),
+            new DefaultCategory("기념일", "#FFB85C", 2)
     );
 
     private final CategoryRepository categoryRepository;
@@ -60,8 +63,9 @@ public class CategoryService {
     @Transactional
     public CategoryResponse createCategory(Long userId, CategoryCreateRequest request) {
         validateName(request.name());
-        validateColorAvailable(userId, request.color(), null);
-        Category category = Category.create(getUser(userId), request.name().trim(), request.color());
+        String color = normalizeColor(request.color());
+        validateColorAvailable(userId, color, null);
+        Category category = Category.create(getUser(userId), request.name().trim(), color);
         return CategoryResponse.from(categoryRepository.save(category));
     }
 
@@ -69,7 +73,7 @@ public class CategoryService {
     public CategoryResponse updateCategory(Long userId, Long categoryId, CategoryUpdateRequest request) {
         Category category = getActiveCategory(userId, categoryId);
         String name = request.name() == null ? category.getName() : request.name();
-        CategoryColor color = request.color() == null ? category.getColor() : request.color();
+        String color = request.color() == null ? category.getColor() : normalizeColor(request.color());
         validateName(name);
         validateColorAvailable(userId, color, categoryId);
         category.update(name.trim(), color);
@@ -86,10 +90,17 @@ public class CategoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<CategoryColor> getAvailableColors(Long userId, Long editingCategoryId) {
+    public List<String> getAvailableColors(Long userId, Long editingCategoryId) {
         Category editingCategory = editingCategoryId == null ? null : getActiveCategory(userId, editingCategoryId);
-        return Arrays.stream(CategoryColor.values())
-                .filter(color -> editingCategory != null && editingCategory.getColor() == color
+        List<String> suggestedColors = new ArrayList<>(DEFAULT_CATEGORIES.stream()
+                .map(DefaultCategory::color)
+                .distinct()
+                .toList());
+        if (editingCategory != null && !suggestedColors.contains(editingCategory.getColor())) {
+            suggestedColors.add(0, editingCategory.getColor());
+        }
+        return suggestedColors.stream()
+                .filter(color -> editingCategory != null && color.equals(editingCategory.getColor())
                         || !categoryRepository.existsByUserIdAndColorAndDeletedFalse(userId, color))
                 .toList();
     }
@@ -105,7 +116,7 @@ public class CategoryService {
                 .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
     }
 
-    private void validateColorAvailable(Long userId, CategoryColor color, Long editingCategoryId) {
+    private void validateColorAvailable(Long userId, String color, Long editingCategoryId) {
         boolean used = editingCategoryId == null
                 ? categoryRepository.existsByUserIdAndColorAndDeletedFalse(userId, color)
                 : categoryRepository.existsByUserIdAndColorAndDeletedFalseAndIdNot(userId, color, editingCategoryId);
@@ -120,11 +131,22 @@ public class CategoryService {
         }
     }
 
+    private String normalizeColor(String color) {
+        if (color == null || color.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+        String normalizedColor = color.trim();
+        if (!HEX_COLOR_PATTERN.matcher(normalizedColor).matches()) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+        return normalizedColor.toUpperCase(Locale.ROOT);
+    }
+
     private User getUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private record DefaultCategory(String name, CategoryColor color, int sortOrder) {
+    private record DefaultCategory(String name, String color, int sortOrder) {
     }
 }
