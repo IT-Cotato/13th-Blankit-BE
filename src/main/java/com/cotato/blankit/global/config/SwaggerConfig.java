@@ -18,11 +18,11 @@ import java.util.Map;
 @Configuration
 public class SwaggerConfig {
 
-    private static final Map<String, String> ERROR_EXAMPLES = Map.of(
-            "400", "{\"code\":\"INVALID_INPUT\",\"message\":\"잘못된 입력값입니다.\"}",
-            "401", "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증이 필요합니다.\"}",
-            "403", "{\"code\":\"FORBIDDEN\",\"message\":\"접근 권한이 없습니다.\"}",
-            "404", "{\"code\":\"NOT_FOUND\",\"message\":\"요청한 리소스를 찾을 수 없습니다.\"}"
+    private static final Map<String, Object> ERROR_EXAMPLES = Map.of(
+            "400", Map.of("code", "INVALID_INPUT", "message", "잘못된 입력값입니다."),
+            "401", Map.of("code", "UNAUTHORIZED", "message", "인증이 필요합니다."),
+            "403", Map.of("code", "FORBIDDEN", "message", "접근 권한이 없습니다."),
+            "404", Map.of("code", "NOT_FOUND", "message", "요청한 리소스를 찾을 수 없습니다.")
     );
 
     @Bean
@@ -44,13 +44,19 @@ public class SwaggerConfig {
         return (operation, handlerMethod) -> {
             if (operation == null || operation.getResponses() == null) return operation;
             operation.getResponses().forEach((statusCode, apiResponse) -> {
-                String exampleJson = ERROR_EXAMPLES.get(statusCode);
-                if (exampleJson != null) {
-                    Content content = new Content();
-                    MediaType mediaType = new MediaType();
-                    mediaType.addExamples("example", new Example().value(exampleJson));
-                    content.addMediaType("application/json", mediaType);
-                    apiResponse.setContent(content);
+                Object exampleValue = ERROR_EXAMPLES.get(statusCode);
+                if (exampleValue != null) {
+                    Content content = apiResponse.getContent();
+                    if (content == null) {
+                        content = new Content();
+                        apiResponse.setContent(content);
+                    }
+                    MediaType mediaType = content.get("application/json");
+                    if (mediaType == null) {
+                        mediaType = new MediaType();
+                        content.addMediaType("application/json", mediaType);
+                    }
+                    mediaType.addExamples("example", new Example().value(exampleValue));
                 }
             });
             return operation;
