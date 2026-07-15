@@ -3,7 +3,7 @@ name: Backend CD
 on:
   push:
     branches:
-      - main
+      - develop
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -59,16 +59,19 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_USER_PASSWORD: ${{ secrets.DB_USER_PASSWORD }}
           DB_URL: ${{ secrets.DB_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_ACCESS_TOKEN_EXPIRATION: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION }}
+          JWT_REFRESH_TOKEN_EXPIRATION: ${{ secrets.JWT_REFRESH_TOKEN_EXPIRATION }}
           APP_IMAGE_TAG: ockk/blankit-be:${{ github.sha }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: DB_NAME,DB_USERNAME,DB_PASSWORD,DB_USER_PASSWORD,DB_URL,APP_IMAGE_TAG
+          envs: DB_NAME,DB_USERNAME,DB_PASSWORD,DB_USER_PASSWORD,DB_URL,JWT_SECRET,JWT_ACCESS_TOKEN_EXPIRATION,JWT_REFRESH_TOKEN_EXPIRATION,APP_IMAGE_TAG
           script: |
             cd ~/blankit
-            printf 'DB_NAME=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nDB_USER_PASSWORD=%s\nDB_URL=%s\nAPP_IMAGE_TAG=%s\n' \
-              "$DB_NAME" "$DB_USERNAME" "$DB_PASSWORD" "$DB_USER_PASSWORD" "$DB_URL" "$APP_IMAGE_TAG" > .env
+            printf 'DB_NAME=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nDB_USER_PASSWORD=%s\nDB_URL=%s\nJWT_SECRET=%s\nJWT_ACCESS_TOKEN_EXPIRATION=%s\nJWT_REFRESH_TOKEN_EXPIRATION=%s\nAPP_IMAGE_TAG=%s\n' \
+              "$DB_NAME" "$DB_USERNAME" "$DB_PASSWORD" "$DB_USER_PASSWORD" "$DB_URL" "$JWT_SECRET" "$JWT_ACCESS_TOKEN_EXPIRATION" "$JWT_REFRESH_TOKEN_EXPIRATION" "$APP_IMAGE_TAG" > .env
             chmod 600 .env
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
