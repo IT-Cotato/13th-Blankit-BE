@@ -69,6 +69,8 @@ public class User extends BaseEntity {
         user.nickname = nickname;
         user.profileImageUrl = profileImageUrl;
         user.recommendedDailyTime = recommendedDailyTime;
+        user.timetableStartTime = LocalTime.of(8, 0);
+        user.timetableEndTime = LocalTime.MIDNIGHT;
         return user;
     }
     @Column(nullable = false)
