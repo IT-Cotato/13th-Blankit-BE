@@ -10,6 +10,7 @@ import com.cotato.blankit.domain.auth.dto.response.UserSummaryResponse;
 import com.cotato.blankit.domain.auth.entity.RefreshToken;
 import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.domain.auth.service.social.SocialTokenVerifier;
+import com.cotato.blankit.domain.task.service.CategoryService;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
@@ -31,9 +32,12 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final SocialTokenVerifier socialTokenVerifier;
+    private final CategoryService categoryService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
+        socialTokenVerifier.verify(request.socialProvider(), request.socialToken(), request.socialId());
+
         if (userRepository.existsBySocialProviderAndSocialId(request.socialProvider(), request.socialId())) {
             throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT);
         }
@@ -47,10 +51,19 @@ public class AuthService {
                 request.recommendedDailyTime()
         );
 
+        User savedUser;
         try {
-            return SignupResponse.from(userRepository.saveAndFlush(user));
+            savedUser = userRepository.saveAndFlush(user);
+            categoryService.createDefaultCategoriesIfNeverInitialized(savedUser);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT, e);
+        }
+
+        try {
+            AuthTokens authTokens = issueAuthTokens(savedUser);
+            return SignupResponse.of(authTokens.accessToken(), authTokens.refreshToken(), savedUser);
+        } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException | OptimisticLockException e) {
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_CONFLICT, e);
         }
     }
 
@@ -61,10 +74,12 @@ public class AuthService {
         User user = userRepository.findBySocialProviderAndSocialId(request.socialProvider(), request.socialId())
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-        saveOrRotateRefreshToken(user, refreshToken);
-        return LoginResponse.of(accessToken, refreshToken, UserSummaryResponse.from(user));
+        try {
+            AuthTokens authTokens = issueAuthTokens(user);
+            return LoginResponse.of(authTokens.accessToken(), authTokens.refreshToken(), UserSummaryResponse.from(user));
+        } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException | OptimisticLockException e) {
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_CONFLICT, e);
+        }
     }
 
     @Transactional
@@ -97,6 +112,13 @@ public class AuthService {
         refreshTokenRepository.deleteByUserId(userId);
     }
 
+    private AuthTokens issueAuthTokens(User user) {
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+        saveOrRotateRefreshToken(user, refreshToken);
+        return new AuthTokens(accessToken, refreshToken);
+    }
+
     private void saveOrRotateRefreshToken(User user, String refreshToken) {
         refreshTokenRepository.findByUserId(user.getId())
                 .ifPresentOrElse(
@@ -107,6 +129,7 @@ public class AuthService {
                                 jwtTokenProvider.getRefreshTokenExpiresAt()
                         ))
                 );
+        refreshTokenRepository.flush();
     }
 
     private Long getUserIdFromRefreshToken(String refreshToken) {
@@ -115,5 +138,8 @@ public class AuthService {
         } catch (CustomException e) {
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN, e);
         }
+    }
+
+    private record AuthTokens(String accessToken, String refreshToken) {
     }
 }

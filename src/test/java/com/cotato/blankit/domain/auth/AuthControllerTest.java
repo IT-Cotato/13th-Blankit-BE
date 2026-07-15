@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.auth;
 
+import com.cotato.blankit.domain.task.repository.CategoryRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.repository.UserRepository;
@@ -50,6 +51,9 @@ class AuthControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
@@ -68,6 +72,7 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "signup-1",
+                                  "socialToken": "verified:KAKAO:signup-1",
                                   "email": "user@example.com",
                                   "nickname": "서윤",
                                   "profileImageUrl": "https://example.com/profile.png",
@@ -76,9 +81,16 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.accessToken", not(blankOrNullString())))
+                .andExpect(jsonPath("$.data.refreshToken", not(blankOrNullString())))
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.userId").exists())
                 .andExpect(jsonPath("$.data.socialProvider").value("KAKAO"))
                 .andExpect(jsonPath("$.data.recommendedDailyTime").value(120));
+
+        User savedUser = userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-1")
+                .orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(categoryRepository.countByUserId(savedUser.getId())).isEqualTo(3);
     }
 
     @Test
@@ -92,6 +104,7 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "duplicate-1",
+                                  "socialToken": "verified:KAKAO:duplicate-1",
                                   "email": "other@example.com",
                                   "nickname": "다른사용자"
                                 }
@@ -109,6 +122,7 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "NAVER",
                                   "socialId": "unsupported-1",
+                                  "socialToken": "verified:NAVER:unsupported-1",
                                   "email": "user@example.com",
                                   "nickname": "서윤"
                                 }

@@ -5,6 +5,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "소셜 회원가입 응답")
 public record SignupResponse(
+        @Schema(description = "JWT Access Token")
+        String accessToken,
+
+        @Schema(description = "JWT Refresh Token")
+        String refreshToken,
+
+        @Schema(description = "토큰 타입", example = "Bearer")
+        String tokenType,
+
         @Schema(description = "사용자 ID", example = "1")
         Long userId,
 
@@ -24,8 +33,11 @@ public record SignupResponse(
         Integer recommendedDailyTime
 ) {
 
-    public static SignupResponse from(User user) {
+    public static SignupResponse of(String accessToken, String refreshToken, User user) {
         return new SignupResponse(
+                accessToken,
+                refreshToken,
+                "Bearer",
                 user.getId(),
                 user.getSocialProvider().name(),
                 user.getEmail(),
