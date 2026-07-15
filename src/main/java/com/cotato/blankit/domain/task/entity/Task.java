@@ -51,7 +51,7 @@ public class Task extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "ENUM('TODO','IN_PROGRESS','DONE') DEFAULT 'TODO'")
-    private TaskStatus status;
+    private TaskStatus status = TaskStatus.TODO;
 
     @Column(nullable = false)
     private boolean isDeleted;
