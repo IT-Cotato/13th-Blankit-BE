@@ -194,6 +194,60 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasItem("#12AB34")));
 
+        mockMvc.perform(patch("/api/categories/{categoryId}", customColorCategory.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "커스텀 수정",
+                                  "color": "#12AB35"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.categoryName").value("커스텀 수정"))
+                .andExpect(jsonPath("$.data.color").value("#12AB35"));
+
+        org.assertj.core.api.Assertions.assertThat(categoryRepository.findById(customColorCategory.getId()))
+                .isPresent()
+                .get()
+                .satisfies(category -> {
+                    org.assertj.core.api.Assertions.assertThat(category.getName()).isEqualTo("커스텀 수정");
+                    org.assertj.core.api.Assertions.assertThat(category.getColor()).isEqualTo("#12AB35");
+                });
+
+        mockMvc.perform(patch("/api/categories/{categoryId}", customColorCategory.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "color": "#5C9EFF"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CATEGORY_COLOR_ALREADY_USED"));
+
+        Category otherOwnedCategory = categoryRepository.save(Category.create(otherUser, "타인수정", "#12AB34", 5, false));
+        mockMvc.perform(patch("/api/categories/{categoryId}", otherOwnedCategory.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "수정되면 안 됨",
+                                  "color": "#123456"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
+
+        org.assertj.core.api.Assertions.assertThat(categoryRepository.findById(otherOwnedCategory.getId()))
+                .isPresent()
+                .get()
+                .extracting(Category::getName)
+                .isEqualTo("타인수정");
+
         categoryRepository.save(Category.create(user, "기념일", "#FFB85C", 4, false));
         mockMvc.perform(get("/api/categories/available-colors")
                         .header("Authorization", "Bearer " + token))
@@ -511,6 +565,24 @@ class TaskControllerTest {
                                 """.formatted(studyCategory.getId())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_RECURRENCE"));
+
+        mockMvc.perform(post("/api/tasks")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "널 요일",
+                                  "categoryId": %d,
+                                  "repeatRule": {
+                                    "frequency": "WEEKLY",
+                                    "daysOfWeek": [1, null],
+                                    "startDate": "2026-08-12"
+                                  }
+                                }
+                                """.formatted(studyCategory.getId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RECURRENCE"));
     }
 
     @Test
@@ -543,9 +615,8 @@ class TaskControllerTest {
     }
 
     @Test
-    void repeatedTaskGenerationCreatesOccurrenceFromDoneSourceAndIsIdempotent() {
+    void repeatedTaskGenerationCreatesOccurrenceFromAnySourceStatusAndIsIdempotent() {
         Task repeatTask = taskRepository.save(Task.create(user, studyCategory, "지난 반복", LocalDate.parse("2026-05-25"), null));
-        repeatTask.updateStatus(TaskStatus.DONE);
         repeatRuleRepository.save(RepeatRule.create(
                 repeatTask,
                 RecurrenceType.WEEKLY,
@@ -575,6 +646,23 @@ class TaskControllerTest {
                 .isEqualTo(LocalDate.parse("2026-05-25"));
         org.assertj.core.api.Assertions.assertThat(taskRepository.findById(generalTask.getId()).orElseThrow().getDeadline())
                 .isEqualTo(LocalDate.parse("2026-05-25"));
+
+        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isZero();
+    }
+
+    @Test
+    void repeatedTaskGenerationDoesNotCreateDuplicateOccurrenceWhenExistingOccurrenceExists() {
+        Task repeatTask = taskRepository.save(Task.create(user, studyCategory, "지난 반복", LocalDate.parse("2026-05-25"), null));
+        repeatRuleRepository.save(RepeatRule.create(
+                repeatTask,
+                RecurrenceType.WEEKLY,
+                List.of(1),
+                RepeatMonthDays.none(),
+                null,
+                LocalDate.parse("2026-05-01"),
+                null
+        ));
+        taskRepository.save(Task.createRepeatedOccurrence(repeatTask, LocalDate.parse("2026-06-01")));
 
         org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isZero();
     }
@@ -619,9 +707,11 @@ class TaskControllerTest {
     @Test
     void similarTaskRulesUpdateAndDeleteWork() throws Exception {
         Task done = saveTask(user, studyCategory, "이전 완료", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
+        Task secondDone = saveTask(user, studyCategory, "두번째 완료", LocalDate.parse("2026-08-03"), null, TaskStatus.DONE);
         Task incomplete = saveTask(user, studyCategory, "진행 중", LocalDate.parse("2026-08-02"), null, TaskStatus.IN_PROGRESS);
         taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1200, TaskSessionStatus.DONE));
         taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1800, TaskSessionStatus.DONE));
+        taskSessionRepository.save(TaskSession.create(secondDone, user, LocalDateTime.now(), LocalDateTime.now(), 3600, TaskSessionStatus.DONE));
 
         String createResponse = mockMvc.perform(post("/api/tasks")
                         .with(csrf())
@@ -685,6 +775,19 @@ class TaskControllerTest {
                                 {
                                   "similarTaskId": %d
                                 }
+                                """.formatted(secondDone.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.similarTaskId").value(secondDone.getId()))
+                .andExpect(jsonPath("$.data.estimatedTime").value(60));
+
+        mockMvc.perform(patch("/api/tasks/{taskId}", taskId)
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "similarTaskId": %d
+                                }
                                 """.formatted(taskId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SELF_SIMILAR_TASK_NOT_ALLOWED"));
@@ -700,6 +803,65 @@ class TaskControllerTest {
     }
 
     @Test
+    void deletingReferencedSimilarTaskClearsRemainingTaskLink() throws Exception {
+        Task deleteTarget = saveTask(user, studyCategory, "삭제 대상", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
+        Task remaining = saveTask(user, studyCategory, "남는 과업", LocalDate.parse("2026-08-12"), deleteTarget, TaskStatus.TODO);
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", deleteTarget.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(taskRepository.findById(remaining.getId()))
+                .isPresent()
+                .get()
+                .extracting(Task::getSimilarTask)
+                .isNull();
+    }
+
+    @Test
+    void repeatedTaskDeadlineOnlyUpdateIsRejectedUnlessRepeatRuleIsExplicitlyCleared() throws Exception {
+        Task repeatTask = saveTask(user, studyCategory, "반복 과업", LocalDate.parse("2026-06-03"), null, TaskStatus.TODO);
+        repeatRuleRepository.save(RepeatRule.create(
+                repeatTask,
+                RecurrenceType.WEEKLY,
+                List.of(3),
+                RepeatMonthDays.none(),
+                null,
+                LocalDate.parse("2026-06-03"),
+                null
+        ));
+
+        mockMvc.perform(patch("/api/tasks/{taskId}", repeatTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "deadline": "2026-08-12"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_RECURRENCE"));
+
+        mockMvc.perform(patch("/api/tasks/{taskId}", repeatTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "deadline": "2026-08-12",
+                                  "clearRepeatRule": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deadline").value("2026-08-12"))
+                .andExpect(jsonPath("$.data.repeatRule").doesNotExist());
+
+        org.assertj.core.api.Assertions.assertThat(repeatRuleRepository.existsByTaskId(repeatTask.getId())).isFalse();
+    }
+
+    @Test
     void otherUserTaskAccessFails() throws Exception {
         Task otherTask = saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인2", "#FFB85C", 2, false)), "타인 과업", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
 
@@ -707,6 +869,29 @@ class TaskControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("TASK_NOT_FOUND"));
+
+        mockMvc.perform(patch("/api/tasks/{taskId}", otherTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "수정되면 안 됨",
+                                  "deadline": "2026-08-20"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TASK_NOT_FOUND"));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", otherTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TASK_NOT_FOUND"));
+
+        Task unchanged = taskRepository.findById(otherTask.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(unchanged.getTitle()).isEqualTo("타인 과업");
+        org.assertj.core.api.Assertions.assertThat(unchanged.getDeadline()).isEqualTo(LocalDate.parse("2026-08-12"));
     }
 
     private Task saveTask(User owner, Category category, String title, LocalDate deadline, Task similarTask, TaskStatus status) {

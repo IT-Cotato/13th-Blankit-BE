@@ -11,7 +11,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
@@ -20,22 +19,36 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Optional<Task> findByIdAndUserId(Long id, Long userId);
 
     @EntityGraph(attributePaths = {"category", "similarTask", "sourceTask"})
-    @Query("""
+    @Query(
+            value = """
             select distinct t
+            from Task t
+            left join fetch t.category
+            left join fetch t.similarTask
+            left join fetch t.sourceTask
+            where t.user.id = :userId
+              and (:date is null or t.deadline = :date)
+              and (:status is null or t.status = :status)
+              and (:categoryId is null or t.category.id = :categoryId)
+              and (:keyword is null or lower(t.title) like lower(concat('%', :keyword, '%')) escape '\\')
+            """,
+            countQuery = """
+            select count(t)
             from Task t
             where t.user.id = :userId
               and (:date is null or t.deadline = :date)
               and (:status is null or t.status = :status)
               and (:categoryId is null or t.category.id = :categoryId)
               and (:keyword is null or lower(t.title) like lower(concat('%', :keyword, '%')) escape '\\')
-            order by t.deadline asc, t.createdAt asc, t.id asc
-            """)
-    List<Task> searchTaskCandidates(
+            """
+    )
+    Page<Task> searchTaskCandidates(
             @Param("userId") Long userId,
             @Param("date") LocalDate date,
             @Param("status") TaskStatus status,
             @Param("categoryId") Long categoryId,
-            @Param("keyword") String keyword
+            @Param("keyword") String keyword,
+            Pageable pageable
     );
 
     @EntityGraph(attributePaths = {"category"})
@@ -55,7 +68,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             Pageable pageable
     );
 
-    @Modifying(flushAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update Task t
             set t.similarTask = null
@@ -67,7 +80,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("userId") Long userId
     );
 
-    @Modifying(flushAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update Task t
             set t.sourceTask = null

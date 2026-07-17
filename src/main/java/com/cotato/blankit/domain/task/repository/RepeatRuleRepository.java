@@ -1,14 +1,13 @@
 package com.cotato.blankit.domain.task.repository;
 
 import com.cotato.blankit.domain.task.entity.RepeatRule;
-import com.cotato.blankit.domain.task.entity.TaskStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
-import java.util.Optional;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.List;
 
 public interface RepeatRuleRepository extends JpaRepository<RepeatRule, Long> {
@@ -28,12 +27,8 @@ public interface RepeatRuleRepository extends JpaRepository<RepeatRule, Long> {
             join fetch t.category
             left join fetch t.similarTask
             where t.deadline < :today
-              and t.status in :statuses
               and t.sourceTask is null
               and (rr.endDate is null or rr.endDate >= :today)
             """)
-    List<RepeatRule> findOccurrenceGenerationTargets(
-            @Param("today") LocalDate today,
-            @Param("statuses") Collection<TaskStatus> statuses
-    );
+    List<RepeatRule> findOccurrenceGenerationTargets(@Param("today") LocalDate today);
 }

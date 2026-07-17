@@ -54,10 +54,10 @@ public class AuthService {
         User savedUser;
         try {
             savedUser = userRepository.saveAndFlush(user);
-            categoryService.createDefaultCategoriesIfNeverInitialized(savedUser);
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT, e);
         }
+        categoryService.createDefaultCategoriesIfNeverInitialized(savedUser);
 
         try {
             AuthTokens authTokens = issueAuthTokens(savedUser);

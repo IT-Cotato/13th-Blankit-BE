@@ -114,6 +114,50 @@ class AuthControllerTest {
     }
 
     @Test
+    void socialSignupWithInvalidSocialTokenFailsAndDoesNotCreateUser() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "signup-invalid-token",
+                                  "socialToken": "invalid-token",
+                                  "email": "user@example.com",
+                                  "nickname": "서윤"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+
+        org.assertj.core.api.Assertions.assertThat(
+                userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-invalid-token")
+        ).isEmpty();
+    }
+
+    @Test
+    void socialSignupWithProviderOrSocialIdMismatchFailsAndDoesNotCreateUser() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "signup-mismatch",
+                                  "socialToken": "verified:KAKAO:different-social-id",
+                                  "email": "user@example.com",
+                                  "nickname": "서윤"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+
+        org.assertj.core.api.Assertions.assertThat(
+                userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-mismatch")
+        ).isEmpty();
+    }
+
+    @Test
     void socialSignupWithUnsupportedProviderFails() throws Exception {
         mockMvc.perform(post("/api/auth/signup")
                         .with(csrf())

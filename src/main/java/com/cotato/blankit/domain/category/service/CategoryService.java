@@ -38,12 +38,13 @@ public class CategoryService {
 
     @Transactional
     public void createDefaultCategoriesIfNeverInitialized(User user) {
-        if (categoryRepository.countByUserId(user.getId()) > 0) {
+        User lockedUser = getUserForUpdate(user.getId());
+        if (categoryRepository.countByUserId(lockedUser.getId()) > 0) {
             return;
         }
         DEFAULT_CATEGORIES.forEach(defaultCategory ->
                 categoryRepository.save(Category.create(
-                        user,
+                        lockedUser,
                         defaultCategory.name(),
                         defaultCategory.color(),
                         defaultCategory.sortOrder(),
@@ -54,7 +55,7 @@ public class CategoryService {
 
     @Transactional
     public List<CategoryResponse> getCategories(Long userId) {
-        User user = getUser(userId);
+        User user = getUserForUpdate(userId);
         createDefaultCategoriesIfNeverInitialized(user);
         return getActiveCategories(userId).stream()
                 .map(CategoryResponse::from)
@@ -63,15 +64,17 @@ public class CategoryService {
 
     @Transactional
     public CategoryResponse createCategory(Long userId, CategoryCreateRequest request) {
+        User user = getUserForUpdate(userId);
         validateName(request.name());
         String color = normalizeColor(request.color());
         validateColorAvailable(userId, color, null);
-        Category category = Category.create(getUser(userId), request.name().trim(), color);
+        Category category = Category.create(user, request.name().trim(), color);
         return CategoryResponse.from(categoryRepository.save(category));
     }
 
     @Transactional
     public CategoryResponse updateCategory(Long userId, Long categoryId, CategoryUpdateRequest request) {
+        getUserForUpdate(userId);
         Category category = getActiveCategory(userId, categoryId);
         String name = request.name() == null ? category.getName() : request.name();
         String color = request.color() == null ? category.getColor() : normalizeColor(request.color());
@@ -83,6 +86,7 @@ public class CategoryService {
 
     @Transactional
     public void deleteCategory(Long userId, Long categoryId) {
+        getUserForUpdate(userId);
         Category category = getActiveCategory(userId, categoryId);
         if (taskRepository.existsByCategoryIdAndUserId(categoryId, userId)) {
             throw new CustomException(ErrorCode.CATEGORY_IN_USE);
@@ -208,6 +212,11 @@ public class CategoryService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getUserForUpdate(Long userId) {
+        return userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 

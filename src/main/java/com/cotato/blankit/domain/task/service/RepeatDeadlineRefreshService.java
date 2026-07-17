@@ -3,11 +3,11 @@ package com.cotato.blankit.domain.task.service;
 import com.cotato.blankit.domain.task.entity.RepeatRule;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.Task;
-import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,18 +28,26 @@ public class RepeatDeadlineRefreshService {
     @Transactional
     public int generateDueOccurrences() {
         LocalDate today = LocalDate.now(clock);
-        List<RepeatRule> targets = repeatRuleRepository.findOccurrenceGenerationTargets(
-                today,
-                List.of(TaskStatus.DONE)
-        );
+        List<RepeatRule> targets = repeatRuleRepository.findOccurrenceGenerationTargets(today);
         int createdCount = 0;
         for (RepeatRule repeatRule : targets) {
             Task sourceTask = repeatRule.getTask();
-            if (!repeatDeadlineCalculator.matches(repeatRule, today)
-                    || taskRepository.existsBySourceTaskIdAndDeadline(sourceTask.getId(), today)) {
+            if (!repeatDeadlineCalculator.matches(repeatRule, today)) {
                 continue;
             }
-            Task occurrence = taskRepository.save(Task.createRepeatedOccurrence(sourceTask, today));
+            if (createOccurrenceIfAbsent(sourceTask, today)) {
+                createdCount++;
+            }
+        }
+        return createdCount;
+    }
+
+    private boolean createOccurrenceIfAbsent(Task sourceTask, LocalDate today) {
+        if (taskRepository.existsBySourceTaskIdAndDeadline(sourceTask.getId(), today)) {
+            return false;
+        }
+        try {
+            Task occurrence = taskRepository.saveAndFlush(Task.createRepeatedOccurrence(sourceTask, today));
             notificationSettingRepository.findByTaskId(sourceTask.getId())
                     .map(setting -> NotificationSetting.create(
                             occurrence,
@@ -47,8 +55,18 @@ public class RepeatDeadlineRefreshService {
                             setting.isEnabled()
                     ))
                     .ifPresent(notificationSettingRepository::save);
-            createdCount++;
+            return true;
+        } catch (DataIntegrityViolationException e) {
+            if (isDuplicateOccurrenceConstraintViolation(e)
+                    && taskRepository.existsBySourceTaskIdAndDeadline(sourceTask.getId(), today)) {
+                return false;
+            }
+            throw e;
         }
-        return createdCount;
+    }
+
+    private boolean isDuplicateOccurrenceConstraintViolation(DataIntegrityViolationException exception) {
+        String message = exception.getMostSpecificCause().getMessage();
+        return message != null && message.toLowerCase().contains("uk_task_source_deadline");
     }
 }

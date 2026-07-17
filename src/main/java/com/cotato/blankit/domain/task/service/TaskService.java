@@ -28,16 +28,21 @@ import com.cotato.blankit.global.exception.ErrorCode;
 import com.cotato.blankit.global.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -73,7 +78,7 @@ public class TaskService {
     @Transactional
     public TaskDetailResponse createTask(Long userId, TaskCreateRequest request) {
         validateTitle(request.title());
-        User user = getUser(userId);
+        User user = getUserForUpdate(userId);
         Category category = resolveCategory(userId, request.categoryId());
         Task similarTask = resolveSimilarTaskForCreate(userId, request.similarTaskId());
         Integer estimatedTime = resolveEstimatedTime(userId, similarTask, request.estimatedTime());
@@ -111,25 +116,19 @@ public class TaskService {
             int page,
             int size
     ) {
-        int normalizedPage = Math.max(page, 0);
-        int normalizedSize = normalizeSize(size);
-        List<Task> candidates = taskRepository.searchTaskCandidates(
+        Page<Task> taskPage = taskRepository.searchTaskCandidates(
                 userId,
                 date,
                 status,
                 categoryId,
-                normalizeKeyword(keyword)
+                normalizeKeyword(keyword),
+                createTaskPageable(page, size)
         );
-        List<Task> filtered = candidates.stream()
-                .filter(task -> date == null || task.getDeadline().equals(date))
-                .toList();
-        int fromIndex = Math.min(normalizedPage * normalizedSize, filtered.size());
-        int toIndex = Math.min(fromIndex + normalizedSize, filtered.size());
         return PageResponse.of(
-                filtered.subList(fromIndex, toIndex).stream().map(TaskListResponse::from).toList(),
-                normalizedPage,
-                normalizedSize,
-                filtered.size()
+                taskPage.getContent().stream().map(TaskListResponse::from).toList(),
+                taskPage.getNumber(),
+                taskPage.getSize(),
+                taskPage.getTotalElements()
         );
     }
 
@@ -142,6 +141,11 @@ public class TaskService {
     @Transactional
     public TaskDetailResponse updateTask(Long userId, Long taskId, TaskUpdateRequest request) {
         Task task = getTaskByUser(taskId, userId);
+        boolean changesSimilarTask = request.similarTaskId() != null || Boolean.TRUE.equals(request.clearSimilarTask());
+        if (changesSimilarTask) {
+            getUserForUpdate(userId);
+            task = getTaskByUser(taskId, userId);
+        }
         RepeatRule existingRepeatRule = repeatRuleRepository.findByTaskId(task.getId()).orElse(null);
 
         if (request.title() != null) {
@@ -172,7 +176,7 @@ public class TaskService {
         taskSessionRepository.deleteByTaskId(task.getId());
         repeatRuleRepository.deleteByTaskId(task.getId());
         notificationSettingRepository.findByTaskId(task.getId()).ifPresent(notificationSettingRepository::delete);
-        taskRepository.delete(task);
+        taskRepository.deleteById(task.getId());
     }
 
     @Transactional(readOnly = true)
@@ -246,7 +250,7 @@ public class TaskService {
         if (request.deadline() != null) {
             validateDeadline(request.deadline());
             if (existingRepeatRule != null) {
-                repeatRuleRepository.deleteByTaskId(task.getId());
+                throw new CustomException(ErrorCode.INVALID_RECURRENCE);
             }
             task.updateDeadline(request.deadline());
         }
@@ -267,6 +271,7 @@ public class TaskService {
             }
             Task similarTask = resolveSimilarTaskForUpdate(userId, task, request.similarTaskId());
             task.updateSimilarTask(similarTask);
+            task.updateEstimatedTime(resolveEstimatedTime(userId, similarTask, null));
         }
     }
 
@@ -315,7 +320,11 @@ public class TaskService {
 
     private void validateNoSimilarCycle(Task task, Task similarTask) {
         Task cursor = similarTask;
+        Set<Long> visitedTaskIds = new HashSet<>();
         while (cursor != null) {
+            if (!visitedTaskIds.add(cursor.getId())) {
+                throw new CustomException(ErrorCode.CYCLIC_SIMILAR_TASK_NOT_ALLOWED);
+            }
             if (task.getId().equals(cursor.getId())) {
                 throw new CustomException(ErrorCode.CYCLIC_SIMILAR_TASK_NOT_ALLOWED);
             }
@@ -419,6 +428,9 @@ public class TaskService {
         if (values == null) {
             return List.of();
         }
+        if (values.stream().anyMatch(Objects::isNull)) {
+            throw new CustomException(ErrorCode.INVALID_RECURRENCE);
+        }
         return new LinkedHashSet<>(values).stream().sorted().toList();
     }
 
@@ -463,6 +475,11 @@ public class TaskService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getUserForUpdate(Long userId) {
+        return userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
@@ -512,6 +529,18 @@ public class TaskService {
 
     private Pageable createPageable(int page, int size) {
         return org.springframework.data.domain.PageRequest.of(Math.max(page, 0), normalizeSize(size));
+    }
+
+    private Pageable createTaskPageable(int page, int size) {
+        return PageRequest.of(
+                Math.max(page, 0),
+                normalizeSize(size),
+                Sort.by(
+                        Sort.Order.asc("deadline"),
+                        Sort.Order.asc("createdAt"),
+                        Sort.Order.asc("id")
+                )
+        );
     }
 
     private int normalizeSize(int size) {

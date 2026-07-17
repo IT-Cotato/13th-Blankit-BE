@@ -15,6 +15,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -29,9 +30,12 @@ import java.time.LocalDate;
                 @Index(name = "idx_task_user_deadline", columnList = "user_id,deadline"),
                 @Index(name = "idx_task_user_status", columnList = "user_id,status"),
                 @Index(name = "idx_task_user_category", columnList = "user_id,category_id"),
-                @Index(name = "idx_task_similar_task", columnList = "similar_task_id"),
-                @Index(name = "idx_task_source_deadline", columnList = "source_task_id,deadline")
-        }
+                @Index(name = "idx_task_similar_task", columnList = "similar_task_id")
+        },
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_task_source_deadline",
+                columnNames = {"source_task_id", "deadline"}
+        )
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Task extends BaseEntity {
@@ -136,6 +140,10 @@ public class Task extends BaseEntity {
 
     public void updateStarred(boolean starred) {
         this.starred = starred;
+    }
+
+    public void updateEstimatedTime(Integer estimatedTime) {
+        this.estimatedTime = estimatedTime;
     }
 
     public void updateSimilarTask(Task similarTask) {
