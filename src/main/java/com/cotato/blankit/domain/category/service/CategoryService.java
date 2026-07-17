@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 public class CategoryService {
 
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#[0-9A-Fa-f]{6}$");
+    private static final int GENERATED_COLOR_CANDIDATE_LIMIT = 360;
 
     private static final List<DefaultCategory> DEFAULT_CATEGORIES = List.of(
             new DefaultCategory("학업", "#5C9EFF", 0),
@@ -92,6 +93,10 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public List<String> getAvailableColors(Long userId, Long editingCategoryId) {
         Category editingCategory = editingCategoryId == null ? null : getActiveCategory(userId, editingCategoryId);
+        return getRecommendedColors(userId, editingCategory);
+    }
+
+    private List<String> getRecommendedColors(Long userId, Category editingCategory) {
         List<String> suggestedColors = new ArrayList<>(DEFAULT_CATEGORIES.stream()
                 .map(DefaultCategory::color)
                 .distinct()
@@ -99,10 +104,69 @@ public class CategoryService {
         if (editingCategory != null && !suggestedColors.contains(editingCategory.getColor())) {
             suggestedColors.add(0, editingCategory.getColor());
         }
-        return suggestedColors.stream()
+        return toAvailableColors(userId, editingCategory, suggestedColors);
+    }
+
+    private List<String> toAvailableColors(Long userId, Category editingCategory, List<String> suggestedColors) {
+        List<String> availableColors = suggestedColors.stream()
                 .filter(color -> editingCategory != null && color.equals(editingCategory.getColor())
                         || !categoryRepository.existsByUserIdAndColorAndDeletedFalse(userId, color))
                 .toList();
+        if (availableColors.isEmpty()) {
+            return List.of(generateUnusedColor(userId));
+        }
+        return availableColors;
+    }
+
+    private String generateUnusedColor(Long userId) {
+        for (int index = 0; index < GENERATED_COLOR_CANDIDATE_LIMIT; index++) {
+            String color = generateColorCandidate(index);
+            if (!categoryRepository.existsByUserIdAndColorAndDeletedFalse(userId, color)) {
+                return color;
+            }
+        }
+        throw new CustomException(ErrorCode.INVALID_INPUT);
+    }
+
+    private String generateColorCandidate(int index) {
+        double hue = (210 + index * 137.508) % 360;
+        return hslToHex(hue, 0.62, 0.62);
+    }
+
+    private String hslToHex(double hue, double saturation, double lightness) {
+        double c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+        double h = hue / 60;
+        double x = c * (1 - Math.abs(h % 2 - 1));
+        double r = 0;
+        double g = 0;
+        double b = 0;
+        if (h < 1) {
+            r = c;
+            g = x;
+        } else if (h < 2) {
+            r = x;
+            g = c;
+        } else if (h < 3) {
+            g = c;
+            b = x;
+        } else if (h < 4) {
+            g = x;
+            b = c;
+        } else if (h < 5) {
+            r = x;
+            b = c;
+        } else {
+            r = c;
+            b = x;
+        }
+        double m = lightness - c / 2;
+        return String.format(
+                Locale.ROOT,
+                "#%02X%02X%02X",
+                Math.round((r + m) * 255),
+                Math.round((g + m) * 255),
+                Math.round((b + m) * 255)
+        );
     }
 
     @Transactional(readOnly = true)

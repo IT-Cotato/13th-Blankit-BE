@@ -72,7 +72,7 @@ public class CategoryController {
         return ApiResponse.success();
     }
 
-    @Operation(summary = "추천 카테고리 색상 조회", description = "기본 추천 HEX 색상 중 현재 회원의 활성 카테고리에서 사용하지 않은 값을 반환합니다. 실제 생성/수정 API는 이 목록 외의 HEX 색상도 받을 수 있으며, 수정 화면에서는 editingCategoryId의 현재 색상을 포함합니다.")
+    @Operation(summary = "추천 카테고리 색상 조회", description = "기본 추천 HEX 색상 중 현재 회원의 활성 카테고리에서 사용하지 않은 값을 반환합니다. 기본 추천 색상을 모두 사용 중이면 서버가 새 미사용 HEX 색상을 생성해 반환합니다. 실제 생성/수정 API는 이 목록 외의 HEX 색상도 받을 수 있으며, 수정 화면에서는 editingCategoryId의 현재 색상을 포함합니다.")
     @GetMapping("/available-colors")
     public ApiResponse<List<String>> getAvailableColors(
             @AuthenticationPrincipal CustomUserDetails userDetails,

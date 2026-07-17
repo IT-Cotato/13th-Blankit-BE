@@ -194,6 +194,13 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasItem("#12AB34")));
 
+        categoryRepository.save(Category.create(user, "기념일", "#FFB85C", 4, false));
+        mockMvc.perform(get("/api/categories/available-colors")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0]").value("#629EDA"));
+
         mockMvc.perform(delete("/api/categories/{categoryId}", workCategory.getId())
                         .with(csrf())
                         .header("Authorization", "Bearer " + token))
