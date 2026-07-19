@@ -140,12 +140,11 @@ public class TaskService {
 
     @Transactional
     public TaskDetailResponse updateTask(Long userId, Long taskId, TaskUpdateRequest request) {
-        Task task = getTaskByUser(taskId, userId);
         boolean changesSimilarTask = request.similarTaskId() != null || Boolean.TRUE.equals(request.clearSimilarTask());
         if (changesSimilarTask) {
             getUserForUpdate(userId);
-            task = getTaskByUser(taskId, userId);
         }
+        Task task = getTaskByUser(taskId, userId);
         RepeatRule existingRepeatRule = repeatRuleRepository.findByTaskId(task.getId()).orElse(null);
 
         if (request.title() != null) {
