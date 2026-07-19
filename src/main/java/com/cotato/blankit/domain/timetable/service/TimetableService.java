@@ -34,7 +34,7 @@ public class TimetableService {
     @Transactional
     public TimetableResponse createTimetable(Long userId, TimetableCreateRequest request) {
         validateTimeRange(request.startTime(), request.endTime());
-        checkTimeConflict(userId, (byte) request.dayOfWeek().intValue(),
+        checkTimeConflict(userId, request.dayOfWeek().byteValue(),
                 request.startTime(), request.endTime(), null);
 
         User user = getUser(userId);

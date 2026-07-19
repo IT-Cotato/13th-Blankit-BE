@@ -2,6 +2,7 @@ package com.cotato.blankit.domain.timetable.repository;
 
 import com.cotato.blankit.domain.timetable.entity.Timetable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,7 +16,9 @@ public interface TimetableRepository extends JpaRepository<Timetable, Long> {
 
     Optional<Timetable> findByTimetableIdAndUserId(Long timetableId, Long userId);
 
-    void deleteByUserId(Long userId);
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM Timetable t WHERE t.user.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 
     @Query("""
             SELECT COUNT(t) > 0 FROM Timetable t
