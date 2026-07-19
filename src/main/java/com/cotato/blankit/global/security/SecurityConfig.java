@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,7 +19,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import tools.jackson.databind.ObjectMapper;
@@ -35,23 +35,25 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/swagger-ui.html",
-            "/actuator/health",
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
+    private final Environment environment;
 
     @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:8081}")
     private String allowedOrigins;
-
-    @Value("${blankit.security.h2-console-enabled:false}")
-    private boolean h2ConsoleEnabled;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> {
+                    if (isLocalOrTestProfile()) {
+                        headers.frameOptions(frameOptions -> frameOptions.sameOrigin());
+                    }
+                })
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception
@@ -67,13 +69,10 @@ public class SecurityConfig {
                         }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(permitAllPaths()).permitAll()
+                        .requestMatchers(PERMIT_ALL_PATHS).permitAll()
+                        .requestMatchers(localOrTestPermitAllPaths()).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
-        if (h2ConsoleEnabled) {
-            http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
-        }
 
         return http.build();
     }
@@ -100,11 +99,12 @@ public class SecurityConfig {
                 .toList();
     }
 
-    private String[] permitAllPaths() {
-        List<String> paths = new ArrayList<>(Arrays.asList(PERMIT_ALL_PATHS));
-        if (h2ConsoleEnabled) {
-            paths.add("/h2-console/**");
-        }
-        return paths.toArray(String[]::new);
+    private boolean isLocalOrTestProfile() {
+        return Arrays.stream(environment.getActiveProfiles())
+                .anyMatch(profile -> profile.equals("local") || profile.equals("test"));
+    }
+
+    private String[] localOrTestPermitAllPaths() {
+        return isLocalOrTestProfile() ? new String[]{"/h2-console/**"} : new String[]{"/__blankit_no_public_match__"};
     }
 }

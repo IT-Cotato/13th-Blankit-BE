@@ -1,32 +1,39 @@
 package com.cotato.blankit.domain.task.dto.response;
 
-import com.cotato.blankit.domain.task.entity.enums.RepeatFrequency;
+import com.cotato.blankit.domain.task.entity.RecurrenceType;
+import com.cotato.blankit.domain.task.entity.RepeatRule;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.util.List;
 
-@Schema(description = "반복 설정 응답")
+@Schema(description = "반복 규칙 응답. 반복하지 않는 과업은 null입니다.")
 public record RepeatRuleResponse(
-
-        @Schema(description = "반복 규칙 ID", example = "1")
-        Long repeatRuleId,
-
         @Schema(description = "반복 주기", example = "WEEKLY")
-        RepeatFrequency frequency,
-
-        @Schema(description = "WEEKLY 전용: 반복 요일 (0=일~6=토, 콤마 구분)", example = "1,3,5")
-        String daysOfWeek,
-
-        @Schema(description = "MONTHLY·YEARLY 전용: 반복 일자 (콤마 구분, 마지막날=L)", example = "1,15,L")
-        String daysOfMonth,
-
-        @Schema(description = "YEARLY 전용: 반복 월 (1~12)", example = "9")
+        RecurrenceType frequency,
+        @Schema(description = "WEEKLY 요일. 0=일요일, 6=토요일")
+        List<Integer> daysOfWeek,
+        @Schema(description = "MONTHLY/YEARLY 날짜")
+        List<Integer> daysOfMonth,
+        @Schema(description = "MONTHLY 마지막 날 반복 여부. DB에는 L로 저장됩니다.")
+        boolean lastDayOfMonth,
+        @Schema(description = "YEARLY 반복 월", nullable = true)
         Integer monthOfYear,
-
-        @Schema(description = "반복 시작일", example = "2026-07-14")
+        @Schema(description = "반복 시작일")
         LocalDate startDate,
-
-        @Schema(description = "반복 종료일 (null = 무기한)", example = "2026-12-31")
+        @Schema(description = "반복 종료일")
         LocalDate endDate
 ) {
+
+    public static RepeatRuleResponse from(RepeatRule repeatRule) {
+        return new RepeatRuleResponse(
+                repeatRule.getFrequency(),
+                repeatRule.getDaysOfWeek(),
+                repeatRule.getDaysOfMonth().days(),
+                repeatRule.getDaysOfMonth().lastDayOfMonth(),
+                repeatRule.getMonthOfYear(),
+                repeatRule.getStartDate(),
+                repeatRule.getEndDate()
+        );
+    }
 }

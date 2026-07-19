@@ -1,17 +1,17 @@
 package com.cotato.blankit.domain.task.dto.response;
 
+import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "과업 알림 설정 응답")
 public record NotificationSettingResponse(
-
-        @Schema(description = "알림 설정 ID", example = "1")
-        Long notificationSettingId,
-
-        @Schema(description = "알림 시점 (마감일 기준 분 전, 1440=1일 전)", example = "1440")
-        int notifyBefore,
-
+        @Schema(description = "마감일 기준 몇 분 전 알림인지", example = "1440")
+        Integer notifyBefore,
         @Schema(description = "알림 활성화 여부", example = "true")
-        boolean isEnabled
+        boolean enabled
 ) {
+
+    public static NotificationSettingResponse from(NotificationSetting setting) {
+        return new NotificationSettingResponse(setting.getNotifyBefore(), setting.isEnabled());
+    }
 }

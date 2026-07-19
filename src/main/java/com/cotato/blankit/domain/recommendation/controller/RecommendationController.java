@@ -2,11 +2,12 @@ package com.cotato.blankit.domain.recommendation.controller;
 
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
-import com.cotato.blankit.domain.task.entity.enums.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.global.config.swagger.NotImplementedYet;
 import com.cotato.blankit.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +17,7 @@ import java.util.List;
 
 @NotImplementedYet
 @Tag(name = "추천", description = "우선순위 과업 추천 및 과업 조합 추천 API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/v1/recommendations")
 public class RecommendationController {

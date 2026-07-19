@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.auth;
 
+import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.repository.UserRepository;
@@ -50,6 +51,9 @@ class AuthControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
@@ -83,6 +87,10 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.userId").exists())
                 .andExpect(jsonPath("$.data.socialProvider").value("KAKAO"))
                 .andExpect(jsonPath("$.data.recommendedDailyTime").value(120));
+
+        User savedUser = userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-1")
+                .orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(categoryRepository.countByUserId(savedUser.getId())).isEqualTo(3);
     }
 
     @Test
@@ -106,6 +114,50 @@ class AuthControllerTest {
     }
 
     @Test
+    void socialSignupWithInvalidSocialTokenFailsAndDoesNotCreateUser() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "signup-invalid-token",
+                                  "socialToken": "invalid-token",
+                                  "email": "user@example.com",
+                                  "nickname": "서윤"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+
+        org.assertj.core.api.Assertions.assertThat(
+                userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-invalid-token")
+        ).isEmpty();
+    }
+
+    @Test
+    void socialSignupWithProviderOrSocialIdMismatchFailsAndDoesNotCreateUser() throws Exception {
+        mockMvc.perform(post("/api/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "signup-mismatch",
+                                  "socialToken": "verified:KAKAO:different-social-id",
+                                  "email": "user@example.com",
+                                  "nickname": "서윤"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+
+        org.assertj.core.api.Assertions.assertThat(
+                userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-mismatch")
+        ).isEmpty();
+    }
+
+    @Test
     void socialSignupWithUnsupportedProviderFails() throws Exception {
         mockMvc.perform(post("/api/auth/signup")
                         .with(csrf())
@@ -121,42 +173,6 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
-    }
-
-    @Test
-    void socialSignupWithInvalidSocialTokenFails() throws Exception {
-        mockMvc.perform(post("/api/auth/signup")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "socialProvider": "KAKAO",
-                                  "socialId": "signup-invalid-token-1",
-                                  "socialToken": "invalid-token",
-                                  "email": "user@example.com",
-                                  "nickname": "서윤"
-                                }
-                                """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
-    }
-
-    @Test
-    void socialSignupWithMismatchedSocialTokenFails() throws Exception {
-        mockMvc.perform(post("/api/auth/signup")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "socialProvider": "KAKAO",
-                                  "socialId": "signup-mismatch-1",
-                                  "socialToken": "verified:KAKAO:other-social-id",
-                                  "email": "user@example.com",
-                                  "nickname": "서윤"
-                                }
-                                """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
     }
 
     @Test

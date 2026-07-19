@@ -15,7 +15,6 @@ out/
 # OS
 .DS_Store
 Thumbs.db
-
 # Environment / Secret
 .env
 *.env

@@ -1,6 +1,6 @@
 package com.cotato.blankit.domain.task.dto.request;
 
-import com.cotato.blankit.domain.task.entity.enums.TaskStatus;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 

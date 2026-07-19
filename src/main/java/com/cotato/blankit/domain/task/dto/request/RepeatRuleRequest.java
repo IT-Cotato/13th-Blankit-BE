@@ -1,32 +1,32 @@
 package com.cotato.blankit.domain.task.dto.request;
 
-import com.cotato.blankit.domain.task.entity.enums.RepeatFrequency;
+import com.cotato.blankit.domain.task.entity.RecurrenceType;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
+import java.util.List;
 
-@Schema(description = "반복 설정 요청")
+@Schema(description = "반복 규칙 요청. 반복 안 함은 repeatRule을 전달하지 않거나 clearRepeatRule=true로 처리합니다.")
 public record RepeatRuleRequest(
+        @Schema(description = "반복 주기", example = "WEEKLY", allowableValues = {"WEEKLY", "MONTHLY", "YEARLY"})
+        RecurrenceType frequency,
 
-        @Schema(description = "반복 주기", example = "WEEKLY")
-        @NotNull(message = "반복 주기는 필수입니다.")
-        RepeatFrequency frequency,
+        @Schema(description = "WEEKLY 요일. 0=일요일, 6=토요일", example = "[1, 3, 5]")
+        List<Integer> daysOfWeek,
 
-        @Schema(description = "WEEKLY 전용: 반복 요일 (0=일~6=토, 콤마 구분)", example = "1,3,5")
-        String daysOfWeek,
+        @Schema(description = "MONTHLY/YEARLY 날짜. 1~31. 마지막 날은 lastDayOfMonth=true로 전달합니다. WEEKLY에서는 보내지 않습니다.", example = "[]")
+        List<Integer> daysOfMonth,
 
-        @Schema(description = "MONTHLY·YEARLY 전용: 반복 일자 (콤마 구분, 마지막날=L)", example = "1,15,L")
-        String daysOfMonth,
+        @Schema(description = "MONTHLY/YEARLY 마지막 날 반복 여부. DB에는 days_of_month의 L로 저장됩니다. WEEKLY에서는 보내지 않습니다.", example = "false")
+        Boolean lastDayOfMonth,
 
-        @Schema(description = "YEARLY 전용: 반복 월 (1~12 단일 선택)", example = "9")
+        @Schema(description = "YEARLY 반복 월. 1~12. WEEKLY/MONTHLY에서는 보내지 않습니다.", nullable = true)
         Integer monthOfYear,
 
-        @Schema(description = "반복 시작일", example = "2026-07-14")
-        @NotNull(message = "반복 시작일은 필수입니다.")
+        @Schema(description = "반복 시작일", example = "2026-08-12")
         LocalDate startDate,
 
-        @Schema(description = "반복 종료일 (null = 무기한)", example = "2026-12-31")
+        @Schema(description = "반복 종료일. 생략하면 종료일 없는 반복입니다.", example = "2026-12-31", nullable = true)
         LocalDate endDate
 ) {
 }

@@ -1,48 +1,61 @@
 package com.cotato.blankit.domain.task.dto.response;
 
-import com.cotato.blankit.domain.task.entity.enums.TaskPriority;
-import com.cotato.blankit.domain.task.entity.enums.TaskStatus;
+import com.cotato.blankit.domain.category.dto.response.CategoryResponse;
+import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.task.entity.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-@Schema(description = "과업 목록 항목")
+@Schema(description = "과업 목록 응답")
 public record TaskListResponse(
-
         @Schema(description = "과업 ID", example = "1")
         Long taskId,
-
-        @Schema(description = "과업명", example = "기말고사 준비")
+        @Schema(description = "과업명", example = "알고리즘 과제 제출")
         String title,
-
-        @Schema(description = "카테고리 ID", example = "1")
-        Long categoryId,
-
-        @Schema(description = "카테고리명", example = "학업")
-        String categoryName,
-
-        @Schema(description = "카테고리 색상 (HEX)", example = "#FF5C5C")
-        String categoryColor,
-
-        @Schema(description = "우선순위 (추천 로직 계산 전 null)", example = "HIGH")
+        @Schema(description = "카테고리")
+        CategoryResponse category,
+        @Schema(description = "추천 우선순위. 추천 계산 전에는 null입니다.", nullable = true)
         TaskPriority priority,
-
-        @Schema(description = "중요 표시 여부", example = "true")
-        boolean isStarred,
-
-        @Schema(description = "마감일", example = "2026-07-25")
-        LocalDate deadline,
-
-        @Schema(description = "남은 예상 시간 (분, 보정 로직 갱신 전 null)", example = "180")
+        @Schema(description = "중요 표시", example = "false")
+        boolean starred,
+        @Schema(description = "예상 남은 시간(분)", nullable = true)
         Integer estimatedTime,
-
-        @Schema(description = "과업 상태", example = "TODO")
+        @Schema(description = "상태", example = "TODO")
         TaskStatus status,
-
-        @Schema(description = "전체 진척도 (0~100, 세부 단계 가중 평균)", example = "40")
-        int progressRate,
-
-        @Schema(description = "마지막 피드백 메모 (없으면 null)", example = "2단원까지 정리 완료")
-        String lastMemo
+        @Schema(description = "마감일", example = "2026-08-12")
+        LocalDate deadline,
+        @Schema(description = "비슷한 과업 연결 여부", example = "true")
+        boolean hasSimilarTask,
+        @Schema(description = "비슷한 이전 과업 ID", example = "12", nullable = true)
+        Long similarTaskId,
+        @Schema(description = "반복 생성 원본 과업 ID. 원본 과업이면 null입니다.", example = "1", nullable = true)
+        Long sourceTaskId,
+        @Schema(description = "생성일")
+        LocalDateTime createdAt,
+        @Schema(description = "수정일")
+        LocalDateTime updatedAt
 ) {
+
+    public static TaskListResponse from(Task task) {
+        Long similarTaskId = task.getSimilarTask() == null ? null : task.getSimilarTask().getId();
+        Long sourceTaskId = task.getSourceTask() == null ? null : task.getSourceTask().getId();
+        return new TaskListResponse(
+                task.getId(),
+                task.getTitle(),
+                CategoryResponse.from(task.getCategory()),
+                task.getPriority(),
+                task.isStarred(),
+                task.getEstimatedTime(),
+                task.getStatus(),
+                task.getDeadline(),
+                similarTaskId != null,
+                similarTaskId,
+                sourceTaskId,
+                task.getCreatedAt(),
+                task.getUpdatedAt()
+        );
+    }
 }
