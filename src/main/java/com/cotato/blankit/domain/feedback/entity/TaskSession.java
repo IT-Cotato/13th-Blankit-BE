@@ -12,7 +12,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "task_session")
+@Table(
+        name = "task_session",
+        indexes = {
+                @Index(name = "idx_task_session_task", columnList = "task_id"),
+                @Index(name = "idx_task_session_user", columnList = "user_id")
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TaskSession extends BaseEntity {
@@ -40,4 +46,22 @@ public class TaskSession extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "ENUM('PLAYING','PAUSED','DONE') DEFAULT 'PAUSED'")
     private TaskSessionStatus status;
+
+    public static TaskSession create(
+            Task task,
+            User user,
+            LocalDateTime startedAt,
+            LocalDateTime endedAt,
+            int elapsedTime,
+            TaskSessionStatus status
+    ) {
+        TaskSession session = new TaskSession();
+        session.task = task;
+        session.user = user;
+        session.startedAt = startedAt;
+        session.endedAt = endedAt;
+        session.elapsedTime = elapsedTime;
+        session.status = status == null ? TaskSessionStatus.PAUSED : status;
+        return session;
+    }
 }

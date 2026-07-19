@@ -7,6 +7,7 @@ import com.cotato.blankit.global.config.swagger.NotImplementedYet;
 import com.cotato.blankit.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import java.util.List;
 
 @NotImplementedYet
 @Tag(name = "과업 - 세부 단계", description = "과업 세부 단계(TaskStep) 관리 API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/v1/tasks/{taskId}/steps")
 public class TaskStepController {

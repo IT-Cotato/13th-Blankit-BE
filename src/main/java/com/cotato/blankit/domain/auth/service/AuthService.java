@@ -10,6 +10,7 @@ import com.cotato.blankit.domain.auth.dto.response.UserSummaryResponse;
 import com.cotato.blankit.domain.auth.entity.RefreshToken;
 import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.domain.auth.service.social.SocialTokenVerifier;
+import com.cotato.blankit.domain.category.service.CategoryService;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
@@ -31,6 +32,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final SocialTokenVerifier socialTokenVerifier;
+    private final CategoryService categoryService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -55,6 +57,7 @@ public class AuthService {
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT, e);
         }
+        categoryService.createDefaultCategoriesIfNeverInitialized(savedUser);
 
         try {
             AuthTokens authTokens = issueAuthTokens(savedUser);

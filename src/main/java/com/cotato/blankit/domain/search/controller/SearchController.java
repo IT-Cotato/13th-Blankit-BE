@@ -2,13 +2,14 @@ package com.cotato.blankit.domain.search.controller;
 
 import com.cotato.blankit.domain.search.dto.response.SearchHistoryResponse;
 import com.cotato.blankit.domain.search.dto.response.SearchResultResponse;
-import com.cotato.blankit.domain.task.entity.enums.TaskPriority;
-import com.cotato.blankit.domain.task.entity.enums.TaskStatus;
+import com.cotato.blankit.domain.task.entity.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.global.config.swagger.NotImplementedYet;
 import com.cotato.blankit.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,6 +22,7 @@ import java.util.List;
 
 @NotImplementedYet
 @Tag(name = "검색", description = "과업 검색 및 최근 검색어 관리 API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/v1/search")
 public class SearchController {

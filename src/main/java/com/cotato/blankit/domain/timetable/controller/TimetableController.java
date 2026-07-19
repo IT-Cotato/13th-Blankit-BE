@@ -7,6 +7,7 @@ import com.cotato.blankit.global.config.swagger.NotImplementedYet;
 import com.cotato.blankit.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ import java.util.List;
 
 @NotImplementedYet
 @Tag(name = "시간표", description = "시간표 블록 관리 API (명세 4.5~4.7)")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/v1/timetable")
 public class TimetableController {

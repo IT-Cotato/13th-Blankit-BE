@@ -1,28 +1,55 @@
 package com.cotato.blankit.domain.task.entity;
 
-import com.cotato.blankit.global.entity.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "notification_setting")
 @Getter
+@Entity
+@Table(
+        name = "notification_setting",
+        uniqueConstraints = @UniqueConstraint(name = "uk_notification_setting_task", columnNames = "task_id"),
+        indexes = @Index(name = "idx_notification_setting_task", columnList = "task_id")
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class NotificationSetting extends BaseEntity {
+public class NotificationSetting {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long notificationSettingId;
+    @Column(name = "notification_setting_id")
+    private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_id", nullable = false, unique = true)
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "task_id", nullable = false)
     private Task task;
 
-    @Column(nullable = false)
-    private int notifyBefore;
+    @Column(name = "notify_before", nullable = false)
+    private Integer notifyBefore;
 
-    @Column(nullable = false)
-    private boolean isEnabled;
+    @Column(name = "is_enabled", nullable = false)
+    private boolean enabled;
+
+    public static NotificationSetting create(Task task, Integer notifyBefore, boolean enabled) {
+        NotificationSetting setting = new NotificationSetting();
+        setting.task = task;
+        setting.notifyBefore = notifyBefore;
+        setting.enabled = enabled;
+        return setting;
+    }
+
+    public void update(Integer notifyBefore, boolean enabled) {
+        this.notifyBefore = notifyBefore;
+        this.enabled = enabled;
+    }
 }

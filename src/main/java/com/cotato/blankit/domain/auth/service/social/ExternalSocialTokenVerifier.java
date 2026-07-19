@@ -15,7 +15,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -80,8 +79,6 @@ public class ExternalSocialTokenVerifier implements SocialTokenVerifier {
                 throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
             }
             return objectMapper.readTree(response.body());
-        } catch (JacksonException e) {
-            throw new CustomException(ErrorCode.INVALID_CREDENTIALS, e);
         } catch (IOException e) {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS, e);
         } catch (InterruptedException e) {

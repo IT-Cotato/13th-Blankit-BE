@@ -1,6 +1,6 @@
 package com.cotato.blankit.domain.recommendation.dto.response;
 
-import com.cotato.blankit.domain.task.entity.enums.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskPriority;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;

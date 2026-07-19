@@ -4,6 +4,7 @@
 --
 -- [v1 대비 변경 요약]
 --  1. task.similar_task_id 추가        : 예상 시간 보정 로직용 (비슷한 과업 연결)
+--  1-1. task.source_task_id 추가       : 반복으로 생성된 과업의 원본 과업 연결 및 중복 생성 방지
 --  2. task.repeat_type 삭제            : repeat_rule과 중복 → repeat_rule을 단일 소스로
 --  3. playlist_item.source_mode 추가   : 모드별 필터링 / 모드 단위 일괄 삭제용
 --  4. feedback.is_draft 추가           : 피드백 임시저장 구분 (통계 계산 시 draft 제외)
@@ -74,21 +75,25 @@ CREATE TABLE task (
                       user_id          BIGINT       NOT NULL,
                       category_id      BIGINT       NOT NULL,
                       similar_task_id  BIGINT       NULL COMMENT '[추가] 등록 시 선택한 비슷한 과거 과업 (명세 2.16, 예상시간 보정 로직 입력값)',
+                      source_task_id   BIGINT       NULL COMMENT '[추가] 반복으로 생성된 과업의 원본 과업. 원본 과업은 NULL',
                       title            VARCHAR(255) NOT NULL,
                       priority         ENUM('HIGH','MEDIUM','LOW') NULL COMMENT '우선순위 상/중/하 - 추천 로직이 계산, 계산 전 NULL',
                       is_starred       TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '중요 표시 (명세 4.4)',
                       deadline         DATE         NOT NULL COMMENT '마감일 - 등록 시 필수 (명세 2.10.7)',
                       estimated_time   INT          NULL COMMENT '남은 예상 시간(분) - 보정 로직이 갱신',
                       status           ENUM('TODO','IN_PROGRESS','DONE') NOT NULL DEFAULT 'TODO',
-                      is_deleted       TINYINT(1)   NOT NULL DEFAULT 0,
                       created_at       DATETIME     NOT NULL,
                       updated_at       DATETIME     NOT NULL,
                       PRIMARY KEY (task_id),
+                      KEY idx_task_user_deadline (user_id, deadline),
                       KEY idx_task_user_status (user_id, status),
-                      KEY idx_task_deadline (deadline),
+                      KEY idx_task_user_category (user_id, category_id),
+                      KEY idx_task_similar_task (similar_task_id),
+                      UNIQUE KEY uk_task_source_deadline (source_task_id, deadline),
                       CONSTRAINT fk_task_user FOREIGN KEY (user_id) REFERENCES `user` (user_id),
                       CONSTRAINT fk_task_category FOREIGN KEY (category_id) REFERENCES category (category_id),
-                      CONSTRAINT fk_task_similar FOREIGN KEY (similar_task_id) REFERENCES task (task_id) ON DELETE SET NULL
+                      CONSTRAINT fk_task_similar FOREIGN KEY (similar_task_id) REFERENCES task (task_id) ON DELETE SET NULL,
+                      CONSTRAINT fk_task_source FOREIGN KEY (source_task_id) REFERENCES task (task_id) ON DELETE SET NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 -- [삭제] repeat_type : repeat_rule 존재 여부 + frequency가 단일 소스 (중복 어긋남 방지)
 
