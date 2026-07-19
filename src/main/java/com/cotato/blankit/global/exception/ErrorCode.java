@@ -35,7 +35,12 @@ public enum ErrorCode {
     INVALID_SIMILAR_TASK(HttpStatus.BAD_REQUEST, "INVALID_SIMILAR_TASK", "비슷한 과업이 올바르지 않습니다."),
     SIMILAR_TASK_NOT_DONE(HttpStatus.BAD_REQUEST, "SIMILAR_TASK_NOT_DONE", "완료된 과업만 비슷한 과업으로 설정할 수 있습니다."),
     SELF_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "SELF_SIMILAR_TASK_NOT_ALLOWED", "자기 자신을 비슷한 과업으로 설정할 수 없습니다."),
-    CYCLIC_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "CYCLIC_SIMILAR_TASK_NOT_ALLOWED", "순환 비슷한 과업은 설정할 수 없습니다.");
+    CYCLIC_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "CYCLIC_SIMILAR_TASK_NOT_ALLOWED", "순환 비슷한 과업은 설정할 수 없습니다."),
+
+    // Timetable
+    TIMETABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "TIMETABLE_NOT_FOUND", "시간표를 찾을 수 없습니다."),
+    TIMETABLE_TIME_CONFLICT(HttpStatus.CONFLICT, "TIMETABLE_TIME_CONFLICT", "기존 시간표와 시간이 겹칩니다."),
+    TIMETABLE_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_RANGE", "시작 시간은 종료 시간보다 빨라야 합니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
