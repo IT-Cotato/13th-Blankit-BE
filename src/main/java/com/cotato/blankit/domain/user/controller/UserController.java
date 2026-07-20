@@ -68,7 +68,7 @@ public class UserController {
     public ApiResponse<TimetableSettingsResponse> updateTimetableSettings(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody @Valid TimetableSettingsUpdateRequest request) {
-        return ApiResponse.success(new TimetableSettingsResponse(request.startTime(), request.endTime()));
+        return ApiResponse.success(userService.updateTimetableSettings(userDetails.getUserId(), request));
     }
 
     @Operation(summary = "사용자 알림 설정 조회",
