@@ -35,7 +35,10 @@ public enum ErrorCode {
     INVALID_SIMILAR_TASK(HttpStatus.BAD_REQUEST, "INVALID_SIMILAR_TASK", "비슷한 과업이 올바르지 않습니다."),
     SIMILAR_TASK_NOT_DONE(HttpStatus.BAD_REQUEST, "SIMILAR_TASK_NOT_DONE", "완료된 과업만 비슷한 과업으로 설정할 수 있습니다."),
     SELF_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "SELF_SIMILAR_TASK_NOT_ALLOWED", "자기 자신을 비슷한 과업으로 설정할 수 없습니다."),
-    CYCLIC_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "CYCLIC_SIMILAR_TASK_NOT_ALLOWED", "순환 비슷한 과업은 설정할 수 없습니다.");
+    CYCLIC_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "CYCLIC_SIMILAR_TASK_NOT_ALLOWED", "순환 비슷한 과업은 설정할 수 없습니다."),
+
+    // Playlist
+    PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
