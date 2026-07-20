@@ -124,8 +124,9 @@ public class TaskService {
                 normalizeKeyword(keyword),
                 createTaskPageable(page, size)
         );
+        LocalDate today = LocalDate.now(clock);
         return PageResponse.of(
-                taskPage.getContent().stream().map(TaskListResponse::from).toList(),
+                taskPage.getContent().stream().map(task -> TaskListResponse.from(task, today)).toList(),
                 taskPage.getNumber(),
                 taskPage.getSize(),
                 taskPage.getTotalElements()
