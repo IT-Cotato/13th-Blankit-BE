@@ -14,6 +14,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalTime;
+
 @Getter
 @Entity
 @Table(
@@ -50,6 +52,12 @@ public class User extends BaseEntity {
     @Column(name = "recommended_daily_time")
     private Integer recommendedDailyTime;
 
+    @Column(name = "timetable_start_time", nullable = false)
+    private LocalTime timetableStartTime = LocalTime.of(8, 0);
+
+    @Column(name = "timetable_end_time", nullable = false)
+    private LocalTime timetableEndTime = LocalTime.of(0, 0);
+
     public static User create(
             SocialProvider socialProvider,
             String socialId,
@@ -66,5 +74,10 @@ public class User extends BaseEntity {
         user.profileImageUrl = profileImageUrl;
         user.recommendedDailyTime = recommendedDailyTime;
         return user;
+    }
+
+    public void updateTimetableSettings(LocalTime startTime, LocalTime endTime) {
+        this.timetableStartTime = startTime;
+        this.timetableEndTime = endTime;
     }
 }
