@@ -4,6 +4,8 @@ import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.security.JwtTokenProvider;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +55,9 @@ class UserControllerTest {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
@@ -79,6 +84,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.timetableStartTime").value("09:00:00"))
                 .andExpect(jsonPath("$.data.timetableEndTime").value("23:00:00"));
 
+        entityManager.flush();
+        entityManager.clear();
         User saved = userRepository.findById(user.getId()).orElseThrow();
         assertThat(saved.getTimetableStartTime()).isEqualTo(LocalTime.of(9, 0));
         assertThat(saved.getTimetableEndTime()).isEqualTo(LocalTime.of(23, 0));
@@ -150,6 +157,8 @@ class UserControllerTest {
                                 """))
                 .andExpect(status().isOk());
 
+        entityManager.flush();
+        entityManager.clear();
         User unchanged = userRepository.findById(otherUser.getId()).orElseThrow();
         assertThat(unchanged.getTimetableStartTime()).isEqualTo(LocalTime.of(8, 0));
         assertThat(unchanged.getTimetableEndTime()).isEqualTo(LocalTime.of(0, 0));
