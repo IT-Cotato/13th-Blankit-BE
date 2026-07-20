@@ -56,7 +56,7 @@ public class User extends BaseEntity {
     private LocalTime timetableStartTime = LocalTime.of(8, 0);
 
     @Column(name = "timetable_end_time", nullable = false)
-    private LocalTime timetableEndTime = LocalTime.of(0, 0);
+    private LocalTime timetableEndTime = LocalTime.MIDNIGHT;
 
     public static User create(
             SocialProvider socialProvider,
