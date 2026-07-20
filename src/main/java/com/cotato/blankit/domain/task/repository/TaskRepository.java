@@ -92,4 +92,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("userId") Long userId
     );
 
+    boolean existsBySourceTaskIdAndDeadline(Long sourceTaskId, LocalDate deadline);
+
+    Optional<Task> findBySourceTaskIdAndDeadline(Long sourceTaskId, LocalDate deadline);
+
+    boolean existsByCategoryIdAndUserId(Long categoryId, Long userId);
 }

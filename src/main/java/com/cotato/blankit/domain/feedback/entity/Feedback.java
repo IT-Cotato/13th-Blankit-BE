@@ -40,4 +40,34 @@ public class Feedback extends BaseEntity {
 
     @Column(nullable = false)
     private boolean isDraft;
+
+    public static Feedback create(
+            TaskSession taskSession,
+            Task task,
+            User user,
+            Integer progressRate,
+            String memo,
+            boolean isDraft
+    ) {
+        Feedback feedback = new Feedback();
+        feedback.taskSession = taskSession;
+        feedback.task = task;
+        feedback.user = user;
+        feedback.progressRate = progressRate;
+        feedback.memo = memo;
+        feedback.isCompleted = false;
+        feedback.isDraft = isDraft;
+        return feedback;
+    }
+
+    public void update(Integer progressRate, String memo, boolean isDraft) {
+        this.progressRate = progressRate;
+        this.memo = memo;
+        this.isDraft = isDraft;
+    }
+
+    public void complete() {
+        this.isCompleted = true;
+        this.isDraft = false;
+    }
 }

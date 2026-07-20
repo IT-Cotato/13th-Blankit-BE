@@ -33,4 +33,17 @@ public class PlaylistItem extends BaseEntity {
 
     @Column(length = 30)
     private String sourceMode;
+
+    public static PlaylistItem create(Playlist playlist, Task task, int sortOrder, String sourceMode) {
+        PlaylistItem item = new PlaylistItem();
+        item.playlist = playlist;
+        item.task = task;
+        item.sortOrder = sortOrder;
+        item.sourceMode = sourceMode;
+        return item;
+    }
+
+    public void updateSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
+    }
 }
