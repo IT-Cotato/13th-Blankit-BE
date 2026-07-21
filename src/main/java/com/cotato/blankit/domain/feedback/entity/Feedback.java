@@ -41,6 +41,14 @@ public class Feedback extends BaseEntity {
     @Column(nullable = false)
     private boolean isDraft;
 
+    private Integer intervalStartRate;
+
+    private Integer cumulativeElapsedTime;
+
+    private Integer consecutiveCount;
+
+    private Integer intervalDiff;
+
     public static Feedback create(
             TaskSession taskSession,
             Task task,
@@ -64,6 +72,13 @@ public class Feedback extends BaseEntity {
         this.progressRate = progressRate;
         this.memo = memo;
         this.isDraft = isDraft;
+    }
+
+    public void updateMetrics(int intervalStartRate, int cumulativeElapsedTime, Integer consecutiveCount, Integer intervalDiff) {
+        this.intervalStartRate = intervalStartRate;
+        this.cumulativeElapsedTime = cumulativeElapsedTime;
+        this.consecutiveCount = consecutiveCount;
+        this.intervalDiff = intervalDiff;
     }
 
     public void complete() {

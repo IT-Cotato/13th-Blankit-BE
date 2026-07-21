@@ -6,11 +6,14 @@ import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +21,7 @@ public class FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
     private final TaskSessionRepository taskSessionRepository;
+    private final EstimatedTimeCalculator calculator;
 
     @Transactional(readOnly = true)
     public FeedbackResponse getFeedback(Long userId, Long sessionId) {
@@ -41,7 +45,45 @@ public class FeedbackService {
         if (!request.isDraft() && request.progressRate() != null && request.progressRate() == 100) {
             feedback.complete();
         }
+        if (!request.isDraft() && request.progressRate() != null && request.progressRate() > 0) {
+            updateEstimatedTime(userId, feedback, session.getTask());
+        }
         return FeedbackResponse.from(feedback);
+    }
+
+    private void updateEstimatedTime(Long userId, Feedback feedback, Task task) {
+        long cumulativeElapsedSeconds = taskSessionRepository.sumElapsedTimeByTaskIdAndUserId(task.getId(), userId);
+
+        List<Feedback> previousFeedbacks = feedbackRepository
+                .findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(task.getId())
+                .stream()
+                .filter(f -> !f.getFeedbackId().equals(feedback.getFeedbackId()))
+                .toList();
+
+        List<Feedback> similarTaskFeedbacks = task.getSimilarTask() != null
+                ? feedbackRepository.findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(task.getSimilarTask().getId())
+                : List.of();
+
+        int newEstimatedMinutes = calculator.calculate(task, feedback.getProgressRate(),
+                cumulativeElapsedSeconds, previousFeedbacks, similarTaskFeedbacks);
+        task.updateEstimatedTime(newEstimatedMinutes);
+
+        Feedback prevFeedback = previousFeedbacks.isEmpty() ? null : previousFeedbacks.get(previousFeedbacks.size() - 1);
+        int prevRate = prevFeedback != null ? prevFeedback.getProgressRate() : 0;
+        long prevCumulative = prevFeedback != null ? prevFeedback.getCumulativeElapsedTime() : 0;
+        long intervalElapsedCurrent = cumulativeElapsedSeconds - prevCumulative;
+
+        Integer consecutiveCount = null;
+        Integer intervalDiff = null;
+        if (!similarTaskFeedbacks.isEmpty()) {
+            long similarAtCurrent = calculator.getSimilarElapsedSeconds(similarTaskFeedbacks, feedback.getProgressRate());
+            long similarAtPrev = calculator.getSimilarElapsedSeconds(similarTaskFeedbacks, prevRate);
+            long B = intervalElapsedCurrent - (similarAtCurrent - similarAtPrev);
+            consecutiveCount = calculator.calculateCount(B, prevFeedback);
+            intervalDiff = (int) B;
+        }
+
+        feedback.updateMetrics(prevRate, (int) cumulativeElapsedSeconds, consecutiveCount, intervalDiff);
     }
 
     private TaskSession getSessionAndVerifyOwner(Long userId, Long sessionId) {
