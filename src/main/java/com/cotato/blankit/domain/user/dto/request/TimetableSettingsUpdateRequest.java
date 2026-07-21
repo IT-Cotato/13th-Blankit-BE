@@ -12,7 +12,7 @@ public record TimetableSettingsUpdateRequest(
         @NotNull(message = "시작 시간은 필수입니다.")
         LocalTime startTime,
 
-        @Schema(description = "종료 시간 (기본 00:00)", example = "23:00:00")
+        @Schema(description = "종료 시간 (기본 00:00). 00:00은 하루의 끝(24:00)을 의미하는 sentinel 값으로, 시작 시간에 관계없이 허용됩니다. 그 외의 경우 시작 시간보다 커야 합니다.", example = "23:00:00")
         @NotNull(message = "종료 시간은 필수입니다.")
         LocalTime endTime
 ) {
