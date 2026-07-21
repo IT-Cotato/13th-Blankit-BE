@@ -40,4 +40,27 @@ public class Timetable extends BaseEntity {
 
     @Column(nullable = false, length = 20)
     private String color;
+
+    public static Timetable create(User user, byte dayOfWeek, LocalTime startTime, LocalTime endTime,
+                                   String title, String place, String color) {
+        Timetable timetable = new Timetable();
+        timetable.user = user;
+        timetable.dayOfWeek = dayOfWeek;
+        timetable.startTime = startTime;
+        timetable.endTime = endTime;
+        timetable.title = title;
+        timetable.place = place;
+        timetable.color = color;
+        return timetable;
+    }
+
+    public void update(Byte dayOfWeek, LocalTime startTime, LocalTime endTime,
+                       String title, String place, String color) {
+        if (dayOfWeek != null) this.dayOfWeek = dayOfWeek;
+        if (startTime != null) this.startTime = startTime;
+        if (endTime != null) this.endTime = endTime;
+        if (title != null) this.title = title;
+        if (place != null) this.place = place;
+        if (color != null) this.color = color;
+    }
 }

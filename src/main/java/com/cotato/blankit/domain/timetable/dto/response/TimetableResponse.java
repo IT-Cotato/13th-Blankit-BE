@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.timetable.dto.response;
 
+import com.cotato.blankit.domain.timetable.entity.Timetable;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalTime;
@@ -28,4 +29,15 @@ public record TimetableResponse(
         @Schema(description = "블록 색상 (HEX)", example = "#7B5EA7")
         String color
 ) {
+    public static TimetableResponse from(Timetable timetable) {
+        return new TimetableResponse(
+                timetable.getTimetableId(),
+                timetable.getDayOfWeek(),
+                timetable.getStartTime(),
+                timetable.getEndTime(),
+                timetable.getTitle(),
+                timetable.getPlace(),
+                timetable.getColor()
+        );
+    }
 }
