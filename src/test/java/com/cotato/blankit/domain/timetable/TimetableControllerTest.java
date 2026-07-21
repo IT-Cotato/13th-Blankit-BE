@@ -350,6 +350,70 @@ class TimetableControllerTest {
                 .andExpect(jsonPath("$.code").value("TIMETABLE_NOT_FOUND"));
     }
 
+    @Test
+    void updateTimetableRejectsEmptyTitle() throws Exception {
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(10, 30), "원래 제목");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateTimetableRejectsWhitespaceTitle() throws Exception {
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(10, 30), "원래 제목");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateTimetableRejectsEmptyColor() throws Exception {
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(10, 30), "원래 제목");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "color": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateTimetableRejectsInvalidHexColor() throws Exception {
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(10, 30), "원래 제목");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "color": "red"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
     // ── 시간표 단건 삭제 ──────────────────────────────────────────
 
     @Test
