@@ -20,6 +20,7 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "유효하지 않은 리프레시 토큰입니다."),
     REFRESH_TOKEN_CONFLICT(HttpStatus.CONFLICT, "REFRESH_TOKEN_CONFLICT", "리프레시 토큰 처리 중 충돌이 발생했습니다. 다시 시도해주세요."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."),
+    INVALID_TIMETABLE_SETTINGS(HttpStatus.BAD_REQUEST, "INVALID_TIMETABLE_SETTINGS", "시작 시간은 종료 시간보다 빨라야 합니다."),
 
     // Task
     TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "TASK_NOT_FOUND", "과업을 찾을 수 없습니다."),

@@ -56,7 +56,7 @@ public class UserController {
     }
 
     @Operation(summary = "시간표 표시 범위 수정",
-            description = "홈 화면·시간표 화면에서 표시할 시작/종료 시간을 수정합니다. 기본값: 08:00 ~ 24:00.",
+            description = "홈 화면·시간표 화면에서 표시할 시작/종료 시간을 수정합니다. 기본값: 08:00 ~ 00:00.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
@@ -68,7 +68,7 @@ public class UserController {
     public ApiResponse<TimetableSettingsResponse> updateTimetableSettings(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody @Valid TimetableSettingsUpdateRequest request) {
-        return ApiResponse.success(new TimetableSettingsResponse(request.startTime(), request.endTime()));
+        return ApiResponse.success(userService.updateTimetableSettings(userDetails.getUserId(), request));
     }
 
     @Operation(summary = "사용자 알림 설정 조회",
