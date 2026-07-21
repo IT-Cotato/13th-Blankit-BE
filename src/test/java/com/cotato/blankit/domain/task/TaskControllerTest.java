@@ -673,7 +673,7 @@ class TaskControllerTest {
         saveTask(user, studyCategory, "영어 단어 암기", LocalDate.parse("2026-07-21"), null, TaskStatus.TODO);
         saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", 1, false)), "수학 타인 과업", LocalDate.parse("2026-07-22"), null, TaskStatus.TODO);
 
-        mockMvc.perform(get("/api/v1/search")
+        mockMvc.perform(get("/api/search")
                         .header("Authorization", "Bearer " + token)
                         .param("keyword", " 수학 ")
                         .param("page", "0")
@@ -694,14 +694,14 @@ class TaskControllerTest {
     void searchApiReturnsEmptyListAndRejectsBlankKeyword() throws Exception {
         saveTask(user, studyCategory, "수학 기말고사 준비", LocalDate.parse("2026-07-20"), null, TaskStatus.TODO);
 
-        mockMvc.perform(get("/api/v1/search")
+        mockMvc.perform(get("/api/search")
                         .header("Authorization", "Bearer " + token)
                         .param("keyword", "없는과업"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalCount").value(0))
                 .andExpect(jsonPath("$.data.tasks.length()").value(0));
 
-        mockMvc.perform(get("/api/v1/search")
+        mockMvc.perform(get("/api/search")
                         .header("Authorization", "Bearer " + token)
                         .param("keyword", "   "))
                 .andExpect(status().isBadRequest())
@@ -710,16 +710,16 @@ class TaskControllerTest {
 
     @Test
     void searchApiRequiresAuthenticationAndIsIncludedInSwaggerDocs() throws Exception {
-        mockMvc.perform(get("/api/v1/search")
+        mockMvc.perform(get("/api/search")
                         .param("keyword", "수학"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 
         mockMvc.perform(get("/v3/api-docs/1. 구현 완료"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paths['/api/v1/search']").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/search'].get.parameters[?(@.name == 'page')]").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/search'].get.parameters[?(@.name == 'size')]").exists());
+                .andExpect(jsonPath("$.paths['/api/search']").exists())
+                .andExpect(jsonPath("$.paths['/api/search'].get.parameters[?(@.name == 'page')]").exists())
+                .andExpect(jsonPath("$.paths['/api/search'].get.parameters[?(@.name == 'size')]").exists());
     }
 
     @Test
