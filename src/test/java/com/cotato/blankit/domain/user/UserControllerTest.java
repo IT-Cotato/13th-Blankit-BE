@@ -142,6 +142,43 @@ class UserControllerTest {
     }
 
     @Test
+    void updateTimetableSettingsRejectsReversedTimeRange() throws Exception {
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "18:00:00",
+                                  "endTime": "09:00:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_TIMETABLE_SETTINGS"));
+    }
+
+    @Test
+    void updateTimetableSettingsAllowsMidnightAsEndTime() throws Exception {
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "08:00:00",
+                                  "endTime": "00:00:00"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.timetableEndTime").value("00:00:00"));
+
+        entityManager.flush();
+        entityManager.clear();
+        User saved = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(saved.getTimetableEndTime()).isEqualTo(LocalTime.MIDNIGHT);
+    }
+
+    @Test
     void updateTimetableSettingsDoesNotAffectOtherUser() throws Exception {
         User otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "other-settings-user", "other@example.com", "다른사용자", null, 120));
 

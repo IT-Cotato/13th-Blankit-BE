@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -36,9 +38,16 @@ public class UserService {
 
     @Transactional
     public TimetableSettingsResponse updateTimetableSettings(Long userId, TimetableSettingsUpdateRequest request) {
+        validateTimetableSettings(request.startTime(), request.endTime());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         user.updateTimetableSettings(request.startTime(), request.endTime());
         return new TimetableSettingsResponse(user.getTimetableStartTime(), user.getTimetableEndTime());
+    }
+
+    private void validateTimetableSettings(LocalTime startTime, LocalTime endTime) {
+        if (!endTime.equals(LocalTime.MIDNIGHT) && !startTime.isBefore(endTime)) {
+            throw new CustomException(ErrorCode.INVALID_TIMETABLE_SETTINGS);
+        }
     }
 }
