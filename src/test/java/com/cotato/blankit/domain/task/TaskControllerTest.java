@@ -10,6 +10,7 @@ import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
+import com.cotato.blankit.domain.search.repository.SearchHistoryRepository;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
@@ -93,6 +94,9 @@ class TaskControllerTest {
 
     @Autowired
     private TaskSessionRepository taskSessionRepository;
+
+    @Autowired
+    private SearchHistoryRepository searchHistoryRepository;
 
     @Autowired
     private RepeatDeadlineRefreshService repeatDeadlineRefreshService;
@@ -720,6 +724,79 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.paths['/api/search']").exists())
                 .andExpect(jsonPath("$.paths['/api/search'].get.parameters[?(@.name == 'page')]").exists())
                 .andExpect(jsonPath("$.paths['/api/search'].get.parameters[?(@.name == 'size')]").exists());
+    }
+
+    @Test
+    void searchApiSavesAndRefreshesSearchHistory() throws Exception {
+        saveTask(user, studyCategory, "수학 기말고사 준비", LocalDate.parse("2026-07-20"), null, TaskStatus.TODO);
+        saveTask(user, studyCategory, "영어 단어 암기", LocalDate.parse("2026-07-21"), null, TaskStatus.TODO);
+
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", " 수학 "))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(searchHistoryRepository.findAll()).hasSize(1);
+        var firstHistory = searchHistoryRepository.findByUserIdAndKeyword(user.getId(), "수학").orElseThrow();
+        var firstSearchedAt = firstHistory.getUpdatedAt();
+
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "없는검색어"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(0));
+
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "수학"))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(searchHistoryRepository.findAll()).hasSize(2);
+        var refreshedHistory = searchHistoryRepository.findByUserIdAndKeyword(user.getId(), "수학").orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(refreshedHistory.getSearchHistoryId()).isEqualTo(firstHistory.getSearchHistoryId());
+        org.assertj.core.api.Assertions.assertThat(refreshedHistory.getUpdatedAt()).isAfterOrEqualTo(firstSearchedAt);
+
+        mockMvc.perform(get("/api/v1/search-histories")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].keyword").value("수학"))
+                .andExpect(jsonPath("$.data[1].keyword").value("없는검색어"));
+    }
+
+    @Test
+    void searchHistoryIsUserScopedAndFailedSearchDoesNotSaveHistory() throws Exception {
+        saveTask(user, studyCategory, "수학 기말고사 준비", LocalDate.parse("2026-07-20"), null, TaskStatus.TODO);
+        String otherToken = jwtTokenProvider.createAccessToken(otherUser.getId());
+
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "   "))
+                .andExpect(status().isBadRequest());
+
+        org.assertj.core.api.Assertions.assertThat(searchHistoryRepository.findAll()).isEmpty();
+
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "수학"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .param("keyword", "수학"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/search-histories")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].keyword").value("수학"));
+
+        mockMvc.perform(get("/api/v1/search-histories")
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].keyword").value("수학"));
     }
 
     @Test
