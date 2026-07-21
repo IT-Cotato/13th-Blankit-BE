@@ -60,7 +60,7 @@ public class EstimatedTimeCalculator {
         double speedSimilarAtNow = currentRate > 0 ? (double) similarAtCurrent / currentRate : 0;
         double speedCurrentAtPrev = prevRate > 0 ? (double) prevCumulative / prevRate : 0;
         double speedSimilarAtPrev = prevRate > 0 ? (double) similarAtPrev / prevRate : 0;
-        double C = (speedCurrentAtNow - speedSimilarAtNow) - (speedCurrentAtPrev - speedSimilarAtPrev);
+        double C = (speedCurrentAtNow - speedCurrentAtPrev) - (speedSimilarAtNow - speedSimilarAtPrev);
 
         double D = (100 - currentRate) / 100.0;
 
