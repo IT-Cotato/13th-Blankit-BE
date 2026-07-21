@@ -351,6 +351,38 @@ class TimetableControllerTest {
     }
 
     @Test
+    void updateTimetableRejectsEmptyPlace() throws Exception {
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(10, 30), "원래 제목");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "place": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateTimetableRejectsWhitespacePlace() throws Exception {
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(10, 30), "원래 제목");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "place": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updateTimetableRejectsEmptyTitle() throws Exception {
         Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(10, 30), "원래 제목");
 
