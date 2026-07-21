@@ -55,6 +55,19 @@ public class SearchService {
                 .toList();
     }
 
+    @Transactional
+    public void deleteSearchHistory(Long userId, Long searchHistoryId) {
+        int deletedCount = searchHistoryRepository.deleteBySearchHistoryIdAndUserId(searchHistoryId, userId);
+        if (deletedCount == 0) {
+            throw new CustomException(ErrorCode.SEARCH_HISTORY_NOT_FOUND);
+        }
+    }
+
+    @Transactional
+    public void deleteAllSearchHistories(Long userId) {
+        searchHistoryRepository.deleteAllByUserId(userId);
+    }
+
     private String normalizeKeyword(String keyword) {
         if (keyword == null || keyword.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_INPUT);

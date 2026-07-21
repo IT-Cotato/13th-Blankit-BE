@@ -14,6 +14,8 @@ public interface SearchHistoryRepository extends JpaRepository<SearchHistory, Lo
 
     Optional<SearchHistory> findByUserIdAndKeyword(Long userId, String keyword);
 
+    Optional<SearchHistory> findBySearchHistoryIdAndUserId(Long searchHistoryId, Long userId);
+
     List<SearchHistory> findAllByUserIdOrderByUpdatedAtDescSearchHistoryIdDesc(Long userId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -26,4 +28,22 @@ public interface SearchHistoryRepository extends JpaRepository<SearchHistory, Lo
             @Param("searchHistoryId") Long searchHistoryId,
             @Param("searchedAt") LocalDateTime searchedAt
     );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            delete from SearchHistory sh
+            where sh.searchHistoryId = :searchHistoryId
+              and sh.user.id = :userId
+            """)
+    int deleteBySearchHistoryIdAndUserId(
+            @Param("searchHistoryId") Long searchHistoryId,
+            @Param("userId") Long userId
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            delete from SearchHistory sh
+            where sh.user.id = :userId
+            """)
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

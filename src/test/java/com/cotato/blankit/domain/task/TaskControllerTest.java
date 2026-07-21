@@ -756,7 +756,7 @@ class TaskControllerTest {
         org.assertj.core.api.Assertions.assertThat(refreshedHistory.getSearchHistoryId()).isEqualTo(firstHistory.getSearchHistoryId());
         org.assertj.core.api.Assertions.assertThat(refreshedHistory.getUpdatedAt()).isAfterOrEqualTo(firstSearchedAt);
 
-        mockMvc.perform(get("/api/v1/search-histories")
+        mockMvc.perform(get("/api/search-histories")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(2))
@@ -786,13 +786,82 @@ class TaskControllerTest {
                         .param("keyword", "수학"))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/v1/search-histories")
+        mockMvc.perform(get("/api/search-histories")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].keyword").value("수학"));
 
-        mockMvc.perform(get("/api/v1/search-histories")
+        mockMvc.perform(get("/api/search-histories")
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].keyword").value("수학"));
+    }
+
+    @Test
+    void deleteSearchHistoryDeletesOnlyOwnHistory() throws Exception {
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "수학"))
+                .andExpect(status().isOk());
+
+        String otherToken = jwtTokenProvider.createAccessToken(otherUser.getId());
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .param("keyword", "영어"))
+                .andExpect(status().isOk());
+
+        var ownHistory = searchHistoryRepository.findByUserIdAndKeyword(user.getId(), "수학").orElseThrow();
+        var otherHistory = searchHistoryRepository.findByUserIdAndKeyword(otherUser.getId(), "영어").orElseThrow();
+
+        mockMvc.perform(delete("/api/search-histories/{searchHistoryId}", otherHistory.getSearchHistoryId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SEARCH_HISTORY_NOT_FOUND"));
+
+        org.assertj.core.api.Assertions.assertThat(searchHistoryRepository.findById(otherHistory.getSearchHistoryId())).isPresent();
+
+        mockMvc.perform(delete("/api/search-histories/{searchHistoryId}", ownHistory.getSearchHistoryId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        org.assertj.core.api.Assertions.assertThat(searchHistoryRepository.findById(ownHistory.getSearchHistoryId())).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(searchHistoryRepository.findById(otherHistory.getSearchHistoryId())).isPresent();
+
+        mockMvc.perform(delete("/api/search-histories/{searchHistoryId}", ownHistory.getSearchHistoryId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SEARCH_HISTORY_NOT_FOUND"));
+    }
+
+    @Test
+    void deleteAllSearchHistoriesDeletesOnlyOwnHistories() throws Exception {
+        String otherToken = jwtTokenProvider.createAccessToken(otherUser.getId());
+
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "수학"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "영어"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/search")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .param("keyword", "수학"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/search-histories")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/search-histories")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+
+        mockMvc.perform(get("/api/search-histories")
                         .header("Authorization", "Bearer " + otherToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1))
