@@ -29,6 +29,7 @@ public record TimetableCreateRequest(
 
         @Schema(description = "장소 (선택)", example = "공학관 101호")
         @Size(max = 100, message = "장소는 100자 이하여야 합니다.")
+        @Pattern(regexp = "^(?!\\s+$).+$", message = "장소는 공백만으로 이루어질 수 없습니다.")
         String place,
 
         @Schema(description = "블록 색상 (HEX)", example = "#7B5EA7")
