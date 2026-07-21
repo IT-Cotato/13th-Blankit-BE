@@ -20,7 +20,7 @@ import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
-import com.cotato.blankit.domain.task.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
