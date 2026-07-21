@@ -44,6 +44,9 @@ public enum ErrorCode {
     TIMETABLE_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_RANGE", "시작 시간은 종료 시간보다 빨라야 합니다."),
     TIMETABLE_INVALID_TIME_UNIT(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_UNIT", "시간은 30분 단위여야 합니다."),
 
+    // Feedback & Session
+    SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),
+
     // Playlist
     PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다.");
 
