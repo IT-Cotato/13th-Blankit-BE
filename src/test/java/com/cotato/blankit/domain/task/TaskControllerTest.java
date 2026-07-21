@@ -668,6 +668,61 @@ class TaskControllerTest {
     }
 
     @Test
+    void searchApiReturnsTasksByKeyword() throws Exception {
+        Task matchingTask = saveTask(user, studyCategory, "수학 기말고사 준비", LocalDate.parse("2026-07-20"), null, TaskStatus.IN_PROGRESS);
+        saveTask(user, studyCategory, "영어 단어 암기", LocalDate.parse("2026-07-21"), null, TaskStatus.TODO);
+        saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", 1, false)), "수학 타인 과업", LocalDate.parse("2026-07-22"), null, TaskStatus.TODO);
+
+        mockMvc.perform(get("/api/v1/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", " 수학 ")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(1))
+                .andExpect(jsonPath("$.data.tasks[0].taskId").value(matchingTask.getId()))
+                .andExpect(jsonPath("$.data.tasks[0].title").value("수학 기말고사 준비"))
+                .andExpect(jsonPath("$.data.tasks[0].categoryId").value(studyCategory.getId()))
+                .andExpect(jsonPath("$.data.tasks[0].categoryName").value("학업"))
+                .andExpect(jsonPath("$.data.tasks[0].categoryColor").value("#5C9EFF"))
+                .andExpect(jsonPath("$.data.tasks[0].deadline").value("2026-07-20"))
+                .andExpect(jsonPath("$.data.tasks[0].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data.tasks[0].progressRate").value(0));
+    }
+
+    @Test
+    void searchApiReturnsEmptyListAndRejectsBlankKeyword() throws Exception {
+        saveTask(user, studyCategory, "수학 기말고사 준비", LocalDate.parse("2026-07-20"), null, TaskStatus.TODO);
+
+        mockMvc.perform(get("/api/v1/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "없는과업"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(0))
+                .andExpect(jsonPath("$.data.tasks.length()").value(0));
+
+        mockMvc.perform(get("/api/v1/search")
+                        .header("Authorization", "Bearer " + token)
+                        .param("keyword", "   "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
+    void searchApiRequiresAuthenticationAndIsIncludedInSwaggerDocs() throws Exception {
+        mockMvc.perform(get("/api/v1/search")
+                        .param("keyword", "수학"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(get("/v3/api-docs/1. 구현 완료"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/v1/search']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/search'].get.parameters[?(@.name == 'page')]").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/search'].get.parameters[?(@.name == 'size')]").exists());
+    }
+
+    @Test
     void historyReturnsDoneTasksWithTaskSessionElapsedTime() throws Exception {
         Task done = saveTask(user, studyCategory, "이전 완료", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
         saveTask(user, studyCategory, "진행 중", LocalDate.parse("2026-08-02"), null, TaskStatus.IN_PROGRESS);

@@ -2,7 +2,9 @@ package com.cotato.blankit.domain.search.dto.response;
 
 import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
+import com.cotato.blankit.domain.task.entity.Task;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.springframework.data.domain.Page;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -47,5 +49,28 @@ public record SearchResultResponse(
             @Schema(description = "전체 진척도 (0~100)", example = "40")
             int progressRate
     ) {
+    }
+
+    public static SearchResultResponse from(Page<Task> tasks) {
+        return new SearchResultResponse(
+                (int) Math.min(tasks.getTotalElements(), Integer.MAX_VALUE),
+                tasks.getContent().stream()
+                        .map(SearchResultResponse::from)
+                        .toList()
+        );
+    }
+
+    public static SearchTaskItem from(Task task) {
+        return new SearchTaskItem(
+                task.getId(),
+                task.getTitle(),
+                task.getCategory().getId(),
+                task.getCategory().getName(),
+                task.getCategory().getColor(),
+                task.getPriority(),
+                task.getDeadline(),
+                task.getStatus(),
+                0
+        );
     }
 }
