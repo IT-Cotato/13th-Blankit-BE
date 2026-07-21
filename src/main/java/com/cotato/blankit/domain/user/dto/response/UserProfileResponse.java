@@ -22,7 +22,7 @@ public record UserProfileResponse(
         @Schema(description = "시간표 표시 시작 시간 (기본 08:00)", example = "08:00:00")
         LocalTime timetableStartTime,
 
-        @Schema(description = "시간표 표시 종료 시간 (기본 24:00)", example = "24:00:00")
+        @Schema(description = "시간표 표시 종료 시간 (기본 00:00)", example = "00:00:00")
         LocalTime timetableEndTime
 ) {
 }

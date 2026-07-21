@@ -12,7 +12,7 @@ public record TimetableSettingsUpdateRequest(
         @NotNull(message = "시작 시간은 필수입니다.")
         LocalTime startTime,
 
-        @Schema(description = "종료 시간 (기본 24:00)", example = "23:00:00")
+        @Schema(description = "종료 시간 (기본 00:00)", example = "23:00:00")
         @NotNull(message = "종료 시간은 필수입니다.")
         LocalTime endTime
 ) {
