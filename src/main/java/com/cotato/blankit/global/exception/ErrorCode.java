@@ -40,7 +40,8 @@ public enum ErrorCode {
     // Timetable
     TIMETABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "TIMETABLE_NOT_FOUND", "시간표를 찾을 수 없습니다."),
     TIMETABLE_TIME_CONFLICT(HttpStatus.CONFLICT, "TIMETABLE_TIME_CONFLICT", "기존 시간표와 시간이 겹칩니다."),
-    TIMETABLE_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_RANGE", "시작 시간은 종료 시간보다 빨라야 합니다.");
+    TIMETABLE_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_RANGE", "시작 시간은 종료 시간보다 빨라야 합니다."),
+    TIMETABLE_INVALID_TIME_UNIT(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_UNIT", "시간은 30분 단위여야 합니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

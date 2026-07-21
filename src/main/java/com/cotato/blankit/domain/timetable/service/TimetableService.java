@@ -34,10 +34,9 @@ public class TimetableService {
     @Transactional
     public TimetableResponse createTimetable(Long userId, TimetableCreateRequest request) {
         validateTimeRange(request.startTime(), request.endTime());
+        User user = getUserForUpdate(userId);
         checkTimeConflict(userId, request.dayOfWeek().byteValue(),
                 request.startTime(), request.endTime(), null);
-
-        User user = getUser(userId);
         Timetable timetable = Timetable.create(
                 user,
                 request.dayOfWeek().byteValue(),
@@ -52,6 +51,7 @@ public class TimetableService {
 
     @Transactional
     public TimetableResponse updateTimetable(Long userId, Long timetableId, TimetableUpdateRequest request) {
+        getUserForUpdate(userId);
         Timetable timetable = getTimetable(userId, timetableId);
 
         byte targetDay = request.dayOfWeek() != null ? request.dayOfWeek().byteValue() : timetable.getDayOfWeek();
@@ -87,6 +87,9 @@ public class TimetableService {
         if (!startTime.isBefore(endTime)) {
             throw new CustomException(ErrorCode.TIMETABLE_INVALID_TIME_RANGE);
         }
+        if (startTime.getMinute() % 30 != 0 || endTime.getMinute() % 30 != 0) {
+            throw new CustomException(ErrorCode.TIMETABLE_INVALID_TIME_UNIT);
+        }
     }
 
     private void checkTimeConflict(Long userId, byte dayOfWeek, LocalTime startTime, LocalTime endTime, Long excludeId) {
@@ -100,8 +103,8 @@ public class TimetableService {
                 .orElseThrow(() -> new CustomException(ErrorCode.TIMETABLE_NOT_FOUND));
     }
 
-    private User getUser(Long userId) {
-        return userRepository.findById(userId)
+    private User getUserForUpdate(Long userId) {
+        return userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 }
