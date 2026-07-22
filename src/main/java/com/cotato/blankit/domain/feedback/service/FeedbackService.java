@@ -47,6 +47,7 @@ public class FeedbackService {
         }
         if (!request.isDraft() && request.progressRate() != null && request.progressRate() > 0) {
             updateEstimatedTime(userId, feedback, session.getTask());
+            session.getTask().updateProgressRate(request.progressRate());
         }
         return FeedbackResponse.from(feedback);
     }
