@@ -13,7 +13,7 @@ import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
-import com.cotato.blankit.domain.task.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.service.RepeatDeadlineRefreshService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;

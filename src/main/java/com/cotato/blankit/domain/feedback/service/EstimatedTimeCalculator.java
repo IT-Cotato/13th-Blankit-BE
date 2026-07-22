@@ -62,7 +62,7 @@ public class EstimatedTimeCalculator {
         double speedSimilarAtPrev = prevRate > 0 ? (double) similarAtPrev / prevRate : 0;
         double C = (speedCurrentAtNow - speedCurrentAtPrev) - (speedSimilarAtNow - speedSimilarAtPrev);
 
-        double D = (100 - currentRate) / 100.0;
+        double D = (100 - currentRate);
 
         int count = calculateCount(B, prevFeedback);
         double correctionFactor = (double) count / (count + 2);
@@ -86,7 +86,7 @@ public class EstimatedTimeCalculator {
                 if (intervalRate == 0) return 0;
                 long intervalElapsed = fbCumulative - prevCumulative;
                 double speedPerPercent = (double) intervalElapsed / intervalRate;
-                return Math.round(speedPerPercent * progressRate);
+                return Math.round(prevCumulative + speedPerPercent * (progressRate - prevRate));
             }
             prevRate = fbRate;
             prevCumulative = fbCumulative;
@@ -101,7 +101,7 @@ public class EstimatedTimeCalculator {
         if (lastIntervalRate == 0) return 0;
         long lastIntervalElapsed = lastFb.getCumulativeElapsedTime() - lastPrevCumulative;
         double speedPerPercent = (double) lastIntervalElapsed / lastIntervalRate;
-        return Math.round(speedPerPercent * progressRate);
+        return Math.round(lastFb.getCumulativeElapsedTime() + speedPerPercent * (progressRate - lastFb.getProgressRate()));
     }
 
     // 3-5
