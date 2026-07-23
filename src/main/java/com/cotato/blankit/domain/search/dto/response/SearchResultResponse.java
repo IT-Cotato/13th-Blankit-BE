@@ -19,6 +19,8 @@ public record SearchResultResponse(
         List<SearchTaskItem> tasks
 ) {
 
+    private static final int DEFAULT_PROGRESS_RATE = 0;
+
     @Schema(description = "검색 결과 과업 항목")
     public record SearchTaskItem(
 
@@ -70,7 +72,12 @@ public record SearchResultResponse(
                 task.getPriority(),
                 task.getDeadline(),
                 task.getStatus(),
-                0
+                resolveProgressRate(task)
         );
+    }
+
+    private static int resolveProgressRate(Task task) {
+        // TODO: 진행률 산정 정책 확정 후 Feedback/TaskStep 기반 일괄 조회로 교체 필요
+        return DEFAULT_PROGRESS_RATE;
     }
 }

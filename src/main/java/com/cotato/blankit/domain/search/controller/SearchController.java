@@ -39,7 +39,7 @@ public class SearchController {
     public ApiResponse<SearchResultResponse> search(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Parameter(description = "검색어", example = "수학", required = true)
-            @RequestParam(required = false) String keyword,
+            @RequestParam String keyword,
             @Parameter(description = "페이지 번호", example = "0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "페이지 크기", example = "20")

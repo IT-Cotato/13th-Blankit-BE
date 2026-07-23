@@ -26,6 +26,7 @@ import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import com.cotato.blankit.global.response.PageResponse;
+import com.cotato.blankit.global.util.LikeQueryUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -51,7 +52,6 @@ public class TaskService {
 
     public static final int DEFAULT_NOTIFY_BEFORE = 1440;
     private static final int MAX_PAGE_SIZE = 100;
-    private static final int MAX_KEYWORD_LENGTH = 100;
     private final TaskRepository taskRepository;
     private final NotificationSettingRepository notificationSettingRepository;
     private final RepeatRuleRepository repeatRuleRepository;
@@ -121,7 +121,7 @@ public class TaskService {
                 date,
                 status,
                 categoryId,
-                normalizeKeyword(keyword),
+                LikeQueryUtils.normalizeAndEscapeOptionalKeyword(keyword),
                 createTaskPageable(page, size)
         );
         return PageResponse.of(
@@ -188,7 +188,7 @@ public class TaskService {
     ) {
         Page<Task> history = taskRepository.searchHistory(
                 userId,
-                normalizeKeyword(keyword),
+                LikeQueryUtils.normalizeAndEscapeOptionalKeyword(keyword),
                 categoryId,
                 createPageable(page, size)
         );
@@ -506,24 +506,6 @@ public class TaskService {
                         row -> (Long) row[0],
                         row -> ((Number) row[1]).longValue()
                 ));
-    }
-
-    private String normalizeKeyword(String keyword) {
-        if (keyword == null || keyword.isBlank()) {
-            return null;
-        }
-        String normalized = keyword.trim();
-        if (normalized.length() > MAX_KEYWORD_LENGTH) {
-            throw new CustomException(ErrorCode.INVALID_INPUT);
-        }
-        return escapeLikeKeyword(normalized);
-    }
-
-    private String escapeLikeKeyword(String keyword) {
-        return keyword
-                .replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
     }
 
     private Pageable createPageable(int page, int size) {

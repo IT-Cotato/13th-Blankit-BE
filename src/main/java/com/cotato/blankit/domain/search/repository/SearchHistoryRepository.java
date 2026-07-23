@@ -1,6 +1,8 @@
 package com.cotato.blankit.domain.search.repository;
 
 import com.cotato.blankit.domain.search.entity.SearchHistory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -18,6 +20,8 @@ public interface SearchHistoryRepository extends JpaRepository<SearchHistory, Lo
 
     List<SearchHistory> findAllByUserIdOrderByUpdatedAtDescSearchHistoryIdDesc(Long userId);
 
+    Page<SearchHistory> findAllByUserIdOrderByUpdatedAtDescSearchHistoryIdDesc(Long userId, Pageable pageable);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update SearchHistory sh
@@ -26,6 +30,19 @@ public interface SearchHistoryRepository extends JpaRepository<SearchHistory, Lo
             """)
     int refreshSearchedAt(
             @Param("searchHistoryId") Long searchHistoryId,
+            @Param("searchedAt") LocalDateTime searchedAt
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            update SearchHistory sh
+            set sh.updatedAt = :searchedAt
+            where sh.user.id = :userId
+              and sh.keyword = :keyword
+            """)
+    int refreshSearchedAtByUserIdAndKeyword(
+            @Param("userId") Long userId,
+            @Param("keyword") String keyword,
             @Param("searchedAt") LocalDateTime searchedAt
     );
 

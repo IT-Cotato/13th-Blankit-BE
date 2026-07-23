@@ -7,6 +7,7 @@ import com.cotato.blankit.global.exception.ErrorCode;
 import com.cotato.blankit.global.response.ApiResponse;
 import com.cotato.blankit.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -31,19 +33,23 @@ public class SearchHistoryController {
     private final SearchService searchService;
 
     @Operation(summary = "최근 검색어 목록 조회",
-            description = "현재 로그인한 사용자의 최근 검색어를 최신 검색 순으로 반환합니다. 별도 최대 보관 개수 제한은 없습니다.")
+            description = "현재 로그인한 사용자의 최근 검색어를 최신 검색 순으로 반환합니다. page, size를 생략하면 첫 20개를 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
     })
     @GetMapping
     public ApiResponse<List<SearchHistoryResponse>> getSearchHistory(
-            @AuthenticationPrincipal CustomUserDetails userDetails
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Parameter(description = "페이지 번호", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "페이지 크기", example = "20")
+            @RequestParam(defaultValue = "20") int size
     ) {
         if (userDetails == null) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
-        return ApiResponse.success(searchService.getSearchHistories(userDetails.getUserId()));
+        return ApiResponse.success(searchService.getSearchHistories(userDetails.getUserId(), page, size));
     }
 
     @Operation(summary = "최근 검색어 단건 삭제",
