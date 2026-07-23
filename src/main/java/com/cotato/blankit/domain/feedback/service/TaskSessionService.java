@@ -54,6 +54,9 @@ public class TaskSessionService {
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
         }
+        if (session.getStatus() == TaskSessionStatus.DONE) {
+            throw new CustomException(ErrorCode.SESSION_ALREADY_DONE);
+        }
         if (request.status() == TaskSessionStatus.PLAYING) {
             if (session.getStatus() == TaskSessionStatus.PLAYING
                     || taskSessionRepository.existsByUser_IdAndStatusAndTaskSessionIdNot(userId, TaskSessionStatus.PLAYING, sessionId)) {

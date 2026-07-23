@@ -224,6 +224,23 @@ class FeedbackControllerTest {
     // ─── 피드백 ───────────────────────────────────────────────────────────────
 
     @Test
+    void updateStatus_doneSession_returns409() throws Exception {
+        // 이미 DONE 처리된 세션에 PLAYING/PAUSED 요청 시 SESSION_ALREADY_DONE(409)
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 1800, TaskSessionStatus.DONE));
+
+        mockMvc.perform(patch("/api/sessions/{sessionId}/status", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "PLAYING", "elapsedTime": 1800 }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SESSION_ALREADY_DONE"));
+    }
+
+    @Test
     void getFeedback_noFeedback_returnsNull() throws Exception {
         // 피드백이 없는 세션 조회 시 data=null 반환
         TaskSession session = taskSessionRepository.save(
