@@ -303,12 +303,12 @@ CREATE TABLE daily_recommendation_item (
 CREATE TABLE search_history (
                                 search_history_id  BIGINT       NOT NULL AUTO_INCREMENT,
                                 user_id            BIGINT       NOT NULL,
-                                keyword            VARCHAR(100) NOT NULL COMMENT '검색 시각은 created_at 사용',
+                                keyword            VARCHAR(100) NOT NULL COMMENT '최근 검색 시각은 updated_at 사용',
                                 created_at         DATETIME     NOT NULL,
-                                updated_at         DATETIME     NOT NULL,
+                                updated_at         DATETIME(6)  NOT NULL,
                                 PRIMARY KEY (search_history_id),
-    -- 최근 5개 조회용
-                                KEY idx_search_history_user (user_id, created_at DESC),
+                                UNIQUE KEY uk_search_history_user_keyword (user_id, keyword),
+                                KEY idx_search_history_user_updated (user_id, updated_at DESC),
                                 CONSTRAINT fk_search_history_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 

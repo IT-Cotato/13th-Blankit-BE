@@ -38,6 +38,9 @@ public enum ErrorCode {
     SELF_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "SELF_SIMILAR_TASK_NOT_ALLOWED", "자기 자신을 비슷한 과업으로 설정할 수 없습니다."),
     CYCLIC_SIMILAR_TASK_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "CYCLIC_SIMILAR_TASK_NOT_ALLOWED", "순환 비슷한 과업은 설정할 수 없습니다."),
 
+    // Search
+    SEARCH_HISTORY_NOT_FOUND(HttpStatus.NOT_FOUND, "SEARCH_HISTORY_NOT_FOUND", "최근 검색어를 찾을 수 없습니다."),
+
     // Timetable
     TIMETABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "TIMETABLE_NOT_FOUND", "시간표를 찾을 수 없습니다."),
     TIMETABLE_TIME_CONFLICT(HttpStatus.CONFLICT, "TIMETABLE_TIME_CONFLICT", "기존 시간표와 시간이 겹칩니다."),
