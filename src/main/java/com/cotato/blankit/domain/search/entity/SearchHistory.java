@@ -17,6 +17,10 @@ import lombok.NoArgsConstructor;
                 @Index(name = "idx_search_history_user_updated", columnList = "user_id, updated_at")
         }
 )
+@AttributeOverrides({
+        @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false, updatable = false)),
+        @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)"))
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SearchHistory extends BaseEntity {

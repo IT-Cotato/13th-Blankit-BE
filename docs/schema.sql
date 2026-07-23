@@ -305,7 +305,7 @@ CREATE TABLE search_history (
                                 user_id            BIGINT       NOT NULL,
                                 keyword            VARCHAR(100) NOT NULL COMMENT '최근 검색 시각은 updated_at 사용',
                                 created_at         DATETIME     NOT NULL,
-                                updated_at         DATETIME     NOT NULL,
+                                updated_at         DATETIME(6)  NOT NULL,
                                 PRIMARY KEY (search_history_id),
                                 UNIQUE KEY uk_search_history_user_keyword (user_id, keyword),
                                 KEY idx_search_history_user_updated (user_id, updated_at DESC),
