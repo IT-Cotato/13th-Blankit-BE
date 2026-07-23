@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/playlist")
+@RequestMapping("/api/playlist")
 public class PlaylistController {
 
     private final PlaylistService playlistService;
