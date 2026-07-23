@@ -79,7 +79,8 @@ public class SwaggerConfig {
                 .group("1. 구현 완료")
                 .pathsToMatch("/api/**")
                 .addOperationCustomizer((operation, handlerMethod) -> {
-                    if (handlerMethod.getBeanType().isAnnotationPresent(NotImplementedYet.class)) {
+                    if (handlerMethod.getBeanType().isAnnotationPresent(NotImplementedYet.class)
+                            || handlerMethod.getMethod().isAnnotationPresent(NotImplementedYet.class)) {
                         return null;
                     }
                     return operation;
@@ -93,7 +94,8 @@ public class SwaggerConfig {
                 .group("2. 명세만 (mock)")
                 .pathsToMatch("/api/**")
                 .addOperationCustomizer((operation, handlerMethod) -> {
-                    if (!handlerMethod.getBeanType().isAnnotationPresent(NotImplementedYet.class)) {
+                    if (!handlerMethod.getBeanType().isAnnotationPresent(NotImplementedYet.class)
+                            && !handlerMethod.getMethod().isAnnotationPresent(NotImplementedYet.class)) {
                         return null;
                     }
                     return operation;

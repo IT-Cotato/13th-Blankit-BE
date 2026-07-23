@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
@@ -97,4 +98,17 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Optional<Task> findBySourceTaskIdAndDeadline(Long sourceTaskId, LocalDate deadline);
 
     boolean existsByCategoryIdAndUserId(Long categoryId, Long userId);
+
+    @Query("""
+            select t from Task t
+            join fetch t.category
+            where t.user.id = :userId
+              and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
+              and t.estimatedTime is not null
+              and t.deadline >= :today
+            """)
+    List<Task> findActiveTasksForRecommendation(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today
+    );
 }

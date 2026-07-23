@@ -2,25 +2,30 @@ package com.cotato.blankit.domain.recommendation.controller;
 
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.service.RecommendationService;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.global.config.swagger.NotImplementedYet;
 import com.cotato.blankit.global.response.ApiResponse;
+import com.cotato.blankit.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-@NotImplementedYet
 @Tag(name = "추천", description = "우선순위 과업 추천 및 과업 조합 추천 API")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
-@RequestMapping("/api/v1/recommendations")
+@RequiredArgsConstructor
+@RequestMapping("/api/recommendations")
 public class RecommendationController {
+
+    private final RecommendationService recommendationService;
 
     @Operation(summary = "오늘의 추천 조회",
             description = "오늘의 권장 시간(logic-spec 5번)과 우선순위 상위 3개 과업(logic-spec 1번)을 반환합니다. " +
@@ -30,24 +35,18 @@ public class RecommendationController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
     })
     @GetMapping("/today")
-    public ApiResponse<TodayRecommendationResponse> getTodayRecommendation() {
+    public ApiResponse<TodayRecommendationResponse> getTodayRecommendation(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        int totalRecommendedMinutes = recommendationService.calculateTodayRecommendedMinutes(userDetails.getUserId());
         return ApiResponse.success(new TodayRecommendationResponse(
                 LocalDate.now(),
-                120,
-                List.of(
-                        new TodayRecommendationResponse.RecommendedTaskItem(
-                                1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C",
-                                1, new BigDecimal("1.60"), 90),
-                        new TodayRecommendationResponse.RecommendedTaskItem(
-                                2L, "영어 단어 100개 암기", TaskPriority.MEDIUM, "#FF5C5C",
-                                2, new BigDecimal("2.20"), 20),
-                        new TodayRecommendationResponse.RecommendedTaskItem(
-                                3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF",
-                                3, new BigDecimal("3.40"), 10)
-                )
+                totalRecommendedMinutes,
+                List.of()
         ));
     }
 
+    @NotImplementedYet
     @Operation(summary = "과업 조합 추천 목록 조회",
             description = "FIRE(불끄기)·BALANCE(밸런스)·TASTE(찍먹)·CLEAR(해치우기)·PACK30(30분팩) 모드별 과업 조합을 반환합니다. " +
                     "홈 화면 '과업 조합 추천' 영역에 사용됩니다. 각 모드의 추천 로직은 logic-spec 4번 참고.")
