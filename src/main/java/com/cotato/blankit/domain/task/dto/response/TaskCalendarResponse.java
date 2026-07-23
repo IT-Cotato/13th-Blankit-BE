@@ -27,6 +27,9 @@ public record TaskCalendarResponse(
             @Schema(description = "카테고리 색상 (HEX, 캘린더 동그라미 색상)", example = "#FF5C5C")
             String categoryColor,
 
+            @Schema(description = "카테고리 아이콘 식별 키", example = "book")
+            String categoryIconKey,
+
             @Schema(description = "과업 상태", example = "TODO")
             String status
     ) {

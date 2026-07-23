@@ -12,10 +12,13 @@ public record CategoryResponse(
         String categoryName,
 
         @Schema(description = "카테고리 색상값", example = "#FFB85C")
-        String color
+        String color,
+
+        @Schema(description = "프론트엔드에서 관리하는 카테고리 아이콘 식별 키", example = "book")
+        String iconKey
 ) {
 
     public static CategoryResponse from(Category category) {
-        return new CategoryResponse(category.getId(), category.getName(), category.getColor());
+        return new CategoryResponse(category.getId(), category.getName(), category.getColor(), category.getIconKey());
     }
 }

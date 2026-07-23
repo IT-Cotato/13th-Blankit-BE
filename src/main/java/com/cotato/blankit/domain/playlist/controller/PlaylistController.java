@@ -38,9 +38,9 @@ public class PlaylistController {
         return ApiResponse.success(new PlaylistResponse(
                 1L, 3,
                 List.of(
-                        new PlaylistResponse.PlaylistItemResponse(1L, 1L, "기말고사 준비", "학업", "#FF5C5C", 0, "FIRE"),
-                        new PlaylistResponse.PlaylistItemResponse(2L, 2L, "영어 단어 100개 암기", "학업", "#FF5C5C", 1, null),
-                        new PlaylistResponse.PlaylistItemResponse(3L, 3L, "운동 계획 세우기", "일상", "#5C9EFF", 2, null)
+                        new PlaylistResponse.PlaylistItemResponse(1L, 1L, "기말고사 준비", "학업", "#FF5C5C", "book", 0, "FIRE"),
+                        new PlaylistResponse.PlaylistItemResponse(2L, 2L, "영어 단어 100개 암기", "학업", "#FF5C5C", "book", 1, null),
+                        new PlaylistResponse.PlaylistItemResponse(3L, 3L, "운동 계획 세우기", "일상", "#5C9EFF", "daily", 2, null)
                 )
         ));
     }
@@ -62,11 +62,11 @@ public class PlaylistController {
         return ApiResponse.success(new PlaylistResponse(
                 1L, 4,
                 List.of(
-                        new PlaylistResponse.PlaylistItemResponse(1L, 1L, "기말고사 준비", "학업", "#FF5C5C", 0, "FIRE"),
-                        new PlaylistResponse.PlaylistItemResponse(2L, 2L, "영어 단어 100개 암기", "학업", "#FF5C5C", 1, null),
-                        new PlaylistResponse.PlaylistItemResponse(3L, 3L, "운동 계획 세우기", "일상", "#5C9EFF", 2, null),
+                        new PlaylistResponse.PlaylistItemResponse(1L, 1L, "기말고사 준비", "학업", "#FF5C5C", "book", 0, "FIRE"),
+                        new PlaylistResponse.PlaylistItemResponse(2L, 2L, "영어 단어 100개 암기", "학업", "#FF5C5C", "book", 1, null),
+                        new PlaylistResponse.PlaylistItemResponse(3L, 3L, "운동 계획 세우기", "일상", "#5C9EFF", "daily", 2, null),
                         new PlaylistResponse.PlaylistItemResponse(4L, request.taskIds().get(0), "새로 추가된 과업",
-                                "학업", "#FF5C5C", 3, request.sourceMode())
+                                "학업", "#FF5C5C", "book", 3, request.sourceMode())
                 )
         ));
     }

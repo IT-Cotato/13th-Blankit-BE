@@ -45,6 +45,9 @@ public record RecommendationModesResponse(
             @Schema(description = "카테고리 색상 (HEX)", example = "#FF5C5C")
             String categoryColor,
 
+            @Schema(description = "카테고리 아이콘 식별 키", example = "book")
+            String categoryIconKey,
+
             @Schema(description = "이 모드에서 권장하는 학습 시간 (분)", example = "120")
             Integer recommendedMinutes
     ) {

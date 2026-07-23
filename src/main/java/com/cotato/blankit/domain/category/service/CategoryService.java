@@ -27,9 +27,9 @@ public class CategoryService {
     private static final int GENERATED_COLOR_CANDIDATE_LIMIT = 360;
 
     private static final List<DefaultCategory> DEFAULT_CATEGORIES = List.of(
-            new DefaultCategory("학업", "#5C9EFF", 0),
-            new DefaultCategory("일상", "#5CFF8A", 1),
-            new DefaultCategory("기념일", "#FFB85C", 2)
+            new DefaultCategory("학업", "#5C9EFF", "book", 0),
+            new DefaultCategory("일상", "#5CFF8A", "daily", 1),
+            new DefaultCategory("기념일", "#FFB85C", "calendar", 2)
     );
 
     private final CategoryRepository categoryRepository;
@@ -47,6 +47,7 @@ public class CategoryService {
                         lockedUser,
                         defaultCategory.name(),
                         defaultCategory.color(),
+                        defaultCategory.iconKey(),
                         defaultCategory.sortOrder(),
                         true
                 ))
@@ -66,9 +67,10 @@ public class CategoryService {
     public CategoryResponse createCategory(Long userId, CategoryCreateRequest request) {
         User user = getUserForUpdate(userId);
         validateName(request.name());
+        validateIconKey(request.iconKey());
         String color = normalizeColor(request.color());
         validateColorAvailable(userId, color, null);
-        Category category = Category.create(user, request.name().trim(), color);
+        Category category = Category.create(user, request.name().trim(), color, request.iconKey().trim());
         return CategoryResponse.from(categoryRepository.save(category));
     }
 
@@ -78,9 +80,11 @@ public class CategoryService {
         Category category = getActiveCategory(userId, categoryId);
         String name = request.name() == null ? category.getName() : request.name();
         String color = request.color() == null ? category.getColor() : normalizeColor(request.color());
+        String iconKey = request.iconKey() == null ? category.getIconKey() : request.iconKey();
         validateName(name);
+        validateIconKey(iconKey);
         validateColorAvailable(userId, color, categoryId);
-        category.update(name.trim(), color);
+        category.update(name.trim(), color, iconKey.trim());
         return CategoryResponse.from(category);
     }
 
@@ -199,6 +203,12 @@ public class CategoryService {
         }
     }
 
+    private void validateIconKey(String iconKey) {
+        if (iconKey == null || iconKey.isBlank() || iconKey.length() > 100) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+    }
+
     private String normalizeColor(String color) {
         if (color == null || color.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
@@ -220,6 +230,6 @@ public class CategoryService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private record DefaultCategory(String name, String color, int sortOrder) {
+    private record DefaultCategory(String name, String color, String iconKey, int sortOrder) {
     }
 }
