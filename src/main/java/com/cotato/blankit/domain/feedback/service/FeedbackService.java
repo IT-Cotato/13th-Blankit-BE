@@ -6,13 +6,17 @@ import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
+import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
 import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.util.List;
 
 @Service
@@ -21,7 +25,9 @@ public class FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
     private final TaskSessionRepository taskSessionRepository;
+    private final PlaylistItemRepository playlistItemRepository;
     private final EstimatedTimeCalculator calculator;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public FeedbackResponse getFeedback(Long userId, Long sessionId) {
@@ -42,8 +48,14 @@ public class FeedbackService {
                                 request.progressRate(), request.memo(), request.isDraft())
                 ));
         feedback.update(request.progressRate(), request.memo(), request.isDraft());
-        if (!request.isDraft() && request.progressRate() != null && request.progressRate() == 100) {
-            feedback.complete();
+        if (!request.isDraft()) {
+            session.updateStatus(TaskSessionStatus.DONE, clock);
+            if (request.progressRate() != null && request.progressRate() == 100) {
+                feedback.complete();
+                Task task = session.getTask();
+                task.updateStatus(TaskStatus.DONE);
+                playlistItemRepository.deleteByTask(task);
+            }
         }
         if (!request.isDraft() && request.progressRate() != null && request.progressRate() > 0) {
             updateEstimatedTime(userId, feedback, session.getTask());
