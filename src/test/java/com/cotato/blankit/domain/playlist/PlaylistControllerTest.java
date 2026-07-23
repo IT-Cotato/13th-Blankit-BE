@@ -8,6 +8,7 @@ import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
 import com.cotato.blankit.domain.playlist.repository.PlaylistRepository;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
@@ -157,7 +158,7 @@ class PlaylistControllerTest {
     @Test
     void addItems_doneTask_skipped() throws Exception {
         // DONE 상태 과업은 추가 시 조용히 스킵되고 나머지 과업은 정상 추가됨
-        taskA.updateStatus(com.cotato.blankit.domain.task.entity.TaskStatus.DONE);
+        taskA.updateStatus(TaskStatus.DONE);
 
         mockMvc.perform(post("/api/playlist/items")
                         .with(csrf())
@@ -233,6 +234,28 @@ class PlaylistControllerTest {
         // DB에서 직접 조회하여 sortOrder 변경 확인
         assertThat(playlistItemRepository.findById(itemA.getPlaylistItemId()).orElseThrow().getSortOrder()).isEqualTo(1);
         assertThat(playlistItemRepository.findById(itemB.getPlaylistItemId()).orElseThrow().getSortOrder()).isEqualTo(0);
+    }
+
+    @Test
+    void updateOrder_otherUserItem_returns404() throws Exception {
+        // 다른 사용자의 플레이리스트 항목 순서 변경 시도 시 PLAYLIST_ITEM_NOT_FOUND(404)
+        User other = userRepository.save(User.create(SocialProvider.KAKAO, "other-order", "other-order@example.com", "타인", null, 120));
+        Category otherCategory = categoryRepository.save(Category.create(other, "학업", "#5C9EFF", 0, true));
+        Task otherTask = taskRepository.save(Task.create(other, otherCategory, "타인과업", LocalDate.of(2026, 7, 31), null));
+        Playlist otherPlaylist = playlistRepository.save(Playlist.create(other));
+        PlaylistItem otherItem = playlistItemRepository.save(PlaylistItem.create(otherPlaylist, otherTask, 0, null));
+
+        mockMvc.perform(patch("/api/playlist/items/order")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "items": [
+                                    { "playlistItemId": %d, "sortOrder": 0 }
+                                ] }
+                                """.formatted(otherItem.getPlaylistItemId())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PLAYLIST_ITEM_NOT_FOUND"));
     }
 
     // ─── 단건 삭제 ─────────────────────────────────────────────────────────────
