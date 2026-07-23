@@ -71,10 +71,14 @@ public class FeedbackService {
                 .findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(task.getId())
                 .stream()
                 .filter(f -> !f.getFeedbackId().equals(feedback.getFeedbackId()))
+                .filter(f -> f.getProgressRate() != null)
                 .toList();
 
         List<Feedback> similarTaskFeedbacks = task.getSimilarTask() != null
                 ? feedbackRepository.findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(task.getSimilarTask().getId())
+                        .stream()
+                        .filter(f -> f.getProgressRate() != null)
+                        .toList()
                 : List.of();
 
         int newEstimatedMinutes = calculator.calculate(task, feedback.getProgressRate(),
