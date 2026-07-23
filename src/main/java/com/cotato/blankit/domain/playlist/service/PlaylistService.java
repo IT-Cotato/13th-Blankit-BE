@@ -56,7 +56,10 @@ public class PlaylistService {
                 .map(item -> item.getTask().getId())
                 .collect(Collectors.toSet());
 
-        int nextSortOrder = existingItems.size();
+        int nextSortOrder = existingItems.stream()
+                .mapToInt(PlaylistItem::getSortOrder)
+                .max()
+                .orElse(-1) + 1;
 
         for (Long taskId : request.taskIds()) {
             Task task = taskMap.get(taskId);
