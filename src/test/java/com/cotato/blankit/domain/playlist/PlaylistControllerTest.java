@@ -6,7 +6,9 @@ import com.cotato.blankit.domain.playlist.entity.Playlist;
 import com.cotato.blankit.domain.playlist.entity.PlaylistItem;
 import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
 import com.cotato.blankit.domain.playlist.repository.PlaylistRepository;
+import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
@@ -64,6 +66,7 @@ class PlaylistControllerTest {
     @Autowired private TaskRepository taskRepository;
     @Autowired private PlaylistRepository playlistRepository;
     @Autowired private PlaylistItemRepository playlistItemRepository;
+    @Autowired private NotificationSettingRepository notificationSettingRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
@@ -77,6 +80,9 @@ class PlaylistControllerTest {
         taskA = taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 31), null));
         taskB = taskRepository.save(Task.create(user, category, "과업B", LocalDate.of(2026, 7, 31), null));
         taskC = taskRepository.save(Task.create(user, category, "과업C", LocalDate.of(2026, 7, 31), null));
+        notificationSettingRepository.save(NotificationSetting.create(taskA, 1440, true));
+        notificationSettingRepository.save(NotificationSetting.create(taskB, 1440, true));
+        notificationSettingRepository.save(NotificationSetting.create(taskC, 1440, true));
     }
 
     // ─── 플레이리스트 조회 ────────────────────────────────────────────────────────
@@ -146,6 +152,44 @@ class PlaylistControllerTest {
                                 """.formatted(taskA.getId())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.totalCount").value(1));
+    }
+
+    @Test
+    void addItems_doneTask_skipped() throws Exception {
+        // DONE 상태 과업은 추가 시 조용히 스킵되고 나머지 과업은 정상 추가됨
+        taskA.updateStatus(com.cotato.blankit.domain.task.entity.TaskStatus.DONE);
+
+        mockMvc.perform(post("/api/playlist/items")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "taskIds": [%d, %d], "sourceMode": null }
+                                """.formatted(taskA.getId(), taskB.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.totalCount").value(1))
+                .andExpect(jsonPath("$.data.items[0].taskId").value(taskB.getId()));
+    }
+
+    @Test
+    void taskStatusDone_removesTaskFromPlaylist() throws Exception {
+        // 플레이리스트에 있는 과업이 DONE 처리되면 플레이리스트에서 자동 삭제됨
+        Playlist playlist = playlistRepository.save(Playlist.create(user));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskA, 0, null));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskB, 1, null));
+
+        mockMvc.perform(patch("/api/tasks/{taskId}", taskA.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "DONE" }
+                                """))
+                .andExpect(status().isOk());
+
+        assertThat(playlistItemRepository.countByPlaylist(playlist)).isEqualTo(1);
+        assertThat(playlistItemRepository.findByPlaylistOrderBySortOrder(playlist).get(0).getTask().getId())
+                .isEqualTo(taskB.getId());
     }
 
     @Test

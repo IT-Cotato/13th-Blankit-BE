@@ -46,6 +46,9 @@ public class PlaylistService {
         for (Long taskId : request.taskIds()) {
             Task task = taskRepository.findByIdAndUserId(taskId, userId)
                     .orElseThrow(() -> new CustomException(ErrorCode.TASK_NOT_FOUND));
+            if (task.getStatus() == com.cotato.blankit.domain.task.entity.TaskStatus.DONE) {
+                continue;
+            }
             if (!playlistItemRepository.existsByPlaylistAndTask(playlist, task)) {
                 playlistItemRepository.save(PlaylistItem.create(playlist, task, nextSortOrder, request.sourceMode()));
                 nextSortOrder++;

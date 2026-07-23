@@ -25,5 +25,7 @@ public interface PlaylistItemRepository extends JpaRepository<PlaylistItem, Long
 
     void deleteByPlaylist(Playlist playlist);
 
+    void deleteByTask(Task task);
+
     int countByPlaylist(Playlist playlist);
 }
