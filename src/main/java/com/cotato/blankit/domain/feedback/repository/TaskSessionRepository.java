@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public interface TaskSessionRepository extends JpaRepository<TaskSession, Long> {
 
-    Optional<TaskSession> findByTask_IdAndUser_IdAndStatusNot(Long taskId, Long userId, TaskSessionStatus status);
+    Optional<TaskSession> findFirstByTask_IdAndUser_IdAndStatusNotOrderByStartedAtDesc(Long taskId, Long userId, TaskSessionStatus status);
 
     @Query("select coalesce(sum(ts.elapsedTime), 0) from TaskSession ts where ts.task.id = :taskId and ts.user.id = :userId")
     long sumElapsedTimeByTaskIdAndUserId(@Param("taskId") Long taskId, @Param("userId") Long userId);

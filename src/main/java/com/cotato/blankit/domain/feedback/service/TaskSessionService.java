@@ -33,16 +33,21 @@ public class TaskSessionService {
                 .orElseThrow(() -> new CustomException(ErrorCode.TASK_NOT_FOUND));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        TaskSession session = TaskSession.create(task, user, LocalDateTime.now(clock), null, 0, TaskSessionStatus.PAUSED);
-        taskSessionRepository.save(session);
-        return TaskSessionResponse.from(session);
+        return taskSessionRepository
+                .findFirstByTask_IdAndUser_IdAndStatusNotOrderByStartedAtDesc(taskId, userId, TaskSessionStatus.DONE)
+                .map(TaskSessionResponse::from)
+                .orElseGet(() -> {
+                    TaskSession session = TaskSession.create(task, user, LocalDateTime.now(clock), null, 0, TaskSessionStatus.PAUSED);
+                    taskSessionRepository.save(session);
+                    return TaskSessionResponse.from(session);
+                });
     }
 
     @Transactional(readOnly = true)
     public TaskSessionResponse getActiveSession(Long userId, Long taskId) {
         taskRepository.findByIdAndUserId(taskId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TASK_NOT_FOUND));
-        return taskSessionRepository.findByTask_IdAndUser_IdAndStatusNot(taskId, userId, TaskSessionStatus.DONE)
+        return taskSessionRepository.findFirstByTask_IdAndUser_IdAndStatusNotOrderByStartedAtDesc(taskId, userId, TaskSessionStatus.DONE)
                 .map(TaskSessionResponse::from)
                 .orElse(null);
     }
