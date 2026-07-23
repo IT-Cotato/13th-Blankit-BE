@@ -17,7 +17,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cotato.blankit.domain.task.entity.TaskStatus;
+
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,23 +46,35 @@ public class PlaylistService {
     @Transactional
     public PlaylistResponse addItems(Long userId, PlaylistItemAddRequest request) {
         Playlist playlist = findOrCreatePlaylist(getUser(userId));
-        int nextSortOrder = playlistItemRepository.countByPlaylist(playlist);
+
+        Map<Long, Task> taskMap = taskRepository.findAllByIdInAndUserId(request.taskIds(), userId)
+                .stream()
+                .collect(Collectors.toMap(Task::getId, t -> t));
+
+        List<PlaylistItem> existingItems = playlistItemRepository.findByPlaylistOrderBySortOrder(playlist);
+        Set<Long> existingTaskIds = existingItems.stream()
+                .map(item -> item.getTask().getId())
+                .collect(Collectors.toSet());
+
+        int nextSortOrder = existingItems.size();
 
         for (Long taskId : request.taskIds()) {
-            Task task = taskRepository.findByIdAndUserId(taskId, userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.TASK_NOT_FOUND));
-            if (task.getStatus() == com.cotato.blankit.domain.task.entity.TaskStatus.DONE) {
+            Task task = taskMap.get(taskId);
+            if (task == null) {
+                throw new CustomException(ErrorCode.TASK_NOT_FOUND);
+            }
+            if (task.getStatus() == TaskStatus.DONE) {
                 continue;
             }
-            if (!playlistItemRepository.existsByPlaylistAndTask(playlist, task)) {
+            if (!existingTaskIds.contains(taskId)) {
                 playlistItemRepository.save(PlaylistItem.create(playlist, task, nextSortOrder, request.sourceMode()));
+                existingTaskIds.add(taskId);
                 nextSortOrder++;
             }
         }
 
-        int totalCount = playlistItemRepository.countByPlaylist(playlist);
         List<PlaylistItem> items = playlistItemRepository.findByPlaylistOrderBySortOrder(playlist);
-        return toResponse(playlist, items, totalCount);
+        return toResponse(playlist, items, items.size());
     }
 
     @Transactional
