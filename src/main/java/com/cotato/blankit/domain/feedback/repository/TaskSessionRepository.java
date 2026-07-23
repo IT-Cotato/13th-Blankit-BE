@@ -21,4 +21,6 @@ public interface TaskSessionRepository extends JpaRepository<TaskSession, Long> 
     List<Object[]> sumElapsedTimeByTaskIdsAndUserId(@Param("taskIds") Collection<Long> taskIds, @Param("userId") Long userId);
 
     void deleteByTaskId(Long taskId);
+
+    boolean existsByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long sessionId);
 }

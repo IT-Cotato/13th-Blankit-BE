@@ -46,6 +46,7 @@ public enum ErrorCode {
 
     // Feedback & Session
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),
+    SESSION_ALREADY_PLAYING(HttpStatus.CONFLICT, "SESSION_ALREADY_PLAYING", "이미 실행 중인 세션이 있습니다."),
 
     // Playlist
     PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다.");

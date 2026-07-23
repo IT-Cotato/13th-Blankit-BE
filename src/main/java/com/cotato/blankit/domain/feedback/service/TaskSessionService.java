@@ -54,6 +54,10 @@ public class TaskSessionService {
         if (!session.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.SESSION_NOT_FOUND);
         }
+        if (request.status() == TaskSessionStatus.PLAYING
+                && taskSessionRepository.existsByUser_IdAndStatusAndTaskSessionIdNot(userId, TaskSessionStatus.PLAYING, sessionId)) {
+            throw new CustomException(ErrorCode.SESSION_ALREADY_PLAYING);
+        }
         session.updateElapsedTime(request.elapsedTime());
         session.updateStatus(request.status(), clock);
         return TaskSessionResponse.from(session);
