@@ -21,6 +21,8 @@ import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.security.JwtTokenProvider;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -105,6 +107,9 @@ class TaskControllerTest {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @TestConfiguration
     static class FixedClockConfig {
@@ -277,6 +282,63 @@ class TaskControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.categoryId == %d)]".formatted(workCategory.getId())).doesNotExist());
+    }
+
+    @Test
+    void createCategoryRejectsMissingOrBlankIconKey() throws Exception {
+        mockMvc.perform(post("/api/categories")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "아이콘 누락",
+                                  "color": "#123456"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/categories")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "아이콘 공백",
+                                  "color": "#654321",
+                                  "iconKey": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateCategoryWithoutIconKeyKeepsExistingValue() throws Exception {
+        Category category = categoryRepository.save(
+                Category.create(user, "부분 수정", "#123456", "star", 3, false)
+        );
+
+        mockMvc.perform(patch("/api/categories/{categoryId}", category.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "부분 수정 완료"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.categoryName").value("부분 수정 완료"))
+                .andExpect(jsonPath("$.data.iconKey").value("star"));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(categoryRepository.findById(category.getId()))
+                .isPresent()
+                .get()
+                .extracting(Category::getIconKey)
+                .isEqualTo("star");
     }
 
     @Test

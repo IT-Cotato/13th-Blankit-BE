@@ -28,6 +28,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -342,5 +343,24 @@ class UserControllerTest {
         assertThat(userService.getServiceNotificationRecipientUserIds())
                 .contains(enabledUser.getId())
                 .doesNotContain(disabledUser.getId());
+    }
+
+    @Test
+    void withdrawDeletesNotificationSetting() throws Exception {
+        UserNotificationSetting setting = UserNotificationSetting.createDefault(user);
+        setting.update(true, false);
+        userNotificationSettingRepository.saveAndFlush(setting);
+
+        mockMvc.perform(delete("/api/users/me")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(userNotificationSettingRepository.findByUserId(user.getId())).isEmpty();
+        assertThat(userRepository.findById(user.getId())).isEmpty();
     }
 }
