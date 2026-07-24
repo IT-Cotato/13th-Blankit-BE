@@ -9,7 +9,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "feedback")
+@Table(name = "feedback", uniqueConstraints = @UniqueConstraint(
+        name = "uk_feedback_task_session",
+        columnNames = "task_session_id"
+))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Feedback extends BaseEntity {

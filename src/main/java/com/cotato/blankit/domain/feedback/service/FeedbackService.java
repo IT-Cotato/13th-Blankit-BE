@@ -12,6 +12,7 @@ import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,10 +44,15 @@ public class FeedbackService {
         TaskSession session = getSessionAndVerifyOwner(userId, sessionId);
         Feedback feedback = feedbackRepository.findByTaskSessionAndIsDraftTrue(session)
                 .or(() -> feedbackRepository.findByTaskSessionAndIsDraftFalse(session))
-                .orElseGet(() -> feedbackRepository.save(
-                        Feedback.create(session, session.getTask(), session.getUser(),
-                                request.progressRate(), request.memo(), request.isDraft())
-                ));
+                .orElseGet(() -> {
+                    try {
+                        return feedbackRepository.saveAndFlush(
+                                Feedback.create(session, session.getTask(), session.getUser(),
+                                        request.progressRate(), request.memo(), request.isDraft()));
+                    } catch (DataIntegrityViolationException e) {
+                        throw new CustomException(ErrorCode.FEEDBACK_DUPLICATE);
+                    }
+                });
         feedback.update(request.progressRate(), request.memo(), request.isDraft());
         if (!request.isDraft()) {
             session.updateStatus(TaskSessionStatus.DONE, clock);
