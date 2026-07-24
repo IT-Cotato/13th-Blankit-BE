@@ -76,7 +76,7 @@ class SearchControllerTest {
         userRepository.deleteAll();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "search-user", "search@example.com", "서치", null, 120));
         otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "other-search-user", "other-search@example.com", "다른사용자", null, 120));
-        studyCategory = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", 0, true));
+        studyCategory = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
         token = jwtTokenProvider.createAccessToken(user.getId());
     }
 
@@ -87,7 +87,7 @@ class SearchControllerTest {
         Task deletedTask = saveTask(user, studyCategory, "수학 삭제 과업", LocalDate.parse("2026-07-23"), TaskStatus.TODO);
         taskRepository.delete(deletedTask);
         taskRepository.flush();
-        Category otherCategory = categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", 1, false));
+        Category otherCategory = categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", "user", 1, false));
         saveTask(otherUser, otherCategory, "수학 타인 과업", LocalDate.parse("2026-07-22"), TaskStatus.TODO);
 
         mockMvc.perform(get("/api/search")
@@ -102,6 +102,7 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.data.tasks[0].categoryId").value(studyCategory.getId()))
                 .andExpect(jsonPath("$.data.tasks[0].categoryName").value("학업"))
                 .andExpect(jsonPath("$.data.tasks[0].categoryColor").value("#5C9EFF"))
+                .andExpect(jsonPath("$.data.tasks[0].categoryIconKey").value("book"))
                 .andExpect(jsonPath("$.data.tasks[0].deadline").value("2026-07-20"))
                 .andExpect(jsonPath("$.data.tasks[0].status").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.data.tasks[0].progressRate").value(0));

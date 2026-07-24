@@ -57,6 +57,7 @@ CREATE TABLE category (
                           user_id      BIGINT       NOT NULL,
                           name         VARCHAR(100) NOT NULL,
                           color        VARCHAR(20)  NOT NULL COMMENT '동일 사용자 내 색상 중복 불가 (명세 2.12.3) - 애플리케이션 검증',
+                          icon_key     VARCHAR(100) NOT NULL COMMENT '프론트엔드에서 관리하는 카테고리 아이콘 식별 키',
                           sort_order   INT          NOT NULL DEFAULT 0,
                           is_default   TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '기본 카테고리(학업/일상/기념일)',
                           is_deleted   TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '[추가] soft delete - 완료 과업 카테고리 3년 보존 (명세 4.3.1)',

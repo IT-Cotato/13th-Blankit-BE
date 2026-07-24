@@ -97,7 +97,7 @@ class FeedbackControllerTest {
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "feedback-user", "feedback@example.com", "테스트유저", null, 120));
         token = jwtTokenProvider.createAccessToken(user.getId());
-        Category category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", 0, true));
+        Category category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
         taskA = taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 31), null));
         taskB = taskRepository.save(Task.create(user, category, "과업B", LocalDate.of(2026, 7, 31), null));
     }

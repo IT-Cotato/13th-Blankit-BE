@@ -17,6 +17,8 @@ public record TaskHistoryResponse(
         String categoryName,
         @Schema(description = "카테고리 색상값", example = "#FFB85C")
         String categoryColor,
+        @Schema(description = "카테고리 아이콘 식별 키", example = "book")
+        String categoryIconKey,
         @Schema(description = "과업 카드 완료 일자. 실제 완료 시각이 아니라 task.deadline입니다.", example = "2026-08-12")
         LocalDate deadline,
         @Schema(description = "총 수행 시간(초). task_session.elapsed_time 합계입니다.", example = "5400")
@@ -30,6 +32,7 @@ public record TaskHistoryResponse(
                 task.getCategory().getId(),
                 task.getCategory().getName(),
                 task.getCategory().getColor(),
+                task.getCategory().getIconKey(),
                 task.getDeadline(),
                 totalElapsedTime
         );
