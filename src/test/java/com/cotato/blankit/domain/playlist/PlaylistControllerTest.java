@@ -77,7 +77,7 @@ class PlaylistControllerTest {
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "playlist-user", "playlist@example.com", "플레이리스트유저", null, 120));
         token = jwtTokenProvider.createAccessToken(user.getId());
-        Category category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", 0, true));
+        Category category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
         taskA = taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 31), null));
         taskB = taskRepository.save(Task.create(user, category, "과업B", LocalDate.of(2026, 7, 31), null));
         taskC = taskRepository.save(Task.create(user, category, "과업C", LocalDate.of(2026, 7, 31), null));
@@ -240,7 +240,7 @@ class PlaylistControllerTest {
     void updateOrder_otherUserItem_returns404() throws Exception {
         // 다른 사용자의 플레이리스트 항목 순서 변경 시도 시 PLAYLIST_ITEM_NOT_FOUND(404)
         User other = userRepository.save(User.create(SocialProvider.KAKAO, "other-order", "other-order@example.com", "타인", null, 120));
-        Category otherCategory = categoryRepository.save(Category.create(other, "학업", "#5C9EFF", 0, true));
+        Category otherCategory = categoryRepository.save(Category.create(other, "학업", "#5C9EFF", "book", 0, true));
         Task otherTask = taskRepository.save(Task.create(other, otherCategory, "타인과업", LocalDate.of(2026, 7, 31), null));
         Playlist otherPlaylist = playlistRepository.save(Playlist.create(other));
         PlaylistItem otherItem = playlistItemRepository.save(PlaylistItem.create(otherPlaylist, otherTask, 0, null));
@@ -340,7 +340,7 @@ class PlaylistControllerTest {
     void deleteItem_otherUserItem_returns404() throws Exception {
         // 다른 사용자의 플레이리스트 항목 삭제 시 PLAYLIST_ITEM_NOT_FOUND(404)
         User other = userRepository.save(User.create(SocialProvider.KAKAO, "other-pl", "other-pl@example.com", "타인", null, 120));
-        Category otherCategory = categoryRepository.save(Category.create(other, "학업", "#5C9EFF", 0, true));
+        Category otherCategory = categoryRepository.save(Category.create(other, "학업", "#5C9EFF", "book", 0, true));
         Task otherTask = taskRepository.save(Task.create(other, otherCategory, "타인과업", LocalDate.of(2026, 7, 31), null));
         Playlist otherPlaylist = playlistRepository.save(Playlist.create(other));
         PlaylistItem otherItem = playlistItemRepository.save(PlaylistItem.create(otherPlaylist, otherTask, 0, null));
