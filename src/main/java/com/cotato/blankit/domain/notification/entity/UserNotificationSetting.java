@@ -21,7 +21,7 @@ public class UserNotificationSetting extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @Column(nullable = false)
+    @Column(name = "is_service_alarm_enabled", nullable = false)
     private boolean isServiceAlarmEnabled;
 
     // column name이 is_30min_pack_alarm_enabled 이므로 SpringPhysicalNamingStrategy 변환과 불일치 → 명시

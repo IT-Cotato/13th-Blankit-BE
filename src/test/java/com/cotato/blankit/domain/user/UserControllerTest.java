@@ -23,6 +23,7 @@ import java.time.LocalTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -199,5 +200,38 @@ class UserControllerTest {
         User unchanged = userRepository.findById(otherUser.getId()).orElseThrow();
         assertThat(unchanged.getTimetableStartTime()).isEqualTo(LocalTime.of(8, 0));
         assertThat(unchanged.getTimetableEndTime()).isEqualTo(LocalTime.of(0, 0));
+    }
+
+    @Test
+    void getNotificationSettingsAlwaysReturnsDefaultOff() throws Exception {
+        mockMvc.perform(get("/api/users/me/notification-settings")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.isServiceAlarmEnabled").value(false))
+                .andExpect(jsonPath("$.data.is30minPackAlarmEnabled").value(false));
+    }
+
+    @Test
+    void updateNotificationSettingsEchoesRequestWithoutPersistence() throws Exception {
+        mockMvc.perform(patch("/api/users/me/notification-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "isServiceAlarmEnabled": true,
+                                  "is30minPackAlarmEnabled": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isServiceAlarmEnabled").value(true))
+                .andExpect(jsonPath("$.data.is30minPackAlarmEnabled").value(true));
+
+        mockMvc.perform(get("/api/users/me/notification-settings")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isServiceAlarmEnabled").value(false))
+                .andExpect(jsonPath("$.data.is30minPackAlarmEnabled").value(false));
     }
 }

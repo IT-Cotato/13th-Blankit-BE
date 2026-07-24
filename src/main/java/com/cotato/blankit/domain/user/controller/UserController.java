@@ -72,7 +72,7 @@ public class UserController {
     }
 
     @Operation(summary = "사용자 알림 설정 조회",
-            description = "서비스 알림과 30분 Pack 알림의 활성화 여부를 조회합니다. 최초 가입 시 모두 OFF.",
+            description = "현재 저장하지 않는 mock API이며, 서비스 알림과 30분 Pack 알림 설정을 항상 OFF로 반환합니다.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
@@ -86,8 +86,8 @@ public class UserController {
     }
 
     @Operation(summary = "사용자 알림 설정 수정",
-            description = "서비스 알림과 30분 Pack 알림 수신 여부를 설정합니다. " +
-                    "기기 알림 권한이 없는 상태에서 ON 요청 시 권한 안내 필요(앱에서 처리).",
+            description = "현재 저장하지 않는 mock API이며, 요청한 서비스 알림과 30분 Pack 알림 설정값을 그대로 응답합니다. " +
+                    "설정은 유지되지 않으므로 다시 조회하면 모두 OFF로 반환됩니다.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
