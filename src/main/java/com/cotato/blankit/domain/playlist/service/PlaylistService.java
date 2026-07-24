@@ -14,6 +14,7 @@ import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,9 +71,13 @@ public class PlaylistService {
                 continue;
             }
             if (!existingTaskIds.contains(taskId)) {
-                playlistItemRepository.save(PlaylistItem.create(playlist, task, nextSortOrder, request.sourceMode()));
-                existingTaskIds.add(taskId);
-                nextSortOrder++;
+                try {
+                    playlistItemRepository.saveAndFlush(PlaylistItem.create(playlist, task, nextSortOrder, request.sourceMode()));
+                    existingTaskIds.add(taskId);
+                    nextSortOrder++;
+                } catch (DataIntegrityViolationException e) {
+                    // 동시 요청으로 이미 추가된 경우 무시
+                }
             }
         }
 
@@ -117,7 +122,14 @@ public class PlaylistService {
 
     private Playlist findOrCreatePlaylist(User user) {
         return playlistRepository.findByUser(user)
-                .orElseGet(() -> playlistRepository.save(Playlist.create(user)));
+                .orElseGet(() -> {
+                    try {
+                        return playlistRepository.saveAndFlush(Playlist.create(user));
+                    } catch (DataIntegrityViolationException e) {
+                        return playlistRepository.findByUser(user)
+                                .orElseThrow(() -> new CustomException(ErrorCode.INTERNAL_SERVER_ERROR));
+                    }
+                });
     }
 
     private User getUser(Long userId) {
