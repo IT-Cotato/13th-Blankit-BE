@@ -72,7 +72,7 @@ public class UserController {
     }
 
     @Operation(summary = "사용자 알림 설정 조회",
-            description = "서비스 알림과 30분 Pack 알림의 활성화 여부를 조회합니다. 최초 가입 시 모두 OFF.",
+            description = "서비스 알림과 30분 Pack 알림의 활성화 여부를 조회합니다. 최초 가입 시 모두 OFF이며, 기존 사용자에게 설정 데이터가 없으면 OFF로 응답합니다.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
@@ -82,12 +82,13 @@ public class UserController {
     @GetMapping("/me/notification-settings")
     public ApiResponse<UserNotificationSettingResponse> getNotificationSettings(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.success(new UserNotificationSettingResponse(false, false));
+        return ApiResponse.success(userService.getNotificationSettings(userDetails.getUserId()));
     }
 
     @Operation(summary = "사용자 알림 설정 수정",
             description = "서비스 알림과 30분 Pack 알림 수신 여부를 설정합니다. " +
-                    "기기 알림 권한이 없는 상태에서 ON 요청 시 권한 안내 필요(앱에서 처리).",
+                    "서버는 기기 알림 권한을 직접 확인하지 않으므로, 프론트엔드는 기기 권한이 허용된 경우에만 ON 변경을 요청해야 합니다. " +
+                    "권한이 거부되거나 허용되지 않은 경우 OFF를 유지하고, 권한 요청 및 기기 설정 화면 이동은 프론트엔드에서 처리합니다.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
@@ -99,8 +100,6 @@ public class UserController {
     public ApiResponse<UserNotificationSettingResponse> updateNotificationSettings(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody @Valid UserNotificationSettingUpdateRequest request) {
-        return ApiResponse.success(new UserNotificationSettingResponse(
-                request.isServiceAlarmEnabled(), request.is30minPackAlarmEnabled()
-        ));
+        return ApiResponse.success(userService.updateNotificationSettings(userDetails.getUserId(), request));
     }
 }

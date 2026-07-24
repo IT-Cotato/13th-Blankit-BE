@@ -21,6 +21,8 @@ import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.security.JwtTokenProvider;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -106,6 +108,9 @@ class TaskControllerTest {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @TestConfiguration
     static class FixedClockConfig {
 
@@ -123,9 +128,9 @@ class TaskControllerTest {
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "task-user", "user@example.com", "서윤", null, 120));
         otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "other-task-user", "other@example.com", "다른사용자", null, 120));
-        studyCategory = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", 0, true));
-        workCategory = categoryRepository.save(Category.create(user, "업무", "#5CFF8A", 1, false));
-        categoryRepository.save(Category.create(otherUser, "학업", "#5C9EFF", 0, true));
+        studyCategory = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
+        workCategory = categoryRepository.save(Category.create(user, "업무", "#5CFF8A", "briefcase", 1, false));
+        categoryRepository.save(Category.create(otherUser, "학업", "#5C9EFF", "book", 0, true));
         token = jwtTokenProvider.createAccessToken(user.getId());
     }
 
@@ -154,12 +159,14 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "name": "학업",
-                                  "color": "#FF5C5C"
+                                  "color": "#FF5C5C",
+                                  "iconKey": "book-open"
                                 }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.categoryName").value("학업"))
-                .andExpect(jsonPath("$.data.color").value("#FF5C5C"));
+                .andExpect(jsonPath("$.data.color").value("#FF5C5C"))
+                .andExpect(jsonPath("$.data.iconKey").value("book-open"));
 
         mockMvc.perform(post("/api/categories")
                         .with(csrf())
@@ -168,7 +175,8 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "name": "색상 중복",
-                                  "color": "#FF5C5C"
+                                  "color": "#FF5C5C",
+                                  "iconKey": "duplicate"
                                 }
                                 """))
                 .andExpect(status().isConflict())
@@ -182,7 +190,8 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "name": "다른 사용자",
-                                  "color": "#FF5C5C"
+                                  "color": "#FF5C5C",
+                                  "iconKey": "user"
                                 }
                                 """))
                 .andExpect(status().isCreated());
@@ -193,7 +202,7 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasItem("#5C9EFF")));
 
-        Category customColorCategory = categoryRepository.save(Category.create(user, "커스텀", "#12AB34", 3, false));
+        Category customColorCategory = categoryRepository.save(Category.create(user, "커스텀", "#12AB34", "star", 3, false));
         mockMvc.perform(get("/api/categories/available-colors")
                         .header("Authorization", "Bearer " + token)
                         .param("editingCategoryId", String.valueOf(customColorCategory.getId())))
@@ -207,12 +216,14 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "name": "커스텀 수정",
-                                  "color": "#12AB35"
+                                  "color": "#12AB35",
+                                  "iconKey": "heart"
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.categoryName").value("커스텀 수정"))
-                .andExpect(jsonPath("$.data.color").value("#12AB35"));
+                .andExpect(jsonPath("$.data.color").value("#12AB35"))
+                .andExpect(jsonPath("$.data.iconKey").value("heart"));
 
         org.assertj.core.api.Assertions.assertThat(categoryRepository.findById(customColorCategory.getId()))
                 .isPresent()
@@ -220,6 +231,7 @@ class TaskControllerTest {
                 .satisfies(category -> {
                     org.assertj.core.api.Assertions.assertThat(category.getName()).isEqualTo("커스텀 수정");
                     org.assertj.core.api.Assertions.assertThat(category.getColor()).isEqualTo("#12AB35");
+                    org.assertj.core.api.Assertions.assertThat(category.getIconKey()).isEqualTo("heart");
                 });
 
         mockMvc.perform(patch("/api/categories/{categoryId}", customColorCategory.getId())
@@ -234,7 +246,7 @@ class TaskControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CATEGORY_COLOR_ALREADY_USED"));
 
-        Category otherOwnedCategory = categoryRepository.save(Category.create(otherUser, "타인수정", "#12AB34", 5, false));
+        Category otherOwnedCategory = categoryRepository.save(Category.create(otherUser, "타인수정", "#12AB34", "user", 5, false));
         mockMvc.perform(patch("/api/categories/{categoryId}", otherOwnedCategory.getId())
                         .with(csrf())
                         .header("Authorization", "Bearer " + token)
@@ -254,7 +266,7 @@ class TaskControllerTest {
                 .extracting(Category::getName)
                 .isEqualTo("타인수정");
 
-        categoryRepository.save(Category.create(user, "기념일", "#FFB85C", 4, false));
+        categoryRepository.save(Category.create(user, "기념일", "#FFB85C", "calendar", 4, false));
         mockMvc.perform(get("/api/categories/available-colors")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -270,6 +282,63 @@ class TaskControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.categoryId == %d)]".formatted(workCategory.getId())).doesNotExist());
+    }
+
+    @Test
+    void createCategoryRejectsMissingOrBlankIconKey() throws Exception {
+        mockMvc.perform(post("/api/categories")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "아이콘 누락",
+                                  "color": "#123456"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/categories")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "아이콘 공백",
+                                  "color": "#654321",
+                                  "iconKey": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateCategoryWithoutIconKeyKeepsExistingValue() throws Exception {
+        Category category = categoryRepository.save(
+                Category.create(user, "부분 수정", "#123456", "star", 3, false)
+        );
+
+        mockMvc.perform(patch("/api/categories/{categoryId}", category.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "부분 수정 완료"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.categoryName").value("부분 수정 완료"))
+                .andExpect(jsonPath("$.data.iconKey").value("star"));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(categoryRepository.findById(category.getId()))
+                .isPresent()
+                .get()
+                .extracting(Category::getIconKey)
+                .isEqualTo("star");
     }
 
     @Test
@@ -430,7 +499,7 @@ class TaskControllerTest {
 
     @Test
     void createTaskRejectsInvalidCategoryAndNotification() throws Exception {
-        Category deletedCategory = categoryRepository.save(Category.create(user, "삭제", "#B55CFF", 2, false));
+        Category deletedCategory = categoryRepository.save(Category.create(user, "삭제", "#B55CFF", "trash", 2, false));
         deletedCategory.delete();
 
         mockMvc.perform(post("/api/tasks")
@@ -447,7 +516,7 @@ class TaskControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
 
-        Category otherCategory = categoryRepository.save(Category.create(otherUser, "타인", "#FFB85C", 1, false));
+        Category otherCategory = categoryRepository.save(Category.create(otherUser, "타인", "#FFB85C", "user", 1, false));
         mockMvc.perform(post("/api/tasks")
                         .with(csrf())
                         .header("Authorization", "Bearer " + token)
@@ -677,7 +746,7 @@ class TaskControllerTest {
     void historyReturnsDoneTasksWithTaskSessionElapsedTime() throws Exception {
         Task done = saveTask(user, studyCategory, "이전 완료", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
         saveTask(user, studyCategory, "진행 중", LocalDate.parse("2026-08-02"), null, TaskStatus.IN_PROGRESS);
-        saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", 1, false)), "타인 완료", LocalDate.parse("2026-08-03"), null, TaskStatus.DONE);
+        saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", "user", 1, false)), "타인 완료", LocalDate.parse("2026-08-03"), null, TaskStatus.DONE);
         taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1200, TaskSessionStatus.DONE));
         taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1800, TaskSessionStatus.DONE));
 
@@ -869,7 +938,7 @@ class TaskControllerTest {
 
     @Test
     void otherUserTaskAccessFails() throws Exception {
-        Task otherTask = saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인2", "#FFB85C", 2, false)), "타인 과업", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
+        Task otherTask = saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인2", "#FFB85C", "user", 2, false)), "타인 과업", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
 
         mockMvc.perform(get("/api/tasks/{taskId}", otherTask.getId())
                         .header("Authorization", "Bearer " + token))

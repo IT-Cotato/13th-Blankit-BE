@@ -35,6 +35,9 @@ public record TodayRecommendationResponse(
             @Schema(description = "카테고리 색상 (HEX)", example = "#FF5C5C")
             String categoryColor,
 
+            @Schema(description = "카테고리 아이콘 식별 키", example = "book")
+            String categoryIconKey,
+
             @Schema(description = "추천 순위", example = "1")
             int rankOrder,
 

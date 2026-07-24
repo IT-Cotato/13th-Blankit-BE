@@ -36,13 +36,13 @@ public class RecommendationController {
                 120,
                 List.of(
                         new TodayRecommendationResponse.RecommendedTaskItem(
-                                1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C",
+                                1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", "book",
                                 1, new BigDecimal("1.60"), 90),
                         new TodayRecommendationResponse.RecommendedTaskItem(
-                                2L, "영어 단어 100개 암기", TaskPriority.MEDIUM, "#FF5C5C",
+                                2L, "영어 단어 100개 암기", TaskPriority.MEDIUM, "#FF5C5C", "book",
                                 2, new BigDecimal("2.20"), 20),
                         new TodayRecommendationResponse.RecommendedTaskItem(
-                                3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF",
+                                3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF", "daily",
                                 3, new BigDecimal("3.40"), 10)
                 )
         ));
@@ -61,32 +61,32 @@ public class RecommendationController {
                 new RecommendationModesResponse.RecommendationModeItem(
                         "FIRE", "불끄기", "오늘 최소 시간을 빨간색(상) 과업에 올인하는 조합",
                         List.of(new RecommendationModesResponse.ModeTaskItem(
-                                1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", 120))),
+                                1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", "book", 120))),
                 new RecommendationModesResponse.RecommendationModeItem(
                         "BALANCE", "밸런스", "빨리 끝나는 과업으로 성취감을 먼저 얻고 빨간색 과업 진입",
                         List.of(
                                 new RecommendationModesResponse.ModeTaskItem(
-                                        3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF", 30),
+                                        3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF", "daily", 30),
                                 new RecommendationModesResponse.ModeTaskItem(
-                                        1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", 90))),
+                                        1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", "book", 90))),
                 new RecommendationModesResponse.RecommendationModeItem(
                         "TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합",
                         List.of(
                                 new RecommendationModesResponse.ModeTaskItem(
-                                        1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", 40),
+                                        1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", "book", 40),
                                 new RecommendationModesResponse.ModeTaskItem(
-                                        2L, "영어 단어 100개 암기", TaskPriority.MEDIUM, "#FF5C5C", 40),
+                                        2L, "영어 단어 100개 암기", TaskPriority.MEDIUM, "#FF5C5C", "book", 40),
                                 new RecommendationModesResponse.ModeTaskItem(
-                                        3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF", 40))),
+                                        3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF", "daily", 40))),
                 new RecommendationModesResponse.RecommendationModeItem(
                         "CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합",
                         List.of(
                                 new RecommendationModesResponse.ModeTaskItem(
-                                        1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", 120))),
+                                        1L, "기말고사 준비", TaskPriority.HIGH, "#FF5C5C", "book", 120))),
                 new RecommendationModesResponse.RecommendationModeItem(
                         "PACK30", "30분팩", "30분 안에 진행률을 가장 많이 올릴 수 있는 과업",
                         List.of(new RecommendationModesResponse.ModeTaskItem(
-                                3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF", 30)))
+                                3L, "운동 계획 세우기", TaskPriority.LOW, "#5C9EFF", "daily", 30)))
         )));
     }
 }

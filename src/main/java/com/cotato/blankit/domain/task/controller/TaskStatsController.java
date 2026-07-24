@@ -40,9 +40,9 @@ public class TaskStatsController {
                 120,
                 List.of(
                         new TaskDailyStatsResponse.FeedbackTaskItem(
-                                1L, "기말고사 준비", "학업", "#FF5C5C", 40, false),
+                                1L, "기말고사 준비", "학업", "#FF5C5C", "book", 40, false),
                         new TaskDailyStatsResponse.FeedbackTaskItem(
-                                2L, "영어 단어 100개 암기", "학업", "#FF5C5C", 100, true)
+                                2L, "영어 단어 100개 암기", "학업", "#FF5C5C", "book", 100, true)
                 )
         ));
     }

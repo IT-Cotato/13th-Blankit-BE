@@ -36,6 +36,9 @@ public record TaskDailyStatsResponse(
             @Schema(description = "카테고리 색상 (HEX)", example = "#FF5C5C")
             String categoryColor,
 
+            @Schema(description = "카테고리 아이콘 식별 키", example = "book")
+            String categoryIconKey,
+
             @Schema(description = "피드백 시점의 진척도 (0~100)", example = "40")
             int progressRate,
 

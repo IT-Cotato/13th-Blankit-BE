@@ -39,6 +39,9 @@ public record SearchResultResponse(
             @Schema(description = "카테고리 색상 (HEX)", example = "#FF5C5C")
             String categoryColor,
 
+            @Schema(description = "카테고리 아이콘 식별 키", example = "book")
+            String categoryIconKey,
+
             @Schema(description = "우선순위", example = "HIGH")
             TaskPriority priority,
 
@@ -69,6 +72,7 @@ public record SearchResultResponse(
                 task.getCategory().getId(),
                 task.getCategory().getName(),
                 task.getCategory().getColor(),
+                task.getCategory().getIconKey(),
                 task.getPriority(),
                 task.getDeadline(),
                 task.getStatus(),

@@ -11,6 +11,10 @@ public record CategoryUpdateRequest(
 
         @Schema(description = "카테고리 색상 HEX 값. 같은 사용자 내 활성 카테고리와 중복될 수 없습니다.", example = "#5C9EFF", pattern = "^#[0-9A-Fa-f]{6}$", maxLength = 20)
         @Size(max = 20, message = "카테고리 색상은 최대 20자까지 입력할 수 있습니다.")
-        String color
+        String color,
+
+        @Schema(description = "프론트엔드에서 관리하는 카테고리 아이콘 식별 키", example = "book", maxLength = 100)
+        @Size(max = 100, message = "카테고리 아이콘 키는 최대 100자까지 입력할 수 있습니다.")
+        String iconKey
 ) {
 }

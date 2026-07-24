@@ -35,6 +35,9 @@ public record PlaylistResponse(
             @Schema(description = "카테고리 색상 (HEX)", example = "#FF5C5C")
             String categoryColor,
 
+            @Schema(description = "카테고리 아이콘 식별 키", example = "book")
+            String categoryIconKey,
+
             @Schema(description = "정렬 순서", example = "0")
             int sortOrder,
 

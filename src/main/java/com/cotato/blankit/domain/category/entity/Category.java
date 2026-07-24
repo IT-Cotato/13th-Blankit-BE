@@ -43,6 +43,9 @@ public class Category extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String color;
 
+    @Column(name = "icon_key", nullable = false, length = 100)
+    private String iconKey;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
@@ -52,24 +55,33 @@ public class Category extends BaseEntity {
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted;
 
-    public static Category create(User user, String name, String color) {
-        return create(user, name, color, 0, false);
+    public static Category create(User user, String name, String color, String iconKey) {
+        return create(user, name, color, iconKey, 0, false);
     }
 
-    public static Category create(User user, String name, String color, int sortOrder, boolean defaultCategory) {
+    public static Category create(
+            User user,
+            String name,
+            String color,
+            String iconKey,
+            int sortOrder,
+            boolean defaultCategory
+    ) {
         Category category = new Category();
         category.user = user;
         category.name = name;
         category.color = color;
+        category.iconKey = iconKey;
         category.sortOrder = sortOrder;
         category.defaultCategory = defaultCategory;
         category.deleted = false;
         return category;
     }
 
-    public void update(String name, String color) {
+    public void update(String name, String color, String iconKey) {
         this.name = name;
         this.color = color;
+        this.iconKey = iconKey;
     }
 
     public void delete() {
