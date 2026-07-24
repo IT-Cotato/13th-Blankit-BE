@@ -50,7 +50,10 @@ public class FeedbackService {
                                 Feedback.create(session, session.getTask(), session.getUser(),
                                         request.progressRate(), request.memo(), request.isDraft()));
                     } catch (DataIntegrityViolationException e) {
-                        throw new CustomException(ErrorCode.FEEDBACK_DUPLICATE);
+                        if (e.getMessage() != null && e.getMessage().contains("uk_feedback_task_session")) {
+                            throw new CustomException(ErrorCode.FEEDBACK_DUPLICATE);
+                        }
+                        throw e;
                     }
                 });
         feedback.update(request.progressRate(), request.memo(), request.isDraft());
