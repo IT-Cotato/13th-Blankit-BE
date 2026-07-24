@@ -43,6 +43,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -901,16 +902,20 @@ class TaskControllerTest {
 
     @Test
     void deleteTask_withFeedback_succeeds() throws Exception {
-        // 피드백이 있는 과업 삭제 시 FK 제약 위반 없이 정상 삭제됨
+        // 피드백이 있는 과업 삭제 시 과업·세션·피드백이 모두 삭제됨
         Task task = saveTask(user, studyCategory, "피드백 있는 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
         TaskSession session = taskSessionRepository.save(
                 TaskSession.create(task, user, LocalDateTime.now(), null, 600, TaskSessionStatus.PAUSED));
-        feedbackRepository.save(Feedback.create(session, task, user, 50, "메모", true));
+        Feedback feedback = feedbackRepository.save(Feedback.create(session, task, user, 50, "메모", true));
 
         mockMvc.perform(delete("/api/tasks/{taskId}", task.getId())
                         .with(csrf())
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+
+        assertThat(taskRepository.findById(task.getId())).isEmpty();
+        assertThat(taskSessionRepository.findById(session.getTaskSessionId())).isEmpty();
+        assertThat(feedbackRepository.findById(feedback.getFeedbackId())).isEmpty();
     }
 
     private Task saveTask(User owner, Category category, String title, LocalDate deadline, Task similarTask, TaskStatus status) {
