@@ -7,8 +7,13 @@ import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.playlist.entity.Playlist;
+import com.cotato.blankit.domain.playlist.entity.PlaylistItem;
+import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
+import com.cotato.blankit.domain.playlist.repository.PlaylistRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
@@ -72,6 +77,8 @@ class FeedbackControllerTest {
     @Autowired private TaskRepository taskRepository;
     @Autowired private TaskSessionRepository taskSessionRepository;
     @Autowired private FeedbackRepository feedbackRepository;
+    @Autowired private PlaylistRepository playlistRepository;
+    @Autowired private PlaylistItemRepository playlistItemRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
 
     @TestConfiguration
@@ -329,5 +336,94 @@ class FeedbackControllerTest {
 
         Task updated = taskRepository.findById(taskA.getId()).orElseThrow();
         assertThat(updated.getEstimatedTime()).isNotEqualTo(120);
+    }
+
+    @Test
+    void createSession_existingPausedSession_returnsExistingWithoutCreatingNew() throws Exception {
+        // PAUSED 세션이 이미 있으면 새 세션을 생성하지 않고 기존 세션을 반환
+        TaskSession existing = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 300, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/tasks/{taskId}/sessions", taskA.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.taskSessionId").value(existing.getTaskSessionId()))
+                .andExpect(jsonPath("$.data.elapsedTime").value(300));
+
+        assertThat(taskSessionRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void submitFeedback_progressRate100_taskStatusBecomeDone() throws Exception {
+        // 진행률 100% 최종 제출 시 과업 상태가 DONE으로 변경됨
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 3600, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 100, "memo": null, "isDraft": false }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.progressRate").value(100));
+
+        Task updated = taskRepository.findById(taskA.getId()).orElseThrow();
+        assertThat(updated.getStatus()).isEqualTo(TaskStatus.DONE);
+    }
+
+    @Test
+    void submitFeedback_progressRate100_removedFromPlaylist() throws Exception {
+        // 진행률 100% 최종 제출 시 플레이리스트에서 해당 과업 항목만 삭제됨
+        Playlist playlist = playlistRepository.save(Playlist.create(user));
+        PlaylistItem itemA = playlistItemRepository.save(PlaylistItem.create(playlist, taskA, 0, null));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskB, 1, null));
+
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 3600, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 100, "memo": null, "isDraft": false }
+                                """))
+                .andExpect(status().isOk());
+
+        assertThat(playlistItemRepository.findById(itemA.getPlaylistItemId())).isEmpty();
+        assertThat(playlistItemRepository.countByPlaylist(playlist)).isEqualTo(1);
+    }
+
+    @Test
+    void submitFeedback_draftThenFinalSubmit_overwritesAndFinalizes() throws Exception {
+        // 임시저장(isDraft=true) 후 최종 제출(isDraft=false) 시 동일 피드백 레코드가 업데이트됨
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 1800, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 40, "memo": "중간", "isDraft": true }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isDraft").value(true));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": "최종", "isDraft": false }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isDraft").value(false))
+                .andExpect(jsonPath("$.data.progressRate").value(50));
+
+        assertThat(feedbackRepository.count()).isEqualTo(1);
     }
 }
