@@ -2,10 +2,12 @@ package com.cotato.blankit.domain.feedback;
 
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
+import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
@@ -34,6 +36,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -219,6 +222,35 @@ class FeedbackControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("DONE"))
                 .andExpect(jsonPath("$.data.endedAt").isNotEmpty());
+    }
+
+    @Test
+    void updateStatus_smallerElapsedTime_doesNotDecreaseElapsedTime() throws Exception {
+        // 지연/역순 요청으로 더 작은 elapsedTime이 오면 기존 값이 유지됨
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 600, TaskSessionStatus.PLAYING));
+
+        mockMvc.perform(patch("/api/sessions/{sessionId}/status", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "PAUSED", "elapsedTime": 300 }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.elapsedTime").value(600));
+    }
+
+    @Test
+    void submitFeedback_duplicateSession_throwsConstraintViolation() {
+        // 동일 세션에 피드백을 두 번 직접 저장하면 unique 제약 위반 발생
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 0, TaskSessionStatus.PAUSED));
+        feedbackRepository.saveAndFlush(Feedback.create(session, taskA, user, 50, null, true));
+
+        assertThatThrownBy(() ->
+                feedbackRepository.saveAndFlush(Feedback.create(session, taskA, user, 60, null, true)))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     // ─── 피드백 ───────────────────────────────────────────────────────────────
