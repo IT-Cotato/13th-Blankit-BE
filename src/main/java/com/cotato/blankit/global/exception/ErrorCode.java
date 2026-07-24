@@ -45,7 +45,17 @@ public enum ErrorCode {
     TIMETABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "TIMETABLE_NOT_FOUND", "시간표를 찾을 수 없습니다."),
     TIMETABLE_TIME_CONFLICT(HttpStatus.CONFLICT, "TIMETABLE_TIME_CONFLICT", "기존 시간표와 시간이 겹칩니다."),
     TIMETABLE_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_RANGE", "시작 시간은 종료 시간보다 빨라야 합니다."),
-    TIMETABLE_INVALID_TIME_UNIT(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_UNIT", "시간은 30분 단위여야 합니다.");
+    TIMETABLE_INVALID_TIME_UNIT(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME_UNIT", "시간은 30분 단위여야 합니다."),
+
+    // Feedback & Session
+    SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "세션을 찾을 수 없습니다."),
+    SESSION_ALREADY_PLAYING(HttpStatus.CONFLICT, "SESSION_ALREADY_PLAYING", "이미 실행 중인 세션이 있습니다."),
+    SESSION_ALREADY_DONE(HttpStatus.CONFLICT, "SESSION_ALREADY_DONE", "이미 완료된 세션입니다."),
+    FEEDBACK_DUPLICATE(HttpStatus.CONFLICT, "FEEDBACK_DUPLICATE", "이미 피드백이 존재합니다."),
+
+    // Playlist
+    PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다."),
+    INVALID_PLAYLIST_ORDER(HttpStatus.BAD_REQUEST, "INVALID_PLAYLIST_ORDER", "순서 변경 요청에 중복된 항목 ID 또는 sortOrder가 있습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

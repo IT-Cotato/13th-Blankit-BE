@@ -81,6 +81,9 @@ public class Task extends BaseEntity {
     @Column(nullable = false, length = 20)
     private TaskStatus status;
 
+    @Column(name = "progress_rate")
+    private Integer progressRate;
+
     public static Task create(User user, Category category, String title, LocalDate deadline, Task similarTask) {
         return create(user, category, title, deadline, similarTask, null);
     }
@@ -144,6 +147,10 @@ public class Task extends BaseEntity {
 
     public void updateEstimatedTime(Integer estimatedTime) {
         this.estimatedTime = estimatedTime;
+    }
+
+    public void updateProgressRate(Integer progressRate) {
+        this.progressRate = progressRate;
     }
 
     public void updateSimilarTask(Task similarTask) {

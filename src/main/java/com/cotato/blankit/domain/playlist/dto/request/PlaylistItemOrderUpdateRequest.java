@@ -2,6 +2,7 @@ package com.cotato.blankit.domain.playlist.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
@@ -25,6 +26,7 @@ public record PlaylistItemOrderUpdateRequest(
 
             @Schema(description = "새 정렬 순서", example = "0")
             @NotNull(message = "sortOrder는 필수입니다.")
+            @Min(value = 0, message = "sortOrder는 0 이상이어야 합니다.")
             Integer sortOrder
     ) {
     }

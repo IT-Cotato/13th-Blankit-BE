@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 
 @Entity
 @Table(
@@ -63,5 +64,18 @@ public class TaskSession extends BaseEntity {
         session.elapsedTime = elapsedTime;
         session.status = status == null ? TaskSessionStatus.PAUSED : status;
         return session;
+    }
+
+    public void updateStatus(TaskSessionStatus status, Clock clock) {
+        this.status = status;
+        if (status == TaskSessionStatus.DONE) {
+            this.endedAt = LocalDateTime.now(clock);
+        }
+    }
+
+    public void updateElapsedTime(int elapsedTime) {
+        if (elapsedTime > this.elapsedTime) {
+            this.elapsedTime = elapsedTime;
+        }
     }
 }

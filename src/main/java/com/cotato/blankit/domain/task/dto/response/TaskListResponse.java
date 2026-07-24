@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Schema(description = "과업 목록 응답")
 public record TaskListResponse(
@@ -23,6 +24,8 @@ public record TaskListResponse(
         boolean starred,
         @Schema(description = "예상 남은 시간(분)", nullable = true)
         Integer estimatedTime,
+        @Schema(description = "오늘 권장 소요 시간(분). estimatedTime / 남은 일수. estimatedTime이 없으면 null", nullable = true)
+        Integer recommendedMinutes,
         @Schema(description = "상태", example = "TODO")
         TaskStatus status,
         @Schema(description = "마감일", example = "2026-08-12")
@@ -39,7 +42,7 @@ public record TaskListResponse(
         LocalDateTime updatedAt
 ) {
 
-    public static TaskListResponse from(Task task) {
+    public static TaskListResponse from(Task task, LocalDate today) {
         Long similarTaskId = task.getSimilarTask() == null ? null : task.getSimilarTask().getId();
         Long sourceTaskId = task.getSourceTask() == null ? null : task.getSourceTask().getId();
         return new TaskListResponse(
@@ -49,6 +52,7 @@ public record TaskListResponse(
                 task.getPriority(),
                 task.isStarred(),
                 task.getEstimatedTime(),
+                calculateRecommendedMinutes(task.getEstimatedTime(), task.getDeadline(), today),
                 task.getStatus(),
                 task.getDeadline(),
                 similarTaskId != null,
@@ -57,5 +61,13 @@ public record TaskListResponse(
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );
+    }
+
+    private static Integer calculateRecommendedMinutes(Integer estimatedTime, LocalDate deadline, LocalDate today) {
+        if (estimatedTime == null) {
+            return null;
+        }
+        long daysRemaining = Math.max(1, ChronoUnit.DAYS.between(today, deadline));
+        return (int) Math.ceil((double) estimatedTime / daysRemaining);
     }
 }

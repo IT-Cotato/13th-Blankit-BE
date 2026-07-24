@@ -20,4 +20,10 @@ public class Playlist extends BaseEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
+
+    public static Playlist create(User user) {
+        Playlist playlist = new Playlist();
+        playlist.user = user;
+        return playlist;
+    }
 }

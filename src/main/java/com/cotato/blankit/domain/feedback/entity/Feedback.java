@@ -9,7 +9,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "feedback")
+@Table(name = "feedback", uniqueConstraints = @UniqueConstraint(
+        name = "uk_feedback_task_session",
+        columnNames = "task_session_id"
+))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Feedback extends BaseEntity {
@@ -40,4 +43,49 @@ public class Feedback extends BaseEntity {
 
     @Column(nullable = false)
     private boolean isDraft;
+
+    private Integer intervalStartRate;
+
+    private Integer cumulativeElapsedTime;
+
+    private Integer consecutiveCount;
+
+    private Integer intervalDiff;
+
+    public static Feedback create(
+            TaskSession taskSession,
+            Task task,
+            User user,
+            Integer progressRate,
+            String memo,
+            boolean isDraft
+    ) {
+        Feedback feedback = new Feedback();
+        feedback.taskSession = taskSession;
+        feedback.task = task;
+        feedback.user = user;
+        feedback.progressRate = progressRate;
+        feedback.memo = memo;
+        feedback.isCompleted = false;
+        feedback.isDraft = isDraft;
+        return feedback;
+    }
+
+    public void update(Integer progressRate, String memo, boolean isDraft) {
+        this.progressRate = progressRate;
+        this.memo = memo;
+        this.isDraft = isDraft;
+    }
+
+    public void updateMetrics(int intervalStartRate, int cumulativeElapsedTime, Integer consecutiveCount, Integer intervalDiff) {
+        this.intervalStartRate = intervalStartRate;
+        this.cumulativeElapsedTime = cumulativeElapsedTime;
+        this.consecutiveCount = consecutiveCount;
+        this.intervalDiff = intervalDiff;
+    }
+
+    public void complete() {
+        this.isCompleted = true;
+        this.isDraft = false;
+    }
 }
