@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
@@ -14,9 +15,10 @@ import java.time.temporal.ChronoUnit;
 public class RecommendationService {
 
     private final TaskRepository taskRepository;
+    private final Clock clock;
 
     public int calculateTodayRecommendedMinutes(Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         return taskRepository.findActiveTasksForRecommendation(userId, today)
                 .stream()
                 .mapToInt(task -> {

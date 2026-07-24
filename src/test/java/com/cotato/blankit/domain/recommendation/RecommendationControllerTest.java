@@ -78,7 +78,7 @@ class RecommendationControllerTest {
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "rec-user", "rec@example.com", "추천유저", null, 120));
         token = jwtTokenProvider.createAccessToken(user.getId());
-        category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", 0, true));
+        category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book",0, true));
     }
 
     @Test
