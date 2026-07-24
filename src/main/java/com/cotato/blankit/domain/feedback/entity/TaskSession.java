@@ -74,6 +74,8 @@ public class TaskSession extends BaseEntity {
     }
 
     public void updateElapsedTime(int elapsedTime) {
-        this.elapsedTime = elapsedTime;
+        if (elapsedTime > this.elapsedTime) {
+            this.elapsedTime = elapsedTime;
+        }
     }
 }
