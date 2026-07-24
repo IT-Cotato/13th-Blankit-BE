@@ -27,3 +27,6 @@ logs/
 
 # Test / Runtime
 *.hprof
+
+# docs (개인 관리용 문서)
+my-service-logic.md
