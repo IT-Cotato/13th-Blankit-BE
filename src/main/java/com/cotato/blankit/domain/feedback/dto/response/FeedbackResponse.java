@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.feedback.dto.response;
 
+import com.cotato.blankit.domain.feedback.entity.Feedback;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "피드백 응답")
@@ -26,4 +27,15 @@ public record FeedbackResponse(
         @Schema(description = "임시저장 여부", example = "false")
         boolean isDraft
 ) {
+    public static FeedbackResponse from(Feedback feedback) {
+        return new FeedbackResponse(
+                feedback.getFeedbackId(),
+                feedback.getTaskSession().getTaskSessionId(),
+                feedback.getTask().getId(),
+                feedback.getProgressRate(),
+                feedback.getMemo(),
+                feedback.isCompleted(),
+                feedback.isDraft()
+        );
+    }
 }

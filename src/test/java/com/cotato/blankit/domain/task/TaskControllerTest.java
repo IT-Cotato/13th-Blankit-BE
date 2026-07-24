@@ -6,14 +6,16 @@ import com.cotato.blankit.domain.task.entity.RecurrenceType;
 import com.cotato.blankit.domain.task.entity.RepeatMonthDays;
 import com.cotato.blankit.domain.task.entity.RepeatRule;
 import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
+import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
-import com.cotato.blankit.domain.task.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.service.RepeatDeadlineRefreshService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
@@ -41,6 +43,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -93,6 +96,9 @@ class TaskControllerTest {
 
     @Autowired
     private TaskSessionRepository taskSessionRepository;
+
+    @Autowired
+    private FeedbackRepository feedbackRepository;
 
     @Autowired
     private RepeatDeadlineRefreshService repeatDeadlineRefreshService;
@@ -892,6 +898,24 @@ class TaskControllerTest {
         Task unchanged = taskRepository.findById(otherTask.getId()).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(unchanged.getTitle()).isEqualTo("타인 과업");
         org.assertj.core.api.Assertions.assertThat(unchanged.getDeadline()).isEqualTo(LocalDate.parse("2026-08-12"));
+    }
+
+    @Test
+    void deleteTask_withFeedback_succeeds() throws Exception {
+        // 피드백이 있는 과업 삭제 시 과업·세션·피드백이 모두 삭제됨
+        Task task = saveTask(user, studyCategory, "피드백 있는 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(task, user, LocalDateTime.now(), null, 600, TaskSessionStatus.PAUSED));
+        Feedback feedback = feedbackRepository.save(Feedback.create(session, task, user, 50, "메모", true));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(taskRepository.findById(task.getId())).isEmpty();
+        assertThat(taskSessionRepository.findById(session.getTaskSessionId())).isEmpty();
+        assertThat(feedbackRepository.findById(feedback.getFeedbackId())).isEmpty();
     }
 
     private Task saveTask(User owner, Category category, String title, LocalDate deadline, Task similarTask, TaskStatus status) {
