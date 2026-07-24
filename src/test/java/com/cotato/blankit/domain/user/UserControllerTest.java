@@ -1,5 +1,8 @@
 package com.cotato.blankit.domain.user;
 
+import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
+import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
+import com.cotato.blankit.domain.user.service.UserService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
@@ -23,8 +26,9 @@ import java.time.LocalTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -55,6 +59,12 @@ class UserControllerTest {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private UserNotificationSettingRepository userNotificationSettingRepository;
+
+    @Autowired
+    private UserService userService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -203,7 +213,7 @@ class UserControllerTest {
     }
 
     @Test
-    void getNotificationSettingsAlwaysReturnsDefaultOff() throws Exception {
+    void getNotificationSettingsWithoutStoredSettingReturnsDefaultOff() throws Exception {
         mockMvc.perform(get("/api/users/me/notification-settings")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -213,7 +223,7 @@ class UserControllerTest {
     }
 
     @Test
-    void updateNotificationSettingsEchoesRequestWithoutPersistence() throws Exception {
+    void updateNotificationSettingsSavesAndReturnsSettings() throws Exception {
         mockMvc.perform(patch("/api/users/me/notification-settings")
                         .with(csrf())
                         .header("Authorization", "Bearer " + token)
@@ -221,17 +231,136 @@ class UserControllerTest {
                         .content("""
                                 {
                                   "isServiceAlarmEnabled": true,
-                                  "is30minPackAlarmEnabled": true
+                                  "is30minPackAlarmEnabled": false
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.isServiceAlarmEnabled").value(true))
-                .andExpect(jsonPath("$.data.is30minPackAlarmEnabled").value(true));
+                .andExpect(jsonPath("$.data.is30minPackAlarmEnabled").value(false));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        UserNotificationSetting saved = userNotificationSettingRepository.findByUserId(user.getId()).orElseThrow();
+        assertThat(saved.isServiceAlarmEnabled()).isTrue();
+        assertThat(saved.isThirtyMinPackAlarmEnabled()).isFalse();
 
         mockMvc.perform(get("/api/users/me/notification-settings")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.isServiceAlarmEnabled").value(false))
+                .andExpect(jsonPath("$.data.isServiceAlarmEnabled").value(true))
                 .andExpect(jsonPath("$.data.is30minPackAlarmEnabled").value(false));
+    }
+
+    @Test
+    void updateNotificationSettingsCanTurnServiceAlarmOffAgain() throws Exception {
+        UserNotificationSetting setting = UserNotificationSetting.createDefault(user);
+        setting.update(true, false);
+        userNotificationSettingRepository.save(setting);
+
+        mockMvc.perform(patch("/api/users/me/notification-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "isServiceAlarmEnabled": false,
+                                  "is30minPackAlarmEnabled": false
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isServiceAlarmEnabled").value(false));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(userNotificationSettingRepository.findByUserId(user.getId()))
+                .isPresent()
+                .get()
+                .extracting(UserNotificationSetting::isServiceAlarmEnabled)
+                .isEqualTo(false);
+    }
+
+    @Test
+    void updateNotificationSettingsRejectsMissingFields() throws Exception {
+        mockMvc.perform(patch("/api/users/me/notification-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "isServiceAlarmEnabled": true
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void notificationSettingsRequireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/users/me/notification-settings"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        mockMvc.perform(patch("/api/users/me/notification-settings")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "isServiceAlarmEnabled": true,
+                                  "is30minPackAlarmEnabled": false
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void serviceNotificationRecipientsIncludeOnlyEnabledUsers() {
+        User enabledUser = userRepository.save(User.create(
+                SocialProvider.KAKAO,
+                "notification-enabled-user",
+                "enabled@example.com",
+                "수신동의",
+                null,
+                120
+        ));
+        User disabledUser = userRepository.save(User.create(
+                SocialProvider.KAKAO,
+                "notification-disabled-user",
+                "disabled@example.com",
+                "수신거부",
+                null,
+                120
+        ));
+        UserNotificationSetting enabledSetting = UserNotificationSetting.createDefault(enabledUser);
+        enabledSetting.update(true, false);
+        userNotificationSettingRepository.save(enabledSetting);
+        userNotificationSettingRepository.save(UserNotificationSetting.createDefault(disabledUser));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(userService.getServiceNotificationRecipientUserIds())
+                .contains(enabledUser.getId())
+                .doesNotContain(disabledUser.getId());
+    }
+
+    @Test
+    void withdrawDeletesNotificationSetting() throws Exception {
+        UserNotificationSetting setting = UserNotificationSetting.createDefault(user);
+        setting.update(true, false);
+        userNotificationSettingRepository.saveAndFlush(setting);
+
+        mockMvc.perform(delete("/api/users/me")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(userNotificationSettingRepository.findByUserId(user.getId())).isEmpty();
+        assertThat(userRepository.findById(user.getId())).isEmpty();
     }
 }
