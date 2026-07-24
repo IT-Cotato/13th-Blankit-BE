@@ -14,4 +14,6 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
     Optional<Feedback> findByTaskSessionAndIsDraftFalse(TaskSession taskSession);
 
     List<Feedback> findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(Long taskId);
+
+    void deleteByTask_Id(Long taskId);
 }
