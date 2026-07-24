@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -88,6 +89,14 @@ public class PlaylistService {
     @Transactional
     public void updateOrder(Long userId, PlaylistItemOrderUpdateRequest request) {
         Playlist playlist = findOrCreatePlaylist(getUser(userId));
+
+        Set<Long> seenIds = new HashSet<>();
+        Set<Integer> seenOrders = new HashSet<>();
+        for (PlaylistItemOrderUpdateRequest.PlaylistItemOrder order : request.items()) {
+            if (!seenIds.add(order.playlistItemId()) || !seenOrders.add(order.sortOrder())) {
+                throw new CustomException(ErrorCode.INVALID_PLAYLIST_ORDER);
+            }
+        }
 
         for (PlaylistItemOrderUpdateRequest.PlaylistItemOrder order : request.items()) {
             PlaylistItem item = playlistItemRepository.findById(order.playlistItemId())

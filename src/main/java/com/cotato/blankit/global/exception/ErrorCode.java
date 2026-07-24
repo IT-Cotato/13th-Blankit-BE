@@ -51,7 +51,8 @@ public enum ErrorCode {
     FEEDBACK_DUPLICATE(HttpStatus.CONFLICT, "FEEDBACK_DUPLICATE", "이미 피드백이 존재합니다."),
 
     // Playlist
-    PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다.");
+    PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다."),
+    INVALID_PLAYLIST_ORDER(HttpStatus.BAD_REQUEST, "INVALID_PLAYLIST_ORDER", "순서 변경 요청에 중복된 항목 ID 또는 sortOrder가 있습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -258,6 +258,66 @@ class PlaylistControllerTest {
                 .andExpect(jsonPath("$.code").value("PLAYLIST_ITEM_NOT_FOUND"));
     }
 
+    @Test
+    void updateOrder_negativeSortOrder_returns400() throws Exception {
+        // 음수 sortOrder 전달 시 400 반환
+        Playlist playlist = playlistRepository.save(Playlist.create(user));
+        PlaylistItem itemA = playlistItemRepository.save(PlaylistItem.create(playlist, taskA, 0, null));
+
+        mockMvc.perform(patch("/api/playlist/items/order")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "items": [
+                                    { "playlistItemId": %d, "sortOrder": -1 }
+                                ] }
+                                """.formatted(itemA.getPlaylistItemId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
+    void updateOrder_duplicateSortOrder_returns400() throws Exception {
+        // 두 항목에 같은 sortOrder 전달 시 400 반환
+        Playlist playlist = playlistRepository.save(Playlist.create(user));
+        PlaylistItem itemA = playlistItemRepository.save(PlaylistItem.create(playlist, taskA, 0, null));
+        PlaylistItem itemB = playlistItemRepository.save(PlaylistItem.create(playlist, taskB, 1, null));
+
+        mockMvc.perform(patch("/api/playlist/items/order")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "items": [
+                                    { "playlistItemId": %d, "sortOrder": 0 },
+                                    { "playlistItemId": %d, "sortOrder": 0 }
+                                ] }
+                                """.formatted(itemA.getPlaylistItemId(), itemB.getPlaylistItemId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PLAYLIST_ORDER"));
+    }
+
+    @Test
+    void updateOrder_duplicatePlaylistItemId_returns400() throws Exception {
+        // 같은 항목 ID를 두 번 전달 시 400 반환
+        Playlist playlist = playlistRepository.save(Playlist.create(user));
+        PlaylistItem itemA = playlistItemRepository.save(PlaylistItem.create(playlist, taskA, 0, null));
+
+        mockMvc.perform(patch("/api/playlist/items/order")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "items": [
+                                    { "playlistItemId": %d, "sortOrder": 0 },
+                                    { "playlistItemId": %d, "sortOrder": 1 }
+                                ] }
+                                """.formatted(itemA.getPlaylistItemId(), itemA.getPlaylistItemId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PLAYLIST_ORDER"));
+    }
+
     // ─── 단건 삭제 ─────────────────────────────────────────────────────────────
 
     @Test
