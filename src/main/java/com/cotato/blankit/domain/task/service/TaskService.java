@@ -20,7 +20,9 @@ import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
-import com.cotato.blankit.domain.task.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
+import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
@@ -56,6 +58,8 @@ public class TaskService {
     private final NotificationSettingRepository notificationSettingRepository;
     private final RepeatRuleRepository repeatRuleRepository;
     private final TaskSessionRepository taskSessionRepository;
+    private final FeedbackRepository feedbackRepository;
+    private final PlaylistItemRepository playlistItemRepository;
     private final UserRepository userRepository;
     private final CategoryService categoryService;
     private final RepeatDeadlineCalculator repeatDeadlineCalculator;
@@ -124,8 +128,9 @@ public class TaskService {
                 LikeQueryUtils.normalizeAndEscapeOptionalKeyword(keyword),
                 createTaskPageable(page, size)
         );
+        LocalDate today = LocalDate.now(clock);
         return PageResponse.of(
-                taskPage.getContent().stream().map(TaskListResponse::from).toList(),
+                taskPage.getContent().stream().map(task -> TaskListResponse.from(task, today)).toList(),
                 taskPage.getNumber(),
                 taskPage.getSize(),
                 taskPage.getTotalElements()
@@ -156,6 +161,9 @@ public class TaskService {
         }
         if (request.status() != null) {
             task.updateStatus(request.status());
+            if (request.status() == TaskStatus.DONE) {
+                playlistItemRepository.deleteByTask(task);
+            }
         }
         if (request.starred() != null) {
             task.updateStarred(request.starred());
@@ -172,6 +180,7 @@ public class TaskService {
         Task task = getTaskByUser(taskId, userId);
         taskRepository.clearSimilarTaskBySimilarTaskIdAndUserId(task.getId(), userId);
         taskRepository.clearSourceTaskBySourceTaskIdAndUserId(task.getId(), userId);
+        feedbackRepository.deleteByTask_Id(task.getId());
         taskSessionRepository.deleteByTaskId(task.getId());
         repeatRuleRepository.deleteByTaskId(task.getId());
         notificationSettingRepository.findByTaskId(task.getId()).ifPresent(notificationSettingRepository::delete);

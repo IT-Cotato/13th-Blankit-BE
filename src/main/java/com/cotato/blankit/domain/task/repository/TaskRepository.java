@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -96,6 +97,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     boolean existsBySourceTaskIdAndDeadline(Long sourceTaskId, LocalDate deadline);
 
     Optional<Task> findBySourceTaskIdAndDeadline(Long sourceTaskId, LocalDate deadline);
+
+    List<Task> findAllByIdInAndUserId(Collection<Long> ids, Long userId);
 
     boolean existsByCategoryIdAndUserId(Long categoryId, Long userId);
 

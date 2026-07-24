@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.feedback.dto.response;
 
+import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -26,4 +27,14 @@ public record TaskSessionResponse(
         @Schema(description = "세션 상태 (최초 진입 시 PAUSED)", example = "PAUSED")
         TaskSessionStatus status
 ) {
+    public static TaskSessionResponse from(TaskSession session) {
+        return new TaskSessionResponse(
+                session.getTaskSessionId(),
+                session.getTask().getId(),
+                session.getStartedAt(),
+                session.getEndedAt(),
+                session.getElapsedTime(),
+                session.getStatus()
+        );
+    }
 }
