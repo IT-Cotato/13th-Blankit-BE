@@ -154,6 +154,7 @@ public class PlaylistService {
                         item.getTask().getTitle(),
                         item.getTask().getCategory().getName(),
                         item.getTask().getCategory().getColor(),
+                        item.getTask().getCategory().getIconKey(),
                         item.getSortOrder(),
                         item.getSourceMode()
                 ))
