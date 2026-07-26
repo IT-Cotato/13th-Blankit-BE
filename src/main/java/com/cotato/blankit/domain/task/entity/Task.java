@@ -19,11 +19,13 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDate;
 
 @Getter
 @Entity
+@DynamicUpdate
 @Table(
         name = "task",
         indexes = {

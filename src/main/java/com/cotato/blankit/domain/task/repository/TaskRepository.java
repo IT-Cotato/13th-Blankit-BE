@@ -101,17 +101,4 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findAllByIdInAndUserId(Collection<Long> ids, Long userId);
 
     boolean existsByCategoryIdAndUserId(Long categoryId, Long userId);
-
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("""
-            update Task t
-            set t.starred = :starred
-            where t.id = :taskId
-              and t.user.id = :userId
-            """)
-    int updateStarredByIdAndUserId(
-            @Param("taskId") Long taskId,
-            @Param("userId") Long userId,
-            @Param("starred") boolean starred
-    );
 }
