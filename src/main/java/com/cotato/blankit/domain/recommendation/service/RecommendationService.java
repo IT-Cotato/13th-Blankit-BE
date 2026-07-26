@@ -19,12 +19,13 @@ public class RecommendationService {
 
     public long calculateTodayRecommendedMinutes(Long userId) {
         LocalDate today = LocalDate.now(clock);
-        return taskRepository.findActiveTasksForRecommendation(userId, today)
+        double total = taskRepository.findActiveTasksForRecommendation(userId, today)
                 .stream()
-                .mapToLong(task -> {
+                .mapToDouble(task -> {
                     long daysRemaining = ChronoUnit.DAYS.between(today, task.getDeadline()) + 1;
-                    return (long) Math.ceil((double) task.getEstimatedTime() / daysRemaining);
+                    return (double) task.getEstimatedTime() / daysRemaining;
                 })
                 .sum();
+        return (long) Math.ceil(total);
     }
 }
