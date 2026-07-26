@@ -19,7 +19,6 @@ Thumbs.db
 .env
 *.env
 application-secret.yml
-application-prod.yml
 
 # Logs
 logs/
