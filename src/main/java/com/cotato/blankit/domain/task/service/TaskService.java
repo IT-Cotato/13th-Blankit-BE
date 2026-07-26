@@ -5,6 +5,7 @@ import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.service.CategoryService;
 import com.cotato.blankit.domain.task.dto.request.RepeatRuleRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskCreateRequest;
+import com.cotato.blankit.domain.task.dto.request.TaskStarUpdateRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskUpdateRequest;
 import com.cotato.blankit.domain.task.dto.response.ReminderRangeResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDetailResponse;
@@ -172,6 +173,13 @@ public class TaskService {
         updateDeadlineAndRepeatRule(task, request, existingRepeatRule);
         updateSimilarTask(userId, task, request);
 
+        return toDetailResponse(userId, task);
+    }
+
+    @Transactional
+    public TaskDetailResponse updateStarred(Long userId, Long taskId, TaskStarUpdateRequest request) {
+        Task task = getTaskByUser(taskId, userId);
+        task.updateStarred(request.isStarred());
         return toDetailResponse(userId, task);
     }
 

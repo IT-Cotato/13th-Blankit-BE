@@ -987,6 +987,102 @@ class TaskControllerTest {
         assertThat(feedbackRepository.findById(feedback.getFeedbackId())).isEmpty();
     }
 
+    @Test
+    void updateStarred_activatesStarAndPersists() throws Exception {
+        Task task = saveTask(user, studyCategory, "별표 설정 대상", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
+
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "isStarred": true }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.starred").value(true));
+
+        // 멱등성: 이미 starred=true인 상태에서 true 재요청 → 200 + starred=true
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "isStarred": true }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.starred").value(true));
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(taskRepository.findById(task.getId()).orElseThrow().isStarred()).isTrue();
+    }
+
+    @Test
+    void updateStarred_deactivatesStarAndPersists() throws Exception {
+        Task task = saveTask(user, studyCategory, "별표 해제 대상", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
+        task.updateStarred(true);
+
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "isStarred": false }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.starred").value(false));
+
+        // 멱등성: 이미 starred=false인 상태에서 false 재요청 → 200 + starred=false
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "isStarred": false }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.starred").value(false));
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(taskRepository.findById(task.getId()).orElseThrow().isStarred()).isFalse();
+    }
+
+    @Test
+    void updateStarred_otherUserTaskReturnsNotFoundAndStarUnchanged() throws Exception {
+        Category otherCategory = categoryRepository.save(Category.create(otherUser, "타인별표", "#B55CFF", "user", 3, false));
+        Task otherTask = saveTask(otherUser, otherCategory, "타인 과업", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
+
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", otherTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "isStarred": true }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TASK_NOT_FOUND"));
+
+        entityManager.flush();
+        entityManager.clear();
+        org.assertj.core.api.Assertions.assertThat(taskRepository.findById(otherTask.getId()).orElseThrow().isStarred()).isFalse();
+    }
+
+    @Test
+    void updateStarred_missingIsStarredReturnsBadRequest() throws Exception {
+        Task task = saveTask(user, studyCategory, "필드 누락 과업", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
+
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.data[0].field").value("isStarred"))
+                .andExpect(jsonPath("$.data[0].message").value("isStarred 값은 필수입니다."));
+    }
+
     private Task saveTask(User owner, Category category, String title, LocalDate deadline, Task similarTask, TaskStatus status) {
         Task task = taskRepository.save(Task.create(owner, category, title, deadline, similarTask));
         task.updateStatus(status);
