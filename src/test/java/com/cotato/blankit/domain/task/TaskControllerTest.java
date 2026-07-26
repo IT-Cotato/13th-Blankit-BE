@@ -1055,7 +1055,10 @@ class TaskControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.data[0].field").value("isStarred"))
+                .andExpect(jsonPath("$.data[0].message").value("isStarred 값은 필수입니다."));
     }
 
     private Task saveTask(User owner, Category category, String title, LocalDate deadline, Task similarTask, TaskStatus status) {
