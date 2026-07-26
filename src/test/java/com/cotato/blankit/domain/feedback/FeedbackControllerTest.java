@@ -21,6 +21,8 @@ import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -80,6 +82,7 @@ class FeedbackControllerTest {
     @Autowired private PlaylistRepository playlistRepository;
     @Autowired private PlaylistItemRepository playlistItemRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
+    @PersistenceContext private EntityManager entityManager;
 
     @TestConfiguration
     static class FixedClockConfig {
@@ -425,5 +428,10 @@ class FeedbackControllerTest {
                 .andExpect(jsonPath("$.data.progressRate").value(50));
 
         assertThat(feedbackRepository.count()).isEqualTo(1);
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(taskSessionRepository.findById(session.getTaskSessionId()).orElseThrow().getStatus())
+                .isEqualTo(TaskSessionStatus.DONE);
     }
 }
