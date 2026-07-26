@@ -30,6 +30,8 @@ logs/
 
 # docs (개인 관리용 문서)
 my-service-logic.md
+oauth-production-todo.md
 
 # Claude Code
 .claude/
+oauth-production-todo.md
