@@ -15,8 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Clock;
-import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "추천", description = "우선순위 과업 추천 및 과업 조합 추천 API")
@@ -27,7 +25,6 @@ import java.util.List;
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
-    private final Clock clock;
 
     @Operation(summary = "오늘의 추천 조회",
             description = "오늘의 권장 시간(logic-spec 5번)과 우선순위 상위 3개 과업(logic-spec 1번)을 반환합니다. " +
@@ -40,12 +37,7 @@ public class RecommendationController {
     public ApiResponse<TodayRecommendationResponse> getTodayRecommendation(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        long totalRecommendedMinutes = recommendationService.calculateTodayRecommendedMinutes(userDetails.getUserId());
-        return ApiResponse.success(new TodayRecommendationResponse(
-                LocalDate.now(clock),
-                totalRecommendedMinutes,
-                List.of()
-        ));
+        return ApiResponse.success(recommendationService.getTodayRecommendation(userDetails.getUserId()));
     }
 
     @NotImplementedYet
