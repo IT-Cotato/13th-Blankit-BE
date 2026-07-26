@@ -178,9 +178,11 @@ public class TaskService {
 
     @Transactional
     public TaskDetailResponse updateStarred(Long userId, Long taskId, TaskStarUpdateRequest request) {
-        Task task = getTaskByUser(taskId, userId);
-        task.updateStarred(request.isStarred());
-        return toDetailResponse(userId, task);
+        int updated = taskRepository.updateStarredByIdAndUserId(taskId, userId, request.isStarred());
+        if (updated == 0) {
+            throw new CustomException(ErrorCode.TASK_NOT_FOUND);
+        }
+        return toDetailResponse(userId, getTaskByUser(taskId, userId));
     }
 
     @Transactional
