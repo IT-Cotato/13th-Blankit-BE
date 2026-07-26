@@ -1,6 +1,7 @@
 package com.cotato.blankit.domain.task.controller;
 
 import com.cotato.blankit.domain.task.dto.request.TaskCreateRequest;
+import com.cotato.blankit.domain.task.dto.request.TaskStarUpdateRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskUpdateRequest;
 import com.cotato.blankit.domain.task.dto.response.TaskDetailResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskFormOptionsResponse;
@@ -219,6 +220,17 @@ public class TaskController {
             @Valid @RequestBody TaskUpdateRequest request
     ) {
         return ApiResponse.success(taskService.updateTask(userDetails.getUserId(), taskId, request));
+    }
+
+    @Operation(summary = "과업 별표 설정/해제", description = "과업의 중요 표시(starred) 상태를 설정하거나 해제합니다. 원하는 최종 상태를 전송하면 멱등하게 반영됩니다.")
+    @PatchMapping("/{taskId}/star")
+    public ApiResponse<TaskDetailResponse> updateStarred(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Parameter(description = "과업 ID", example = "1")
+            @PathVariable Long taskId,
+            @Valid @RequestBody TaskStarUpdateRequest request
+    ) {
+        return ApiResponse.success(taskService.updateStarred(userDetails.getUserId(), taskId, request));
     }
 
     @Operation(summary = "과업 삭제", description = "ERD에 task.is_deleted가 없어 현재는 hard delete합니다. 반복/알림은 삭제하고, 참조 중인 다른 과업은 similarTask 연결만 해제합니다.")
