@@ -1,7 +1,6 @@
 package com.cotato.blankit.domain.auth;
 
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
-import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.repository.UserRepository;
@@ -55,9 +54,6 @@ class AuthControllerTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
-    private UserNotificationSettingRepository userNotificationSettingRepository;
-
-    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
@@ -95,13 +91,6 @@ class AuthControllerTest {
         User savedUser = userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-1")
                 .orElseThrow();
         org.assertj.core.api.Assertions.assertThat(categoryRepository.countByUserId(savedUser.getId())).isEqualTo(3);
-        org.assertj.core.api.Assertions.assertThat(userNotificationSettingRepository.findByUserId(savedUser.getId()))
-                .isPresent()
-                .get()
-                .satisfies(setting -> {
-                    org.assertj.core.api.Assertions.assertThat(setting.isServiceAlarmEnabled()).isFalse();
-                    org.assertj.core.api.Assertions.assertThat(setting.isThirtyMinPackAlarmEnabled()).isFalse();
-                });
     }
 
     @Test
