@@ -18,10 +18,17 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalTime;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -74,7 +81,14 @@ class UserControllerTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .apply(springSecurity())
                 .build();
-        user = userRepository.save(User.create(SocialProvider.KAKAO, "timetable-settings-user", "user@example.com", "블랭킷", null, 120));
+        user = userRepository.save(User.create(
+                SocialProvider.KAKAO,
+                "timetable-settings-user-" + UUID.randomUUID(),
+                "user@example.com",
+                "블랭킷",
+                null,
+                120
+        ));
         token = jwtTokenProvider.createAccessToken(user.getId());
     }
 
@@ -253,6 +267,28 @@ class UserControllerTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void concurrentInitialNotificationSettingUpdatesCreateOneSetting() throws Exception {
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            List<Future<Integer>> responses = List.of(
+                    submitNotificationSettingUpdate(executor, ready, start, true, false),
+                    submitNotificationSettingUpdate(executor, ready, start, false, true)
+            );
+
+            ready.await();
+            start.countDown();
+
+            assertThat(responses)
+                    .allSatisfy(response -> assertThat(response.get()).isEqualTo(200));
+        }
+
+        assertThat(userNotificationSettingRepository.countByUserId(user.getId())).isEqualTo(1);
+    }
+
+    @Test
     void updateNotificationSettingsCanTurnServiceAlarmOffAgain() throws Exception {
         UserNotificationSetting setting = UserNotificationSetting.createDefault(user);
         setting.update(true, false);
@@ -350,6 +386,7 @@ class UserControllerTest {
         UserNotificationSetting setting = UserNotificationSetting.createDefault(user);
         setting.update(true, false);
         userNotificationSettingRepository.saveAndFlush(setting);
+        entityManager.clear();
 
         mockMvc.perform(delete("/api/users/me")
                         .with(csrf())
@@ -362,5 +399,31 @@ class UserControllerTest {
 
         assertThat(userNotificationSettingRepository.findByUserId(user.getId())).isEmpty();
         assertThat(userRepository.findById(user.getId())).isEmpty();
+    }
+
+    private Future<Integer> submitNotificationSettingUpdate(
+            ExecutorService executor,
+            CountDownLatch ready,
+            CountDownLatch start,
+            boolean serviceAlarmEnabled,
+            boolean thirtyMinPackAlarmEnabled
+    ) {
+        return executor.submit(() -> {
+            ready.countDown();
+            start.await();
+            return mockMvc.perform(patch("/api/users/me/notification-settings")
+                            .with(csrf())
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "isServiceAlarmEnabled": %s,
+                                      "is30minPackAlarmEnabled": %s
+                                    }
+                                    """.formatted(serviceAlarmEnabled, thirtyMinPackAlarmEnabled)))
+                    .andReturn()
+                    .getResponse()
+                    .getStatus();
+        });
     }
 }

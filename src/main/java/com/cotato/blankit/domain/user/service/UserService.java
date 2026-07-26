@@ -45,7 +45,6 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserNotificationSettingResponse getNotificationSettings(Long userId) {
-        validateUserExists(userId);
         return userNotificationSettingRepository.findByUserId(userId)
                 .map(UserNotificationSettingResponse::from)
                 .orElseGet(UserNotificationSettingResponse::defaultOff);

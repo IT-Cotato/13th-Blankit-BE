@@ -11,8 +11,7 @@ import com.cotato.blankit.domain.auth.entity.RefreshToken;
 import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.domain.auth.service.social.SocialTokenVerifier;
 import com.cotato.blankit.domain.category.service.CategoryService;
-import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
-import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
+import com.cotato.blankit.domain.notification.service.NotificationService;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
@@ -35,7 +34,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final SocialTokenVerifier socialTokenVerifier;
     private final CategoryService categoryService;
-    private final UserNotificationSettingRepository userNotificationSettingRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -61,7 +60,7 @@ public class AuthService {
             throw new CustomException(ErrorCode.DUPLICATE_SOCIAL_ACCOUNT, e);
         }
         categoryService.createDefaultCategoriesIfNeverInitialized(savedUser);
-        userNotificationSettingRepository.save(UserNotificationSetting.createDefault(savedUser));
+        notificationService.createDefaultSetting(savedUser);
 
         try {
             AuthTokens authTokens = issueAuthTokens(savedUser);
