@@ -1001,9 +1001,20 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.starred").value(true));
 
+        // 멱등성: 이미 starred=true인 상태에서 true 재요청 → 200 + starred=true
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "isStarred": true }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.starred").value(true));
+
         entityManager.flush();
         entityManager.clear();
-        org.assertj.core.api.Assertions.assertThat(taskRepository.findById(task.getId()).orElseThrow().isStarred()).isTrue();
+        assertThat(taskRepository.findById(task.getId()).orElseThrow().isStarred()).isTrue();
     }
 
     @Test
@@ -1021,9 +1032,20 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.starred").value(false));
 
+        // 멱등성: 이미 starred=false인 상태에서 false 재요청 → 200 + starred=false
+        mockMvc.perform(patch("/api/tasks/{taskId}/star", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "isStarred": false }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.starred").value(false));
+
         entityManager.flush();
         entityManager.clear();
-        org.assertj.core.api.Assertions.assertThat(taskRepository.findById(task.getId()).orElseThrow().isStarred()).isFalse();
+        assertThat(taskRepository.findById(task.getId()).orElseThrow().isStarred()).isFalse();
     }
 
     @Test
