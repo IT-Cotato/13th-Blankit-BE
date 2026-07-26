@@ -87,6 +87,7 @@ class RecommendationControllerTest {
         mockMvc.perform(get("/api/recommendations/today")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.recommendedDate").value(TODAY.toString()))
                 .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(0));
     }
 
