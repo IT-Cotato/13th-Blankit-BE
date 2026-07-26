@@ -46,7 +46,7 @@ public class Feedback extends BaseEntity {
 
     private Integer intervalStartRate;
 
-    private Integer cumulativeElapsedTime;
+    private Long cumulativeElapsedTime;
 
     private Integer consecutiveCount;
 
@@ -77,7 +77,7 @@ public class Feedback extends BaseEntity {
         this.isDraft = isDraft;
     }
 
-    public void updateMetrics(int intervalStartRate, int cumulativeElapsedTime, Integer consecutiveCount, Integer intervalDiff) {
+    public void updateMetrics(int intervalStartRate, long cumulativeElapsedTime, Integer consecutiveCount, Integer intervalDiff) {
         this.intervalStartRate = intervalStartRate;
         this.cumulativeElapsedTime = cumulativeElapsedTime;
         this.consecutiveCount = consecutiveCount;
