@@ -40,7 +40,7 @@ public class RecommendationController {
     public ApiResponse<TodayRecommendationResponse> getTodayRecommendation(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        int totalRecommendedMinutes = recommendationService.calculateTodayRecommendedMinutes(userDetails.getUserId());
+        long totalRecommendedMinutes = recommendationService.calculateTodayRecommendedMinutes(userDetails.getUserId());
         return ApiResponse.success(new TodayRecommendationResponse(
                 LocalDate.now(clock),
                 totalRecommendedMinutes,

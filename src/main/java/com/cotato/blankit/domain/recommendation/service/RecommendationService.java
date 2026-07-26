@@ -17,13 +17,13 @@ public class RecommendationService {
     private final TaskRepository taskRepository;
     private final Clock clock;
 
-    public int calculateTodayRecommendedMinutes(Long userId) {
+    public long calculateTodayRecommendedMinutes(Long userId) {
         LocalDate today = LocalDate.now(clock);
         return taskRepository.findActiveTasksForRecommendation(userId, today)
                 .stream()
-                .mapToInt(task -> {
+                .mapToLong(task -> {
                     long daysRemaining = ChronoUnit.DAYS.between(today, task.getDeadline()) + 1;
-                    return (int) Math.ceil((double) task.getEstimatedTime() / daysRemaining);
+                    return (long) Math.ceil((double) task.getEstimatedTime() / daysRemaining);
                 })
                 .sum();
     }
