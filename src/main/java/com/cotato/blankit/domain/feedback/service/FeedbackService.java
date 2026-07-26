@@ -109,7 +109,7 @@ public class FeedbackService {
             intervalDiff = (int) B;
         }
 
-        feedback.updateMetrics(prevRate, (int) cumulativeElapsedSeconds, consecutiveCount, intervalDiff);
+        feedback.updateMetrics(prevRate, cumulativeElapsedSeconds, consecutiveCount, intervalDiff);
     }
 
     private TaskSession getSessionAndVerifyOwner(Long userId, Long sessionId) {

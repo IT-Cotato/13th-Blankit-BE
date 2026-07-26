@@ -14,7 +14,7 @@ public record TodayRecommendationResponse(
         LocalDate recommendedDate,
 
         @Schema(description = "오늘의 권장 시간 (분, logic-spec 5번 공식)", example = "120")
-        int totalRecommendedMinutes,
+        long totalRecommendedMinutes,
 
         @Schema(description = "우선순위 추천 과업 (최대 3개, logic-spec 1번 점수 기준)")
         List<RecommendedTaskItem> topTasks

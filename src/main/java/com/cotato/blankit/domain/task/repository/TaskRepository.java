@@ -101,4 +101,17 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findAllByIdInAndUserId(Collection<Long> ids, Long userId);
 
     boolean existsByCategoryIdAndUserId(Long categoryId, Long userId);
+
+    @Query("""
+            select t from Task t
+            join fetch t.category
+            where t.user.id = :userId
+              and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
+              and t.estimatedTime is not null
+              and t.deadline >= :today
+            """)
+    List<Task> findActiveTasksForRecommendation(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today
+    );
 }
