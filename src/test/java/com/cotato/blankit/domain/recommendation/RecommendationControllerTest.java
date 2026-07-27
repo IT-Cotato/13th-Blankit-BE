@@ -176,6 +176,18 @@ class RecommendationControllerTest {
     }
 
     @Test
+    void getTodayRecommendation_nonIntegerSum_roundsHalfUp() throws Exception {
+        // estimatedTime=10, deadline=today+3 → 10/3 = 3.333...
+        // Math.round(3.333) = 3, Math.ceil(3.333) = 4 → 기대값 3으로 반올림 검증
+        taskRepository.save(Task.create(user, category, "비정수 과업", TODAY.plusDays(3), null, 10));
+
+        mockMvc.perform(get("/api/recommendations/today")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(3));
+    }
+
+    @Test
     void getTodayRecommendation_mixedValidAndInvalid_sumsOnlyValid() throws Exception {
         // 유효 과업: estimatedTime=100분, deadline=today+4 (daysRemaining=4) → round(100/4)=25
         // 나머지(DONE/null/마감초과)는 제외 → 합계 25분
