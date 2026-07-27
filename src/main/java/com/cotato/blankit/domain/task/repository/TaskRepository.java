@@ -108,7 +108,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             where t.user.id = :userId
               and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
               and t.estimatedTime is not null
-              and t.deadline >= :today
+              and t.deadline > :today
             """)
     List<Task> findActiveTasksForRecommendation(
             @Param("userId") Long userId,
