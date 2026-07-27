@@ -2,6 +2,8 @@ package com.cotato.blankit.domain.recommendation;
 
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
+import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.service.RecommendationService;
 import com.cotato.blankit.domain.task.entity.Task;
@@ -109,7 +111,7 @@ class RecommendationServiceTest {
         TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
         // then
         assertThat(result.topTasks())
-                .extracting(TodayRecommendationResponse.RecommendedTaskItem::taskId)
+                .extracting(RecommendedTaskItem::taskId)
                 .containsExactly(task1.getId(), task2.getId(), task3.getId());
         assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.20"));
         assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("1.80"));
@@ -193,6 +195,52 @@ class RecommendationServiceTest {
         assertThat(result.topTasks().get(0).priority()).isEqualTo(TaskPriority.HIGH);
         assertThat(result.topTasks().get(1).priority()).isEqualTo(TaskPriority.MEDIUM);
         assertThat(result.topTasks().get(2).priority()).isEqualTo(TaskPriority.LOW);
+    }
+
+    // ─── getAllRecommendation ─────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("활성 과업이 없으면 전체 보기도 빈 리스트를 반환한다")
+    void getAllRecommendation_noTasks_returnsEmpty() {
+        // when
+        AllRecommendationResponse result = recommendationService.getAllRecommendation(user.getId());
+        // then
+        assertThat(result.recommendedDate()).isEqualTo(TODAY);
+        assertThat(result.tasks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("활성 과업이 4개 이상이어도 전체 보기는 모든 과업을 반환하고 rankOrder가 1부터 연속으로 부여된다")
+    void getAllRecommendation_moreThanThreeTasks_returnsAll() {
+        // given
+        for (int i = 1; i <= 5; i++) {
+            task("과업" + i, TODAY.plusDays(i), 60, i * 10, false);
+        }
+        // when
+        AllRecommendationResponse result = recommendationService.getAllRecommendation(user.getId());
+        // then
+        assertThat(result.tasks()).hasSize(5);
+        assertThat(result.tasks()).extracting(RecommendedTaskItem::rankOrder)
+                .containsExactly(1, 2, 3, 4, 5);
+    }
+
+    @Test
+    @DisplayName("과업 4개일 때 4번째 과업도 LOW 우선순위를 받는다 (n=4: highEnd=1, mediumEnd=3)")
+    void getAllRecommendation_fourTasks_priorityAssignedToAll() {
+        // given: n=4 → highEnd=round(4×0.3)=1, mediumEnd=round(4×0.7)=3
+        // rank1→HIGH, rank2→MEDIUM, rank3→MEDIUM, rank4→LOW
+        task("1위", TODAY.plusDays(1), 60,  0, false);
+        task("2위", TODAY.plusDays(2), 60, 20, false);
+        task("3위", TODAY.plusDays(3), 60, 40, false);
+        task("4위", TODAY.plusDays(5), 60, 80, false);
+        // when
+        AllRecommendationResponse result = recommendationService.getAllRecommendation(user.getId());
+        // then
+        assertThat(result.tasks()).hasSize(4);
+        assertThat(result.tasks().get(0).priority()).isEqualTo(TaskPriority.HIGH);
+        assertThat(result.tasks().get(1).priority()).isEqualTo(TaskPriority.MEDIUM);
+        assertThat(result.tasks().get(2).priority()).isEqualTo(TaskPriority.MEDIUM);
+        assertThat(result.tasks().get(3).priority()).isEqualTo(TaskPriority.LOW);
     }
 
     // ─── topTasks 3개 컷 ──────────────────────────────────────────────────────
