@@ -1,5 +1,7 @@
 package com.cotato.blankit.domain.recommendation.service;
 
+import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
@@ -29,27 +31,48 @@ public class RecommendationService {
 
     public TodayRecommendationResponse getTodayRecommendation(Long userId) {
         LocalDate today = LocalDate.now(clock);
-        List<Task> tasks = taskRepository.findActiveTasksForRecommendation(userId, today);
+        List<ScoredTask> ranked = buildRanked(userId, today);
 
-        if (tasks.isEmpty()) {
+        if (ranked.isEmpty()) {
             return new TodayRecommendationResponse(today, 0L, List.of());
         }
 
-        List<ScoredTask> ranked = rankTasks(tasks, today);
-        assignPriorities(ranked);
-
         long totalMinutes = (long) Math.ceil(
-                tasks.stream()
-                        .mapToDouble(t -> (double) t.getEstimatedTime() / (ChronoUnit.DAYS.between(today, t.getDeadline()) + 1))
+                ranked.stream()
+                        .mapToDouble(st -> (double) st.task().getEstimatedTime() / (ChronoUnit.DAYS.between(today, st.task().getDeadline()) + 1))
                         .sum()
         );
 
-        List<TodayRecommendationResponse.RecommendedTaskItem> topTasks = new ArrayList<>();
+        List<RecommendedTaskItem> topTasks = new ArrayList<>();
         for (int i = 0; i < Math.min(3, ranked.size()); i++) {
             topTasks.add(toItem(ranked.get(i), i + 1, today));
         }
 
         return new TodayRecommendationResponse(today, totalMinutes, topTasks);
+    }
+
+    public AllRecommendationResponse getAllRecommendation(Long userId) {
+        LocalDate today = LocalDate.now(clock);
+        List<ScoredTask> ranked = buildRanked(userId, today);
+
+        if (ranked.isEmpty()) {
+            return new AllRecommendationResponse(today, List.of());
+        }
+
+        List<RecommendedTaskItem> allTasks = new ArrayList<>();
+        for (int i = 0; i < ranked.size(); i++) {
+            allTasks.add(toItem(ranked.get(i), i + 1, today));
+        }
+
+        return new AllRecommendationResponse(today, allTasks);
+    }
+
+    private List<ScoredTask> buildRanked(Long userId, LocalDate today) {
+        List<Task> tasks = taskRepository.findActiveTasksForRecommendation(userId, today);
+        if (tasks.isEmpty()) return List.of();
+        List<ScoredTask> ranked = rankTasks(tasks, today);
+        assignPriorities(ranked);
+        return ranked;
     }
 
     private List<ScoredTask> rankTasks(List<Task> tasks, LocalDate today) {
@@ -97,12 +120,12 @@ public class RecommendationService {
         }
     }
 
-    private TodayRecommendationResponse.RecommendedTaskItem toItem(ScoredTask st, int rankOrder, LocalDate today) {
+    private RecommendedTaskItem toItem(ScoredTask st, int rankOrder, LocalDate today) {
         Task t = st.task();
         long days = ChronoUnit.DAYS.between(today, t.getDeadline()) + 1;
         int recommendedMinutes = (int) Math.ceil((double) t.getEstimatedTime() / days);
 
-        return new TodayRecommendationResponse.RecommendedTaskItem(
+        return new RecommendedTaskItem(
                 t.getId(),
                 t.getTitle(),
                 t.getPriority(),

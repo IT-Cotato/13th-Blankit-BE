@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.recommendation.controller;
 
+import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.service.RecommendationService;
@@ -38,6 +39,19 @@ public class RecommendationController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return ApiResponse.success(recommendationService.getTodayRecommendation(userDetails.getUserId()));
+    }
+
+    @Operation(summary = "우선순위 전체 과업 조회",
+            description = "우선순위 점수 기준으로 정렬된 전체 활성 과업을 반환합니다. '우선순위 과목 추천 전체 보기' 화면에 사용됩니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+    })
+    @GetMapping("/all")
+    public ApiResponse<AllRecommendationResponse> getAllRecommendation(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ApiResponse.success(recommendationService.getAllRecommendation(userDetails.getUserId()));
     }
 
     @NotImplementedYet
