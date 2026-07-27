@@ -22,10 +22,10 @@ public class RecommendationService {
         double total = taskRepository.findActiveTasksForRecommendation(userId, today)
                 .stream()
                 .mapToDouble(task -> {
-                    long daysRemaining = ChronoUnit.DAYS.between(today, task.getDeadline()) + 1;
+                    long daysRemaining = ChronoUnit.DAYS.between(today, task.getDeadline());
                     return (double) task.getEstimatedTime() / daysRemaining;
                 })
                 .sum();
-        return (long) Math.ceil(total);
+        return Math.round(total);
     }
 }
