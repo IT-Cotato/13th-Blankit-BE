@@ -118,6 +118,40 @@ class RecommendationServiceTest {
         assertThat(result.topTasks().get(2).score()).isEqualByComparingTo(new BigDecimal("3.00"));
     }
 
+    // ─── id 타이브레이킹 ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("마감일·starred가 같아 긴급도가 동점이면 id가 작은(먼저 생성된) 과업이 긴급도 순위 앞에 온다")
+    void rankTasks_urgencyTie_idBreaksTie() {
+        // taskA(먼저 생성, 작은 id): 긴급도 동점 → rank 1, progress=50% → rank 2 → score=1×0.8+2×0.2=1.20
+        // taskB(나중 생성, 큰 id):   긴급도 동점 → rank 2, progress=0%  → rank 1 → score=2×0.8+1×0.2=1.80
+        Task taskA = task("먼저 생성", TODAY.plusDays(3), 60, 50, false);
+        Task taskB = task("나중 생성", TODAY.plusDays(3), 60,  0, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then
+        assertThat(result.topTasks().get(0).taskId()).isEqualTo(taskA.getId());
+        assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.20"));
+        assertThat(result.topTasks().get(1).taskId()).isEqualTo(taskB.getId());
+        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("1.80"));
+    }
+
+    @Test
+    @DisplayName("마감일·starred·진행률이 모두 같으면 id가 작은(먼저 생성된) 과업이 항상 앞에 온다")
+    void rankTasks_allFieldsTie_idBreaksBothTies() {
+        // taskA(먼저 생성, 작은 id): 긴급도 rank 1, 진행률 rank 1 → score=1×0.8+1×0.2=1.00
+        // taskB(나중 생성, 큰 id):   긴급도 rank 2, 진행률 rank 2 → score=2×0.8+2×0.2=2.00
+        Task taskA = task("먼저 생성", TODAY.plusDays(3), 60, 50, false);
+        Task taskB = task("나중 생성", TODAY.plusDays(3), 60, 50, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then
+        assertThat(result.topTasks().get(0).taskId()).isEqualTo(taskA.getId());
+        assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.00"));
+        assertThat(result.topTasks().get(1).taskId()).isEqualTo(taskB.getId());
+        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("2.00"));
+    }
+
     // ─── starred 타이브레이킹 ────────────────────────────────────────────────
 
     @Test

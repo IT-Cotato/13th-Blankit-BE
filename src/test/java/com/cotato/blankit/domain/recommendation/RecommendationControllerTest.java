@@ -165,10 +165,10 @@ class RecommendationControllerTest {
     @Test
     void getAllRecommendation_fourTasks_returnsAllWithFields() throws Exception {
         // 마감 순으로 1위 과업이 결정되도록 단순 구성
-        taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 25), null, 60));
+        Task taskA = taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 25), null, 60));
         taskRepository.save(Task.create(user, category, "과업B", LocalDate.of(2026, 7, 26), null, 120));
         taskRepository.save(Task.create(user, category, "과업C", LocalDate.of(2026, 7, 28), null, 90));
-        taskRepository.save(Task.create(user, category, "과업D", LocalDate.of(2026, 7, 30), null, 30));
+        Task taskD = taskRepository.save(Task.create(user, category, "과업D", LocalDate.of(2026, 7, 30), null, 30));
 
         mockMvc.perform(get("/api/recommendations/all")
                         .header("Authorization", "Bearer " + token))
@@ -176,8 +176,10 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.tasks.length()").value(4))
                 .andExpect(jsonPath("$.data.tasks[0].rankOrder").value(1))
                 .andExpect(jsonPath("$.data.tasks[0].priority").value("HIGH"))
+                .andExpect(jsonPath("$.data.tasks[0].taskId").value(taskA.getId()))
                 .andExpect(jsonPath("$.data.tasks[3].rankOrder").value(4))
-                .andExpect(jsonPath("$.data.tasks[3].priority").value("LOW"));
+                .andExpect(jsonPath("$.data.tasks[3].priority").value("LOW"))
+                .andExpect(jsonPath("$.data.tasks[3].taskId").value(taskD.getId()));
     }
 
     @Test

@@ -79,11 +79,14 @@ public class RecommendationService {
         List<Task> byUrgency = new ArrayList<>(tasks);
         byUrgency.sort(Comparator
                 .comparingLong((Task t) -> ChronoUnit.DAYS.between(today, t.getDeadline()))
-                .thenComparingInt(t -> t.isStarred() ? 0 : 1));
+                .thenComparingInt(t -> t.isStarred() ? 0 : 1)
+                .thenComparingLong(Task::getId));
         Map<Long, Integer> urgencyRank = toRankMap(byUrgency);
 
         List<Task> byProgress = new ArrayList<>(tasks);
-        byProgress.sort(Comparator.comparingInt(t -> t.getProgressRate() == null ? 0 : t.getProgressRate()));
+        byProgress.sort(Comparator
+                .comparingInt((Task t) -> t.getProgressRate() == null ? 0 : t.getProgressRate())
+                .thenComparingLong(Task::getId));
         Map<Long, Integer> progressRank = toRankMap(byProgress);
 
         return tasks.stream()
@@ -94,7 +97,7 @@ public class RecommendationService {
                             .setScale(2, RoundingMode.HALF_UP);
                     return new ScoredTask(t, score);
                 })
-                .sorted(Comparator.comparing(ScoredTask::score))
+                .sorted(Comparator.comparing(ScoredTask::score).thenComparingLong(st -> st.task().getId()))
                 .toList();
     }
 
