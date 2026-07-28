@@ -126,10 +126,34 @@ class RecommendationControllerTest {
     }
 
     @Test
-    void getTodayRecommendation_dueTodayTask_daysRemainingIs1() throws Exception {
-        // 당일 마감: daysRemaining = DAYS.between(today, today) + 1 = 1
-        // estimatedTime=60분, daysRemaining=1 → ceil(60/1) = 60분
+    void getTodayRecommendation_dueTodayTask_isExcluded() throws Exception {
+        // 마감 당일 과업은 권장 시간 계산에서 제외됨
         taskRepository.save(Task.create(user, category, "오늘 마감 과업", TODAY, null, 60));
+
+        mockMvc.perform(get("/api/recommendations/today")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(0));
+    }
+
+    @Test
+    void getTodayRecommendation_dueTodayTaskMixedWithOthers_excludesDueTodayOnly() throws Exception {
+        // 마감 당일 과업은 제외되고, 내일 마감 과업만 계산에 포함됨
+        taskRepository.save(Task.create(user, category, "오늘 마감 과업", TODAY, null, 60));
+        taskRepository.save(Task.create(user, category, "내일 마감 과업", TODAY.plusDays(1), null, 30));
+
+        mockMvc.perform(get("/api/recommendations/today")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                // 오늘 마감 과업(60분) 제외, 내일 마감 과업: round(30/1) = 30분
+                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(30));
+    }
+
+    @Test
+    void getTodayRecommendation_taskDueTomorrow_noDivisionByZero() throws Exception {
+        // 내일 마감: daysRemaining = DAYS.between(today, today+1) = 1 (최솟값)
+        // 0으로 나누기가 발생하지 않음을 보장
+        taskRepository.save(Task.create(user, category, "내일 마감 과업", TODAY.plusDays(1), null, 60));
 
         mockMvc.perform(get("/api/recommendations/today")
                         .header("Authorization", "Bearer " + token))
@@ -139,16 +163,28 @@ class RecommendationControllerTest {
 
     @Test
     void getTodayRecommendation_multipleTasks_sumsCorrectly() throws Exception {
-        // 과업A: estimatedTime=300분, deadline=2026-07-30 (daysRemaining=7) → ceil(300/7)=43
-        // 과업B: estimatedTime=60분,  deadline=2026-07-25 (daysRemaining=2) → ceil(60/2)=30
-        // 합계 = 73분
+        // 과업A: estimatedTime=300분, deadline=2026-07-30 (daysRemaining=6) → 300/6=50.0
+        // 과업B: estimatedTime=60분,  deadline=2026-07-25 (daysRemaining=1) → 60/1=60.0
+        // 합계 = round(110.0) = 110분
         taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 30), null, 300));
         taskRepository.save(Task.create(user, category, "과업B", LocalDate.of(2026, 7, 25), null, 60));
 
         mockMvc.perform(get("/api/recommendations/today")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(73));
+                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(110));
+    }
+
+    @Test
+    void getTodayRecommendation_nonIntegerSum_roundsHalfUp() throws Exception {
+        // estimatedTime=10, deadline=today+3 → 10/3 = 3.333...
+        // Math.round(3.333) = 3, Math.ceil(3.333) = 4 → 기대값 3으로 반올림 검증
+        taskRepository.save(Task.create(user, category, "비정수 과업", TODAY.plusDays(3), null, 10));
+
+        mockMvc.perform(get("/api/recommendations/today")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(3));
     }
 
     // ─── GET /api/recommendations/all ────────────────────────────────────────
@@ -190,8 +226,8 @@ class RecommendationControllerTest {
 
     @Test
     void getTodayRecommendation_mixedValidAndInvalid_sumsOnlyValid() throws Exception {
-        // 유효 과업: estimatedTime=100분, deadline=today+4 (daysRemaining=5) → ceil(100/5)=20
-        // 나머지(DONE/null/마감초과)는 제외 → 합계 20분
+        // 유효 과업: estimatedTime=100분, deadline=today+4 (daysRemaining=4) → round(100/4)=25
+        // 나머지(DONE/null/마감초과)는 제외 → 합계 25분
         taskRepository.save(Task.create(user, category, "유효 과업", TODAY.plusDays(4), null, 100));
         Task doneTask = taskRepository.save(Task.create(user, category, "DONE 과업", TODAY.plusDays(4), null, 200));
         doneTask.updateStatus(TaskStatus.DONE);
@@ -201,6 +237,6 @@ class RecommendationControllerTest {
         mockMvc.perform(get("/api/recommendations/today")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(20));
+                .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(25));
     }
 }
