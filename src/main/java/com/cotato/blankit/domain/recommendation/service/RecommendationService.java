@@ -38,7 +38,7 @@ public class RecommendationService {
         }
 
         long totalMinutes = Math.round(
-                ranked.stream()
+                filterForTimeCalculation(ranked, today).stream()
                         .mapToDouble(st -> (double) st.task().getEstimatedTime() / ChronoUnit.DAYS.between(today, st.task().getDeadline()))
                         .sum()
         );
@@ -73,6 +73,13 @@ public class RecommendationService {
         List<ScoredTask> ranked = rankTasks(tasks, today);
         assignPriorities(ranked);
         return ranked;
+    }
+
+    private List<ScoredTask> filterForTimeCalculation(List<ScoredTask> ranked, LocalDate today) {
+        return ranked.stream()
+                .filter(st -> st.task().getEstimatedTime() != null
+                        && ChronoUnit.DAYS.between(today, st.task().getDeadline()) > 0)
+                .toList();
     }
 
     private List<ScoredTask> rankTasks(List<Task> tasks, LocalDate today) {
