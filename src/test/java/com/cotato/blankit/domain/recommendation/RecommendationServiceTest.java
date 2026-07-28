@@ -8,6 +8,7 @@ import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendation
 import com.cotato.blankit.domain.recommendation.service.RecommendationService;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
+import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
@@ -79,6 +80,18 @@ class RecommendationServiceTest {
         Task t = Task.create(user, category, title, deadline, null, estimatedTime);
         if (progressRate != null) t.updateProgressRate(progressRate);
         if (starred) t.updateStarred(true);
+        return taskRepository.save(t);
+    }
+
+    private Task taskNoEst(String title, LocalDate deadline, Integer progressRate) {
+        Task t = Task.create(user, category, title, deadline, null);
+        if (progressRate != null) t.updateProgressRate(progressRate);
+        return taskRepository.save(t);
+    }
+
+    private Task taskDone(String title, LocalDate deadline, int estimatedTime) {
+        Task t = Task.create(user, category, title, deadline, null, estimatedTime);
+        t.updateStatus(TaskStatus.DONE);
         return taskRepository.save(t);
     }
 
@@ -275,6 +288,134 @@ class RecommendationServiceTest {
         assertThat(result.tasks().get(1).priority()).isEqualTo(TaskPriority.MEDIUM);
         assertThat(result.tasks().get(2).priority()).isEqualTo(TaskPriority.MEDIUM);
         assertThat(result.tasks().get(3).priority()).isEqualTo(TaskPriority.LOW);
+    }
+
+    // ─── 마감이 지난 과업 / 완료된 과업 제외 ────────────────────────────────────
+
+    @Test
+    @DisplayName("마감이 지난 과업은 우선순위 산정과 권장 시간 계산 모두에서 제외된다")
+    void getTodayRecommendation_expiredTask_excludedCompletely() {
+        // given
+        task("마감지남", TODAY.minusDays(1), 120, null, false);
+        Task active = task("활성", TODAY.plusDays(3), 90, null, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then
+        assertThat(result.topTasks())
+                .hasSize(1)
+                .extracting(RecommendedTaskItem::taskId)
+                .containsExactly(active.getId());
+        assertThat(result.totalRecommendedMinutes()).isEqualTo(30L);
+    }
+
+    @Test
+    @DisplayName("완료된(DONE) 과업은 우선순위 산정과 권장 시간 계산 모두에서 제외된다")
+    void getTodayRecommendation_doneTask_excludedCompletely() {
+        // given
+        taskDone("완료됨", TODAY.plusDays(2), 60);
+        Task active = task("활성", TODAY.plusDays(3), 90, null, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then
+        assertThat(result.topTasks())
+                .hasSize(1)
+                .extracting(RecommendedTaskItem::taskId)
+                .containsExactly(active.getId());
+        assertThat(result.totalRecommendedMinutes()).isEqualTo(30L);
+    }
+
+    // ─── 오늘 마감 과업 ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("오늘 마감 과업은 우선순위 산정에는 포함되고 권장 시간 계산에서는 제외되며 recommendedMinutes가 null이다")
+    void getTodayRecommendation_todayDeadline_priorityAssignedButExcludedFromTimeCalc() {
+        // given
+        // todayTask: urgency rank=1(0일), progress rank=1(null→0%) → score=1.00
+        // futureTask: urgency rank=2(+3일), progress rank=2(null→0%) → score=2.00
+        Task todayTask  = task("오늘마감", TODAY,             120, null, false);
+        Task futureTask = task("미래마감", TODAY.plusDays(3),  90, null, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then: todayTask도 topTasks에 포함되지만 recommendedMinutes=null
+        assertThat(result.topTasks()).hasSize(2);
+        assertThat(result.topTasks().get(0).taskId()).isEqualTo(todayTask.getId());
+        assertThat(result.topTasks().get(0).recommendedMinutes()).isNull();
+        assertThat(result.topTasks().get(1).taskId()).isEqualTo(futureTask.getId());
+        assertThat(result.topTasks().get(1).recommendedMinutes()).isEqualTo(30);
+        // totalMinutes: todayTask 제외, futureTask만 포함 → round(90/3)=30
+        assertThat(result.totalRecommendedMinutes()).isEqualTo(30L);
+    }
+
+    // ─── estimatedTime 없는 과업 ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("예상 시간이 없는 과업은 우선순위 산정에는 포함되고 권장 시간 계산에서는 제외되며 recommendedMinutes가 null이다")
+    void getTodayRecommendation_noEstimatedTime_priorityAssignedButExcludedFromTimeCalc() {
+        // given
+        // noEstTask: urgency rank=1(+2일), progress rank=1(null→0%) → score=1.00
+        // normalTask: urgency rank=2(+4일), progress rank=2(null→0%) → score=2.00
+        Task noEstTask  = taskNoEst("예상시간없음", TODAY.plusDays(2), null);
+        Task normalTask = task("일반",           TODAY.plusDays(4), 120, null, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then: noEstTask도 topTasks에 포함되지만 recommendedMinutes=null
+        assertThat(result.topTasks()).hasSize(2);
+        assertThat(result.topTasks().get(0).taskId()).isEqualTo(noEstTask.getId());
+        assertThat(result.topTasks().get(0).recommendedMinutes()).isNull();
+        assertThat(result.topTasks().get(1).taskId()).isEqualTo(normalTask.getId());
+        assertThat(result.topTasks().get(1).recommendedMinutes()).isEqualTo(30);
+        // totalMinutes: noEstTask 제외, normalTask만 포함 → round(120/4)=30
+        assertThat(result.totalRecommendedMinutes()).isEqualTo(30L);
+    }
+
+    // ─── 조합 케이스 ─────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("마감된·완료·오늘마감·예상시간없음·일반 과업이 섞였을 때 우선순위와 권장 시간 대상이 올바르게 분리된다")
+    void getTodayRecommendation_mixedCases_correctSeparation() {
+        // given
+        task("마감지남",    TODAY.minusDays(1), 60, null, false); // ranked 제외
+        taskDone("완료됨", TODAY.plusDays(1),  60);               // ranked 제외
+        // ranked 포함: todayTask(rank1) → noEstTask(rank2) → normalTask(rank3)
+        Task todayTask  = task("오늘마감",    TODAY,             60, null, false);
+        Task noEstTask  = taskNoEst("예상없음", TODAY.plusDays(2), null);
+        Task normalTask = task("일반",       TODAY.plusDays(3), 90, null, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then
+        assertThat(result.topTasks())
+                .hasSize(3)
+                .extracting(RecommendedTaskItem::taskId)
+                .containsExactly(todayTask.getId(), noEstTask.getId(), normalTask.getId());
+        assertThat(result.topTasks().get(0).priority()).isEqualTo(TaskPriority.HIGH);
+        assertThat(result.topTasks().get(1).priority()).isEqualTo(TaskPriority.MEDIUM);
+        assertThat(result.topTasks().get(2).priority()).isEqualTo(TaskPriority.LOW);
+        assertThat(result.topTasks().get(0).recommendedMinutes()).isNull();
+        assertThat(result.topTasks().get(1).recommendedMinutes()).isNull();
+        assertThat(result.topTasks().get(2).recommendedMinutes()).isEqualTo(30);
+        // totalMinutes: normalTask만 포함 → round(90/3)=30
+        assertThat(result.totalRecommendedMinutes()).isEqualTo(30L);
+    }
+
+    @Test
+    @DisplayName("전체 조회에서도 마감된·완료 과업은 제외되고 오늘마감·예상시간없음 과업은 포함된다")
+    void getAllRecommendation_mixedCases_correctSeparation() {
+        // given
+        task("마감지남",    TODAY.minusDays(1), 60, null, false);
+        taskDone("완료됨", TODAY.plusDays(1),  60);
+        Task todayTask  = task("오늘마감",    TODAY,             60, null, false);
+        Task noEstTask  = taskNoEst("예상없음", TODAY.plusDays(2), null);
+        Task normalTask = task("일반",       TODAY.plusDays(3), 90, null, false);
+        // when
+        AllRecommendationResponse result = recommendationService.getAllRecommendation(user.getId());
+        // then
+        assertThat(result.tasks())
+                .hasSize(3)
+                .extracting(RecommendedTaskItem::taskId)
+                .containsExactly(todayTask.getId(), noEstTask.getId(), normalTask.getId());
+        assertThat(result.tasks().get(0).recommendedMinutes()).isNull();
+        assertThat(result.tasks().get(1).recommendedMinutes()).isNull();
+        assertThat(result.tasks().get(2).recommendedMinutes()).isEqualTo(30);
     }
 
     // ─── topTasks 3개 컷 ──────────────────────────────────────────────────────
