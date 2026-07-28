@@ -133,7 +133,9 @@ public class RecommendationService {
     private RecommendedTaskItem toItem(ScoredTask st, int rankOrder, LocalDate today) {
         Task t = st.task();
         long days = ChronoUnit.DAYS.between(today, t.getDeadline());
-        int recommendedMinutes = (int) Math.round((double) t.getEstimatedTime() / days);
+        Integer recommendedMinutes = (t.getEstimatedTime() == null || days == 0)
+                ? null
+                : (int) Math.round((double) t.getEstimatedTime() / days);
 
         return new RecommendedTaskItem(
                 t.getId(),
