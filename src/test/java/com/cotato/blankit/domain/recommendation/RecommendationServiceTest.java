@@ -371,8 +371,8 @@ class RecommendationServiceTest {
     @DisplayName("오늘 마감 과업은 우선순위 산정에는 포함되고 권장 시간 계산에서는 제외되며 recommendedMinutes가 null이다")
     void getTodayRecommendation_todayDeadline_priorityAssignedButExcludedFromTimeCalc() {
         // given
-        // todayTask: urgency rank=1(0일), progress rank=1(null→0%) → score=1.00
-        // futureTask: urgency rank=2(+3일), progress rank=2(null→0%) → score=2.00
+        // todayTask: urgency rank=1(0일), progress rank=1(null→0%, 동점) → score=1.00
+        // futureTask: urgency rank=2(+3일), progress rank=1(null→0%, 동점) → score=1.80
         Task todayTask  = task("오늘마감", TODAY,             120, null, false);
         Task futureTask = task("미래마감", TODAY.plusDays(3),  90, null, false);
         // when
@@ -393,8 +393,8 @@ class RecommendationServiceTest {
     @DisplayName("예상 시간이 없는 과업은 우선순위 산정에는 포함되고 권장 시간 계산에서는 제외되며 recommendedMinutes가 null이다")
     void getTodayRecommendation_noEstimatedTime_priorityAssignedButExcludedFromTimeCalc() {
         // given
-        // noEstTask: urgency rank=1(+2일), progress rank=1(null→0%) → score=1.00
-        // normalTask: urgency rank=2(+4일), progress rank=2(null→0%) → score=2.00
+        // noEstTask: urgency rank=1(+2일), progress rank=1(null→0%, 동점) → score=1.00
+        // normalTask: urgency rank=2(+4일), progress rank=1(null→0%, 동점) → score=1.80
         Task noEstTask  = taskNoEst("예상시간없음", TODAY.plusDays(2), null);
         Task normalTask = task("일반",           TODAY.plusDays(4), 120, null, false);
         // when
