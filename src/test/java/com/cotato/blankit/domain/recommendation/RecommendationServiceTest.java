@@ -131,38 +131,79 @@ class RecommendationServiceTest {
         assertThat(result.topTasks().get(2).score()).isEqualByComparingTo(new BigDecimal("3.00"));
     }
 
-    // ─── id 타이브레이킹 ─────────────────────────────────────────────────────
+    // ─── rank map 동점 처리 (같은 값 → 같은 rank) ──────────────────────────
 
     @Test
-    @DisplayName("마감일·starred가 같아 긴급도가 동점이면 id가 작은(먼저 생성된) 과업이 긴급도 순위 앞에 온다")
-    void rankTasks_urgencyTie_idBreaksTie() {
-        // taskA(먼저 생성, 작은 id): 긴급도 동점 → rank 1, progress=50% → rank 2 → score=1×0.8+2×0.2=1.20
-        // taskB(나중 생성, 큰 id):   긴급도 동점 → rank 2, progress=0%  → rank 1 → score=2×0.8+1×0.2=1.80
+    @DisplayName("긴급도(마감일+starred)가 같으면 두 과업이 동일한 긴급도 rank를 받아 최종 순서는 진행률로 결정된다")
+    void rankTasks_urgencyTie_sameUrgencyRank_orderedByProgress() {
+        // taskA: urgency rank=1(동점), progress=50% → progress rank=2 → score=1×0.8+2×0.2=1.20
+        // taskB: urgency rank=1(동점), progress=0%  → progress rank=1 → score=1×0.8+1×0.2=1.00
         Task taskA = task("먼저 생성", TODAY.plusDays(3), 60, 50, false);
         Task taskB = task("나중 생성", TODAY.plusDays(3), 60,  0, false);
         // when
         TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
-        // then
-        assertThat(result.topTasks().get(0).taskId()).isEqualTo(taskA.getId());
-        assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.20"));
-        assertThat(result.topTasks().get(1).taskId()).isEqualTo(taskB.getId());
-        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("1.80"));
+        // then: 긴급도 rank 동점 → 진행률이 낮은 taskB가 먼저
+        assertThat(result.topTasks().get(0).taskId()).isEqualTo(taskB.getId());
+        assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.00"));
+        assertThat(result.topTasks().get(1).taskId()).isEqualTo(taskA.getId());
+        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("1.20"));
     }
 
     @Test
-    @DisplayName("마감일·starred·진행률이 모두 같으면 id가 작은(먼저 생성된) 과업이 항상 앞에 온다")
-    void rankTasks_allFieldsTie_idBreaksBothTies() {
-        // taskA(먼저 생성, 작은 id): 긴급도 rank 1, 진행률 rank 1 → score=1×0.8+1×0.2=1.00
-        // taskB(나중 생성, 큰 id):   긴급도 rank 2, 진행률 rank 2 → score=2×0.8+2×0.2=2.00
+    @DisplayName("마감일·starred·진행률이 모두 같으면 두 rank map에서 동일한 rank를 받아 최종 점수가 같고 id가 작은 과업이 먼저 추천된다")
+    void rankTasks_allFieldsTie_sameScoreAndIdBreaksTie() {
+        // taskA(먼저 생성, 작은 id): urgency rank=1, progress rank=1 → score=1×0.8+1×0.2=1.00
+        // taskB(나중 생성, 큰 id):   urgency rank=1, progress rank=1 → score=1×0.8+1×0.2=1.00
+        // 최종 동점 → id로 타이브레이킹
         Task taskA = task("먼저 생성", TODAY.plusDays(3), 60, 50, false);
         Task taskB = task("나중 생성", TODAY.plusDays(3), 60, 50, false);
         // when
         TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
-        // then
+        // then: 두 과업 모두 score=1.00, id가 작은 taskA가 먼저
         assertThat(result.topTasks().get(0).taskId()).isEqualTo(taskA.getId());
         assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.00"));
         assertThat(result.topTasks().get(1).taskId()).isEqualTo(taskB.getId());
-        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("2.00"));
+        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("1.00"));
+    }
+
+    @Test
+    @DisplayName("같은 긴급도를 가진 과업이 3개이면 모두 동일한 긴급도 rank를 받아 점수 차이는 진행률 차이(×0.2)만 반영된다")
+    void rankTasks_threeTasksWithSameUrgency_scoreDiffOnlyByProgress() {
+        // 세 과업 모두 deadline=+3일, starred=false → urgency rank 모두 1
+        // progress: 0%→rank=1, 50%→rank=2, 80%→rank=3
+        // scores: 1×0.8+1×0.2=1.00 / 1×0.8+2×0.2=1.20 / 1×0.8+3×0.2=1.40
+        Task task0  = task("0%",  TODAY.plusDays(3), 60,  0, false);
+        Task task50 = task("50%", TODAY.plusDays(3), 60, 50, false);
+        Task task80 = task("80%", TODAY.plusDays(3), 60, 80, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then: score 차이가 0.20씩 (진행률 rank 차이만 반영됨을 증명)
+        assertThat(result.topTasks())
+                .extracting(RecommendedTaskItem::taskId)
+                .containsExactly(task0.getId(), task50.getId(), task80.getId());
+        assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.00"));
+        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("1.20"));
+        assertThat(result.topTasks().get(2).score()).isEqualByComparingTo(new BigDecimal("1.40"));
+    }
+
+    @Test
+    @DisplayName("같은 진행률을 가진 과업이 3개이면 모두 동일한 진행률 rank를 받아 점수 차이는 긴급도 차이(×0.8)만 반영된다")
+    void rankTasks_threeTasksWithSameProgress_scoreDiffOnlyByUrgency() {
+        // 세 과업 모두 progress=50%, starred=false → progress rank 모두 1
+        // deadline: +1일→urgency rank=1, +3일→urgency rank=2, +5일→urgency rank=3
+        // scores: 1×0.8+1×0.2=1.00 / 2×0.8+1×0.2=1.80 / 3×0.8+1×0.2=2.60
+        Task task1 = task("+1일", TODAY.plusDays(1), 60, 50, false);
+        Task task3 = task("+3일", TODAY.plusDays(3), 60, 50, false);
+        Task task5 = task("+5일", TODAY.plusDays(5), 60, 50, false);
+        // when
+        TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
+        // then: score 차이가 0.80씩 (긴급도 rank 차이만 반영됨을 증명)
+        assertThat(result.topTasks())
+                .extracting(RecommendedTaskItem::taskId)
+                .containsExactly(task1.getId(), task3.getId(), task5.getId());
+        assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.00"));
+        assertThat(result.topTasks().get(1).score()).isEqualByComparingTo(new BigDecimal("1.80"));
+        assertThat(result.topTasks().get(2).score()).isEqualByComparingTo(new BigDecimal("2.60"));
     }
 
     // ─── starred 타이브레이킹 ────────────────────────────────────────────────
