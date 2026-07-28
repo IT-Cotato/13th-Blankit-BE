@@ -87,16 +87,11 @@ public class RecommendationService {
                 .comparingLong((Task t) -> ChronoUnit.DAYS.between(today, t.getDeadline()))
                 .thenComparingInt(t -> t.isStarred() ? 0 : 1);
 
-        List<Task> byUrgency = new ArrayList<>(tasks);
-        byUrgency.sort(urgencyKey);
-        Map<Long, Integer> urgencyRank = toRankMap(byUrgency, urgencyKey);
-
         Comparator<Task> progressKey = Comparator
                 .comparingInt((Task t) -> t.getProgressRate() == null ? 0 : t.getProgressRate());
 
-        List<Task> byProgress = new ArrayList<>(tasks);
-        byProgress.sort(progressKey);
-        Map<Long, Integer> progressRank = toRankMap(byProgress, progressKey);
+        Map<Long, Integer> urgencyRank = toRankMap(tasks, urgencyKey);
+        Map<Long, Integer> progressRank = toRankMap(tasks, progressKey);
 
         return tasks.stream()
                 .map(t -> {
@@ -110,7 +105,9 @@ public class RecommendationService {
                 .toList();
     }
 
-    private Map<Long, Integer> toRankMap(List<Task> ordered, Comparator<Task> keyComparator) {
+    private Map<Long, Integer> toRankMap(List<Task> tasks, Comparator<Task> keyComparator) {
+        List<Task> ordered = new ArrayList<>(tasks);
+        ordered.sort(keyComparator);
         Map<Long, Integer> map = new HashMap<>();
         int rank = 1;
         for (int i = 0; i < ordered.size(); i++) {
