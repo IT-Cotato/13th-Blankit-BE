@@ -83,18 +83,20 @@ public class RecommendationService {
     }
 
     private List<ScoredTask> rankTasks(List<Task> tasks, LocalDate today) {
-        List<Task> byUrgency = new ArrayList<>(tasks);
-        byUrgency.sort(Comparator
+        Comparator<Task> urgencyKey = Comparator
                 .comparingLong((Task t) -> ChronoUnit.DAYS.between(today, t.getDeadline()))
-                .thenComparingInt(t -> t.isStarred() ? 0 : 1)
-                .thenComparingLong(Task::getId));
-        Map<Long, Integer> urgencyRank = toRankMap(byUrgency);
+                .thenComparingInt(t -> t.isStarred() ? 0 : 1);
+
+        List<Task> byUrgency = new ArrayList<>(tasks);
+        byUrgency.sort(urgencyKey);
+        Map<Long, Integer> urgencyRank = toRankMap(byUrgency, urgencyKey);
+
+        Comparator<Task> progressKey = Comparator
+                .comparingInt((Task t) -> t.getProgressRate() == null ? 0 : t.getProgressRate());
 
         List<Task> byProgress = new ArrayList<>(tasks);
-        byProgress.sort(Comparator
-                .comparingInt((Task t) -> t.getProgressRate() == null ? 0 : t.getProgressRate())
-                .thenComparingLong(Task::getId));
-        Map<Long, Integer> progressRank = toRankMap(byProgress);
+        byProgress.sort(progressKey);
+        Map<Long, Integer> progressRank = toRankMap(byProgress, progressKey);
 
         return tasks.stream()
                 .map(t -> {
@@ -108,10 +110,14 @@ public class RecommendationService {
                 .toList();
     }
 
-    private Map<Long, Integer> toRankMap(List<Task> ordered) {
+    private Map<Long, Integer> toRankMap(List<Task> ordered, Comparator<Task> keyComparator) {
         Map<Long, Integer> map = new HashMap<>();
+        int rank = 1;
         for (int i = 0; i < ordered.size(); i++) {
-            map.put(ordered.get(i).getId(), i + 1);
+            if (i > 0 && keyComparator.compare(ordered.get(i), ordered.get(i - 1)) != 0) {
+                rank++;
+            }
+            map.put(ordered.get(i).getId(), rank);
         }
         return map;
     }
