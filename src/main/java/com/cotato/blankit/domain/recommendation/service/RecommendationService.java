@@ -37,9 +37,9 @@ public class RecommendationService {
             return new TodayRecommendationResponse(today, 0L, List.of());
         }
 
-        long totalMinutes = (long) Math.ceil(
+        long totalMinutes = Math.round(
                 ranked.stream()
-                        .mapToDouble(st -> (double) st.task().getEstimatedTime() / (ChronoUnit.DAYS.between(today, st.task().getDeadline()) + 1))
+                        .mapToDouble(st -> (double) st.task().getEstimatedTime() / ChronoUnit.DAYS.between(today, st.task().getDeadline()))
                         .sum()
         );
 
@@ -125,8 +125,8 @@ public class RecommendationService {
 
     private RecommendedTaskItem toItem(ScoredTask st, int rankOrder, LocalDate today) {
         Task t = st.task();
-        long days = ChronoUnit.DAYS.between(today, t.getDeadline()) + 1;
-        int recommendedMinutes = (int) Math.ceil((double) t.getEstimatedTime() / days);
+        long days = ChronoUnit.DAYS.between(today, t.getDeadline());
+        int recommendedMinutes = (int) Math.round((double) t.getEstimatedTime() / days);
 
         return new RecommendedTaskItem(
                 t.getId(),
