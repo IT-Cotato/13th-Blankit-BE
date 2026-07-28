@@ -150,16 +150,16 @@ class RecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("마감일·starred·진행률이 모두 같으면 두 rank map에서 동일한 rank를 받아 최종 점수가 같고 id가 작은 과업이 먼저 추천된다")
-    void rankTasks_allFieldsTie_sameScoreAndIdBreaksTie() {
-        // taskA(먼저 생성, 작은 id): urgency rank=1, progress rank=1 → score=1×0.8+1×0.2=1.00
-        // taskB(나중 생성, 큰 id):   urgency rank=1, progress rank=1 → score=1×0.8+1×0.2=1.00
-        // 최종 동점 → id로 타이브레이킹
+    @DisplayName("마감일·starred·진행률이 모두 같으면 두 rank map에서 동일한 rank를 받아 최종 점수가 같고 먼저 생성된 과업이 먼저 추천된다")
+    void rankTasks_allFieldsTie_sameScoreAndCreatedAtBreaksTie() {
+        // taskA(먼저 생성): urgency rank=1, progress rank=1 → score=1×0.8+1×0.2=1.00
+        // taskB(나중 생성): urgency rank=1, progress rank=1 → score=1×0.8+1×0.2=1.00
+        // 최종 동점 → createdAt으로 타이브레이킹
         Task taskA = task("먼저 생성", TODAY.plusDays(3), 60, 50, false);
         Task taskB = task("나중 생성", TODAY.plusDays(3), 60, 50, false);
         // when
         TodayRecommendationResponse result = recommendationService.getTodayRecommendation(user.getId());
-        // then: 두 과업 모두 score=1.00, id가 작은 taskA가 먼저
+        // then: 두 과업 모두 score=1.00, 먼저 생성된 taskA가 먼저
         assertThat(result.topTasks().get(0).taskId()).isEqualTo(taskA.getId());
         assertThat(result.topTasks().get(0).score()).isEqualByComparingTo(new BigDecimal("1.00"));
         assertThat(result.topTasks().get(1).taskId()).isEqualTo(taskB.getId());

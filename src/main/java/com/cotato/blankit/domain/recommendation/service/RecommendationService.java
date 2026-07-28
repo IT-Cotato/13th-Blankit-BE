@@ -101,7 +101,7 @@ public class RecommendationService {
                             .setScale(2, RoundingMode.HALF_UP);
                     return new ScoredTask(t, score);
                 })
-                .sorted(Comparator.comparing(ScoredTask::score).thenComparingLong(st -> st.task().getId()))
+                .sorted(Comparator.comparing(ScoredTask::score).thenComparing(st -> st.task().getCreatedAt()))
                 .toList();
     }
 
