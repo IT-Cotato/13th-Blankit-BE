@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.recommendation.controller;
 
+import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.service.RecommendationService;
@@ -15,8 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Clock;
-import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "추천", description = "우선순위 과업 추천 및 과업 조합 추천 API")
@@ -27,7 +26,6 @@ import java.util.List;
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
-    private final Clock clock;
 
     @Operation(summary = "오늘의 추천 조회",
             description = "오늘의 권장 시간(logic-spec 5번)과 우선순위 상위 3개 과업(logic-spec 1번)을 반환합니다. " +
@@ -40,12 +38,20 @@ public class RecommendationController {
     public ApiResponse<TodayRecommendationResponse> getTodayRecommendation(
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        long totalRecommendedMinutes = recommendationService.calculateTodayRecommendedMinutes(userDetails.getUserId());
-        return ApiResponse.success(new TodayRecommendationResponse(
-                LocalDate.now(clock),
-                totalRecommendedMinutes,
-                List.of()
-        ));
+        return ApiResponse.success(recommendationService.getTodayRecommendation(userDetails.getUserId()));
+    }
+
+    @Operation(summary = "우선순위 전체 과업 조회",
+            description = "우선순위 점수 기준으로 정렬된 전체 활성 과업을 반환합니다. '우선순위 과목 추천 전체 보기' 화면에 사용됩니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+    })
+    @GetMapping("/all")
+    public ApiResponse<AllRecommendationResponse> getAllRecommendation(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ApiResponse.success(recommendationService.getAllRecommendation(userDetails.getUserId()));
     }
 
     @NotImplementedYet

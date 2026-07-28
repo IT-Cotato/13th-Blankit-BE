@@ -155,6 +155,10 @@ public class Task extends BaseEntity {
         this.progressRate = progressRate;
     }
 
+    public void updatePriority(TaskPriority priority) {
+        this.priority = priority;
+    }
+
     public void updateSimilarTask(Task similarTask) {
         this.similarTask = similarTask;
     }
