@@ -1,0 +1,40 @@
+CREATE TABLE push_subscription (
+    push_subscription_id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    firebase_installation_id VARCHAR(255) NOT NULL,
+    device_name VARCHAR(100) NULL,
+    browser VARCHAR(100) NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_registered_at DATETIME(6) NOT NULL,
+    last_success_at DATETIME(6) NULL,
+    failure_count INT NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (push_subscription_id),
+    CONSTRAINT uk_push_subscription_fid UNIQUE (firebase_installation_id),
+    CONSTRAINT fk_push_subscription_user FOREIGN KEY (user_id) REFERENCES user (user_id),
+    INDEX idx_push_subscription_user_active (user_id, active)
+);
+
+CREATE TABLE push_notification_job (
+    push_notification_job_id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    type VARCHAR(30) NOT NULL,
+    reference_type VARCHAR(50) NOT NULL,
+    reference_id VARCHAR(100) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    body VARCHAR(500) NOT NULL,
+    click_url VARCHAR(500) NULL,
+    scheduled_at DATETIME(6) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    attempts INT NOT NULL DEFAULT 0,
+    next_retry_at DATETIME(6) NULL,
+    dedupe_key VARCHAR(255) NOT NULL,
+    sent_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (push_notification_job_id),
+    CONSTRAINT uk_push_job_dedupe_key UNIQUE (dedupe_key),
+    CONSTRAINT fk_push_job_user FOREIGN KEY (user_id) REFERENCES user (user_id),
+    INDEX idx_push_job_due (status, scheduled_at, next_retry_at)
+);

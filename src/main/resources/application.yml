@@ -21,6 +21,12 @@ cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8081}
 
 blankit:
+  firebase:
+    enabled: ${FIREBASE_ENABLED:false}
+    project-id: ${FIREBASE_PROJECT_ID:}
+  push:
+    scheduler:
+      fixed-delay: ${PUSH_SCHEDULER_FIXED_DELAY:60000}
   task:
     repeat-deadline:
       cron: ${REPEAT_DEADLINE_CRON:0 5 0 * * *}

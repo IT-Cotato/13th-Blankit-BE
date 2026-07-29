@@ -10,8 +10,12 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_USER_PASSWORD}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_ENABLED: "true"
     volumes:
       - mysql-data:/var/lib/mysql
+      - /opt/blankit/secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
