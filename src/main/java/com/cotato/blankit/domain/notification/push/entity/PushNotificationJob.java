@@ -61,6 +61,17 @@ public class PushNotificationJob extends BaseEntity {
         this.scheduledAt = scheduledAt; this.nextRetryAt = null; this.attempts = 0;
         this.status = PushNotificationJobStatus.PENDING;
     }
+    public void restore(LocalDateTime scheduledAt) {
+        if (status != PushNotificationJobStatus.SENT) {
+            reschedule(scheduledAt);
+        }
+    }
+    public void refresh(String title, String body, String clickUrl, LocalDateTime scheduledAt) {
+        this.title = title;
+        this.body = body;
+        this.clickUrl = clickUrl;
+        restore(scheduledAt);
+    }
     public void cancel() { if (status == PushNotificationJobStatus.PENDING) status = PushNotificationJobStatus.CANCELLED; }
     public void claim() { status = PushNotificationJobStatus.PROCESSING; attempts++; }
     public void markSent(LocalDateTime now) { status = PushNotificationJobStatus.SENT; sentAt = now; nextRetryAt = null; }

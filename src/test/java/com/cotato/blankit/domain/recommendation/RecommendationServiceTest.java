@@ -95,6 +95,24 @@ class RecommendationServiceTest {
         return taskRepository.save(t);
     }
 
+    @Test
+    @DisplayName("30분 Pack은 분당 남은 진행률이 높은 과업 3개와 공백 동안 예상 상승률을 반환한다")
+    void getThirtyMinutePackRecommendationRanksByProgressPerMinute() {
+        Task fastest = task("빠름", TODAY.plusDays(1), 10, 50, false);   // 5%/분, 최대 50%
+        Task second = task("중간", TODAY.plusDays(1), 30, 10, false);   // 3%/분
+        Task third = task("느림", TODAY.plusDays(1), 100, 0, false);    // 1%/분
+        task("제외", TODAY.plusDays(1), 200, 0, false);
+
+        var response = recommendationService.getThirtyMinutePackRecommendation(user.getId(), 30);
+
+        assertThat(response.availableMinutes()).isEqualTo(30);
+        assertThat(response.tasks()).extracting(item -> item.taskId())
+                .containsExactly(fastest.getId(), second.getId(), third.getId());
+        assertThat(response.tasks().get(0).progressPerMinute()).isEqualByComparingTo("5.0000");
+        assertThat(response.tasks().get(0).expectedProgressIncrease()).isEqualByComparingTo("50.00");
+        assertThat(response.tasks().get(1).expectedProgressIncrease()).isEqualByComparingTo("90.00");
+    }
+
     // ─── 빈 컬렉션 ────────────────────────────────────────────────────────────
 
     @Test

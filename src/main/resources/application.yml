@@ -27,6 +27,14 @@ blankit:
   push:
     scheduler:
       fixed-delay: ${PUSH_SCHEDULER_FIXED_DELAY:60000}
+    thirty-minute-pack:
+      horizon-days: ${THIRTY_MIN_PACK_HORIZON_DAYS:14}
+      refresh-cron: ${THIRTY_MIN_PACK_REFRESH_CRON:0 10 0 * * *}
+      zone: ${THIRTY_MIN_PACK_ZONE:Asia/Seoul}
+    task-deadline:
+      deadline-time: ${TASK_DEADLINE_TIME:09:00}
+      refresh-cron: ${TASK_DEADLINE_REFRESH_CRON:0 20 0 * * *}
+      zone: ${TASK_DEADLINE_ZONE:Asia/Seoul}
   task:
     repeat-deadline:
       cron: ${REPEAT_DEADLINE_CRON:0 5 0 * * *}

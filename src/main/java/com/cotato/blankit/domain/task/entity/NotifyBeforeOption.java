@@ -4,8 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 
 public enum NotifyBeforeOption {
-    TEN_MINUTES(10),
-    ONE_HOUR(60),
     ONE_DAY(1440),
     THREE_DAYS(4320),
     ONE_WEEK(10080);

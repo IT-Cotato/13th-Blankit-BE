@@ -22,7 +22,7 @@ public class NotificationPreferenceService {
     private boolean enabled(UserNotificationSetting setting, PushNotificationType type) {
         return switch (type) {
             case THIRTY_MIN_PACK -> setting.isThirtyMinPackAlarmEnabled();
-            case SERVICE -> setting.isServiceAlarmEnabled();
+            case SERVICE, TASK_DEADLINE -> setting.isServiceAlarmEnabled();
         };
     }
 }

@@ -33,7 +33,10 @@ public class PushNotificationJobService {
                                         String referenceId, String title, String body, String clickUrl,
                                         LocalDateTime scheduledAt, String dedupeKey) {
         Optional<PushNotificationJob> existing = repository.findByDedupeKey(dedupeKey);
-        if (existing.isPresent()) return existing.get();
+        if (existing.isPresent()) {
+            existing.get().refresh(title, body, clickUrl, scheduledAt);
+            return existing.get();
+        }
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         try {
             return repository.saveAndFlush(PushNotificationJob.create(user, type, referenceType, referenceId,
@@ -46,6 +49,21 @@ public class PushNotificationJobService {
     @Transactional
     public void cancel(String dedupeKey) {
         repository.findByDedupeKey(dedupeKey).ifPresent(PushNotificationJob::cancel);
+    }
+
+    @Transactional
+    public int cancelFutureThirtyMinutePackJobs(Long userId, LocalDateTime from) {
+        return repository.cancelFutureThirtyMinutePackJobs(userId, from);
+    }
+
+    @Transactional
+    public int cancelPendingTaskDeadlineJobs(Long userId) {
+        return repository.cancelPendingTaskDeadlineJobs(userId);
+    }
+
+    @Transactional
+    public int cancelPendingTaskDeadlineJob(Long taskId) {
+        return repository.cancelPendingTaskDeadlineJob(String.valueOf(taskId));
     }
 
     @Transactional
