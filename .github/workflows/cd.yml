@@ -72,11 +72,51 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: DB_NAME,DB_USERNAME,DB_PASSWORD,DB_USER_PASSWORD,DB_URL,JWT_SECRET,JWT_ACCESS_TOKEN_EXPIRATION,JWT_REFRESH_TOKEN_EXPIRATION,FIREBASE_PROJECT_ID,FIREBASE_ENABLED,APP_IMAGE_TAG
+          envs: DB_NAME,DB_USERNAME,DB_PASSWORD,DB_USER_PASSWORD,DB_URL,JWT_SECRET,JWT_ACCESS_TOKEN_EXPIRATION,JWT_REFRESH_TOKEN_EXPIRATION,FIREBASE_SERVICE_ACCOUNT_BASE64,FIREBASE_PROJECT_ID,FIREBASE_ENABLED,APP_IMAGE_TAG
           script: |
+            set -eu
             cd ~/blankit
-            printf 'DB_NAME=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nDB_USER_PASSWORD=%s\nDB_URL=%s\nJWT_SECRET=%s\nJWT_ACCESS_TOKEN_EXPIRATION=%s\nJWT_REFRESH_TOKEN_EXPIRATION=%s\nAPP_IMAGE_TAG=%s\n' \
-              "$DB_NAME" "$DB_USERNAME" "$DB_PASSWORD" "$DB_USER_PASSWORD" "$DB_URL" "$JWT_SECRET" "${JWT_ACCESS_TOKEN_EXPIRATION:-3600000}" "${JWT_REFRESH_TOKEN_EXPIRATION:-1209600000}" "$APP_IMAGE_TAG" > .env
+            umask 077
+
+            case "$FIREBASE_ENABLED" in
+              true|false) ;;
+              *)
+                echo "FIREBASE_ENABLED must be set to true or false"
+                exit 1
+                ;;
+            esac
+
+            mkdir -p secrets
+            chmod 700 secrets
+            FIREBASE_CREDENTIALS_FILE=secrets/firebase-service-account.json
+
+            if [ "$FIREBASE_ENABLED" = "true" ]; then
+              if [ -z "$FIREBASE_PROJECT_ID" ]; then
+                echo "FIREBASE_PROJECT_ID is required when Firebase is enabled"
+                exit 1
+              fi
+              if [ -z "$FIREBASE_SERVICE_ACCOUNT_BASE64" ]; then
+                echo "FIREBASE_SERVICE_ACCOUNT_BASE64 is required when Firebase is enabled"
+                exit 1
+              fi
+
+              FIREBASE_CREDENTIALS_TMP="${FIREBASE_CREDENTIALS_FILE}.tmp"
+              trap 'rm -f "$FIREBASE_CREDENTIALS_TMP"' EXIT
+              printf '%s' "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 --decode > "$FIREBASE_CREDENTIALS_TMP"
+              if [ ! -s "$FIREBASE_CREDENTIALS_TMP" ]; then
+                echo "Decoded Firebase service account file is empty"
+                exit 1
+              fi
+              chmod 644 "$FIREBASE_CREDENTIALS_TMP"
+              mv "$FIREBASE_CREDENTIALS_TMP" "$FIREBASE_CREDENTIALS_FILE"
+              trap - EXIT
+            elif [ ! -f "$FIREBASE_CREDENTIALS_FILE" ]; then
+              printf '{}\n' > "$FIREBASE_CREDENTIALS_FILE"
+              chmod 644 "$FIREBASE_CREDENTIALS_FILE"
+            fi
+
+            printf 'DB_NAME=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nDB_USER_PASSWORD=%s\nDB_URL=%s\nJWT_SECRET=%s\nJWT_ACCESS_TOKEN_EXPIRATION=%s\nJWT_REFRESH_TOKEN_EXPIRATION=%s\nFIREBASE_ENABLED=%s\nFIREBASE_PROJECT_ID=%s\nGOOGLE_APPLICATION_CREDENTIALS=%s\nAPP_IMAGE_TAG=%s\n' \
+              "$DB_NAME" "$DB_USERNAME" "$DB_PASSWORD" "$DB_USER_PASSWORD" "$DB_URL" "$JWT_SECRET" "${JWT_ACCESS_TOKEN_EXPIRATION:-3600000}" "${JWT_REFRESH_TOKEN_EXPIRATION:-1209600000}" "$FIREBASE_ENABLED" "$FIREBASE_PROJECT_ID" "/run/secrets/firebase-service-account.json" "$APP_IMAGE_TAG" > .env
             chmod 600 .env
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
