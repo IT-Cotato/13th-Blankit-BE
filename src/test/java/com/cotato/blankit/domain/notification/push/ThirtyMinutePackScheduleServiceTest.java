@@ -64,8 +64,8 @@ class ThirtyMinutePackScheduleServiceTest {
 
         service.synchronize(user.getId());
 
-        var jobs = jobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.THIRTY_MIN_PACK);
+        var jobs = PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.THIRTY_MIN_PACK);
         assertThat(jobs).hasSize(1);
         assertThat(jobs.get(0).getScheduledAt()).isEqualTo(LocalDateTime.of(2026, 6, 1, 11, 0));
         assertThat(jobs.get(0).getClickUrl()).contains("availableMinutes=30");
@@ -82,8 +82,8 @@ class ThirtyMinutePackScheduleServiceTest {
         setting.update(false, false);
         service.synchronize(user.getId());
 
-        assertThat(jobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.THIRTY_MIN_PACK))
+        assertThat(PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.THIRTY_MIN_PACK))
                 .allMatch(job -> job.getStatus() == PushNotificationJobStatus.CANCELLED);
     }
 
@@ -94,8 +94,8 @@ class ThirtyMinutePackScheduleServiceTest {
 
         service.synchronize(user.getId());
 
-        assertThat(jobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.THIRTY_MIN_PACK)).isEmpty();
+        assertThat(PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.THIRTY_MIN_PACK)).isEmpty();
     }
 
     @Test
@@ -108,8 +108,8 @@ class ThirtyMinutePackScheduleServiceTest {
         timetableService.createTimetable(user.getId(), new TimetableCreateRequest(
                 1, LocalTime.of(11, 30), LocalTime.of(12, 0), "뒤 일정", null, "#123456"));
 
-        assertThat(jobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.THIRTY_MIN_PACK))
+        assertThat(PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.THIRTY_MIN_PACK))
                 .singleElement()
                 .satisfies(job -> assertThat(job.getScheduledAt())
                         .isEqualTo(LocalDateTime.of(2026, 6, 1, 11, 0)));

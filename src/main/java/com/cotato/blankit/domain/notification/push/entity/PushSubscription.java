@@ -39,22 +39,6 @@ public class PushSubscription extends BaseEntity {
     @Column(name = "failure_count", nullable = false)
     private int failureCount;
 
-    public static PushSubscription create(User user, String fid, String deviceName, String browser, LocalDateTime now) {
-        PushSubscription subscription = new PushSubscription();
-        subscription.firebaseInstallationId = fid;
-        subscription.register(user, deviceName, browser, now);
-        return subscription;
-    }
-
-    public void register(User user, String deviceName, String browser, LocalDateTime now) {
-        this.user = user;
-        this.deviceName = deviceName;
-        this.browser = browser;
-        this.active = true;
-        this.lastRegisteredAt = now;
-        this.failureCount = 0;
-    }
-
     public void deactivate() { this.active = false; }
     public void markSuccess(LocalDateTime now) { this.lastSuccessAt = now; this.failureCount = 0; }
     public void markFailure(boolean permanent) { this.failureCount++; if (permanent) this.active = false; }

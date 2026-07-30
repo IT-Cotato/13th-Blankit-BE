@@ -181,8 +181,8 @@ class TaskControllerTest {
                                 """.formatted(studyCategory.getId())))
                 .andExpect(status().isCreated());
 
-        assertThat(pushNotificationJobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.TASK_DEADLINE))
+        assertThat(com.cotato.blankit.domain.notification.push.PushJobTestQueries.findByUserAndType(
+                pushNotificationJobRepository, user.getId(), PushNotificationType.TASK_DEADLINE))
                 .singleElement()
                 .satisfies(job -> assertThat(job.getScheduledAt())
                         .isEqualTo(LocalDateTime.of(2026, 6, 4, 9, 0)));

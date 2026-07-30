@@ -7,7 +7,7 @@ import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,27 +28,31 @@ public class PushNotificationJobService {
     private final UserRepository userRepository;
     private final Clock clock;
 
+    @Value("${blankit.push.scheduler.processing-lease-millis:300000}")
+    private long processingLeaseMillis;
+
     @Transactional
     public PushNotificationJob schedule(Long userId, PushNotificationType type, String referenceType,
                                         String referenceId, String title, String body, String clickUrl,
                                         LocalDateTime scheduledAt, String dedupeKey) {
-        Optional<PushNotificationJob> existing = repository.findByDedupeKey(dedupeKey);
-        if (existing.isPresent()) {
-            existing.get().refresh(title, body, clickUrl, scheduledAt);
-            return existing.get();
-        }
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        try {
-            return repository.saveAndFlush(PushNotificationJob.create(user, type, referenceType, referenceId,
-                    title, body, clickUrl, scheduledAt, dedupeKey));
-        } catch (DataIntegrityViolationException race) {
-            return repository.findByDedupeKey(dedupeKey).orElseThrow(() -> race);
-        }
-    }
-
-    @Transactional
-    public void cancel(String dedupeKey) {
-        repository.findByDedupeKey(dedupeKey).ifPresent(PushNotificationJob::cancel);
+        LocalDateTime now = LocalDateTime.now(clock);
+        repository.insertIfAbsent(
+                user.getId(),
+                type.name(),
+                referenceType,
+                referenceId,
+                title,
+                body,
+                clickUrl,
+                scheduledAt,
+                dedupeKey,
+                now
+        );
+        PushNotificationJob job = repository.findByDedupeKey(dedupeKey)
+                .orElseThrow(() -> new CustomException(ErrorCode.PUSH_JOB_NOT_FOUND));
+        job.refresh(title, body, clickUrl, scheduledAt);
+        return job;
     }
 
     @Transactional
@@ -66,49 +70,48 @@ public class PushNotificationJobService {
         return repository.cancelPendingTaskDeadlineJob(String.valueOf(taskId));
     }
 
-    @Transactional
-    public void reschedule(String dedupeKey, LocalDateTime scheduledAt) {
-        PushNotificationJob job = repository.findByDedupeKey(dedupeKey)
-                .orElseThrow(() -> new CustomException(ErrorCode.PUSH_JOB_NOT_FOUND));
-        job.reschedule(scheduledAt);
-    }
-
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<ClaimedPushJob> claimNext() {
         LocalDateTime now = LocalDateTime.now(clock);
-        return repository.findDueForUpdate(PushNotificationJobStatus.PENDING, now, PageRequest.of(0, 1))
+        LocalDateTime leaseExpiredBefore = now.minus(Duration.ofMillis(processingLeaseMillis));
+        return repository.findClaimableForUpdate(now, leaseExpiredBefore, PageRequest.of(0, 1))
                 .stream().findFirst().map(job -> {
-                    job.claim();
+                    job.claim(now);
                     return ClaimedPushJob.from(job);
                 });
     }
 
     @Transactional
-    public void complete(Long jobId, PushNotificationService.PushSendOutcome outcome) {
+    public void complete(Long jobId, PushNotificationService.PushSendResult result) {
         PushNotificationJob job = repository.findById(jobId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PUSH_JOB_NOT_FOUND));
-        switch (outcome) {
+        switch (result.outcome()) {
             case SENT, SKIPPED_NO_SUBSCRIPTION -> job.markSent(LocalDateTime.now(clock));
             case SKIPPED_PREFERENCE -> job.cancelAfterClaim();
-            case RETRYABLE_FAILURE -> retryOrFail(job);
+            case RETRYABLE_FAILURE -> retryOrFail(job, result.retryInstallationIds());
             case FAILED -> job.fail();
         }
     }
 
-    private void retryOrFail(PushNotificationJob job) {
+    private void retryOrFail(PushNotificationJob job, List<String> retryInstallationIds) {
         int retryIndex = job.getAttempts() - 1;
         if (retryIndex >= RETRY_DELAYS.size()) {
             job.fail();
         } else {
-            job.retryAt(LocalDateTime.now(clock).plus(RETRY_DELAYS.get(retryIndex)));
+            job.retryAt(
+                    LocalDateTime.now(clock).plus(RETRY_DELAYS.get(retryIndex)),
+                    FidListCodec.encode(retryInstallationIds)
+            );
         }
     }
 
     public record ClaimedPushJob(Long id, Long userId, PushNotificationType type, String referenceType,
-                                 String referenceId, String title, String body, String clickUrl, int attempts) {
+                                 String referenceId, String title, String body, String clickUrl, int attempts,
+                                 List<String> retryInstallationIds) {
         static ClaimedPushJob from(PushNotificationJob job) {
             return new ClaimedPushJob(job.getId(), job.getUser().getId(), job.getType(), job.getReferenceType(),
-                    job.getReferenceId(), job.getTitle(), job.getBody(), job.getClickUrl(), job.getAttempts());
+                    job.getReferenceId(), job.getTitle(), job.getBody(), job.getClickUrl(), job.getAttempts(),
+                    FidListCodec.decode(job.getRetryFids()));
         }
     }
 }

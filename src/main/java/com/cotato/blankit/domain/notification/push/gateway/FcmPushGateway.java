@@ -45,9 +45,9 @@ public class FcmPushGateway implements PushGateway {
         String code = errorCode != null ? errorCode.name()
                 : exception.getErrorCode() != null ? exception.getErrorCode().name() : "UNKNOWN";
         PushErrorType type = switch (code) {
-            case "UNREGISTERED", "INVALID_ARGUMENT" -> PushErrorType.PERMANENT_TARGET;
+            case "UNREGISTERED" -> PushErrorType.PERMANENT_TARGET;
             case "UNAVAILABLE", "INTERNAL", "QUOTA_EXCEEDED" -> PushErrorType.RETRYABLE;
-            case "SENDER_ID_MISMATCH", "THIRD_PARTY_AUTH_ERROR", "UNAUTHENTICATED",
+            case "INVALID_ARGUMENT", "SENDER_ID_MISMATCH", "THIRD_PARTY_AUTH_ERROR", "UNAUTHENTICATED",
                     "PERMISSION_DENIED" -> PushErrorType.CONFIGURATION;
             default -> PushErrorType.UNKNOWN;
         };

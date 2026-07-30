@@ -71,6 +71,24 @@ class FcmPushGatewayTest {
                 .isEqualTo(com.cotato.blankit.domain.notification.push.gateway.PushErrorType.PERMANENT_TARGET);
     }
 
+    @Test
+    void invalidArgumentDoesNotDeactivateSubscription() throws Exception {
+        FirebaseMessaging messaging = mock(FirebaseMessaging.class);
+        SendResponse failed = mock(SendResponse.class);
+        FirebaseMessagingException exception = mock(FirebaseMessagingException.class);
+        when(exception.getMessagingErrorCode()).thenReturn(MessagingErrorCode.INVALID_ARGUMENT);
+        when(failed.isSuccessful()).thenReturn(false);
+        when(failed.getException()).thenReturn(exception);
+        BatchResponse batch = mock(BatchResponse.class);
+        when(batch.getResponses()).thenReturn(List.of(failed));
+        when(messaging.sendEachForMulticast(any())).thenReturn(batch);
+
+        var result = new FcmPushGateway(messaging).send(List.of("valid-fid"), payload());
+
+        assertThat(result.items().get(0).errorType())
+                .isEqualTo(com.cotato.blankit.domain.notification.push.gateway.PushErrorType.CONFIGURATION);
+    }
+
     private BatchResponse successfulBatch(int size) {
         SendResponse response = mock(SendResponse.class);
         when(response.isSuccessful()).thenReturn(true);

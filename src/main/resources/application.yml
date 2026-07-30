@@ -27,6 +27,7 @@ blankit:
   push:
     scheduler:
       fixed-delay: ${PUSH_SCHEDULER_FIXED_DELAY:60000}
+      processing-lease-millis: ${PUSH_PROCESSING_LEASE_MILLIS:300000}
     thirty-minute-pack:
       horizon-days: ${THIRTY_MIN_PACK_HORIZON_DAYS:14}
       refresh-cron: ${THIRTY_MIN_PACK_REFRESH_CRON:0 10 0 * * *}

@@ -29,7 +29,8 @@ public class TaskDeadlineNotificationScheduleService {
     @Transactional
     public void synchronizeTask(Long taskId) {
         jobService.cancelPendingTaskDeadlineJob(taskId);
-        taskRepository.findById(taskId).ifPresent(this::scheduleIfEligible);
+        taskRepository.findById(taskId).ifPresent(task ->
+                scheduleIfEligible(task, isServiceAlarmEnabled(task.getUser().getId())));
     }
 
     @Transactional
@@ -38,7 +39,7 @@ public class TaskDeadlineNotificationScheduleService {
         if (!isServiceAlarmEnabled(userId)) return;
         LocalDate today = LocalDate.now(clock);
         taskRepository.findFutureActiveTasksForNotification(userId, today)
-                .forEach(this::scheduleIfEligible);
+                .forEach(task -> scheduleIfEligible(task, true));
     }
 
     public void synchronizeServiceAlarmUsers() {
@@ -50,8 +51,8 @@ public class TaskDeadlineNotificationScheduleService {
         jobService.cancelPendingTaskDeadlineJob(taskId);
     }
 
-    private void scheduleIfEligible(Task task) {
-        if (task.getStatus() == TaskStatus.DONE || !isServiceAlarmEnabled(task.getUser().getId())) return;
+    private void scheduleIfEligible(Task task, boolean serviceAlarmEnabled) {
+        if (task.getStatus() == TaskStatus.DONE || !serviceAlarmEnabled) return;
         NotificationSetting setting = notificationSettingRepository.findByTaskId(task.getId()).orElse(null);
         if (setting == null || !setting.isEnabled()) return;
 

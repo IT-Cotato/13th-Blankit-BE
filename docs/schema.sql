@@ -365,6 +365,8 @@ CREATE TABLE push_notification_job (
     status VARCHAR(20) NOT NULL,
     attempts INT NOT NULL DEFAULT 0,
     next_retry_at DATETIME(6) NULL,
+    processing_started_at DATETIME(6) NULL,
+    retry_fids TEXT NULL,
     dedupe_key VARCHAR(255) NOT NULL,
     sent_at DATETIME(6) NULL,
     created_at DATETIME(6) NOT NULL,
@@ -372,5 +374,6 @@ CREATE TABLE push_notification_job (
     PRIMARY KEY (push_notification_job_id),
     UNIQUE KEY uk_push_job_dedupe_key (dedupe_key),
     KEY idx_push_job_due (status, scheduled_at, next_retry_at),
+    KEY idx_push_job_processing_lease (status, processing_started_at),
     CONSTRAINT fk_push_job_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;

@@ -12,7 +12,10 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Table(name = "push_notification_job",
-        indexes = @Index(name = "idx_push_job_due", columnList = "status,scheduled_at,next_retry_at"),
+        indexes = {
+                @Index(name = "idx_push_job_due", columnList = "status,scheduled_at,next_retry_at"),
+                @Index(name = "idx_push_job_processing_lease", columnList = "status,processing_started_at")
+        },
         uniqueConstraints = @UniqueConstraint(name = "uk_push_job_dedupe_key", columnNames = "dedupe_key"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PushNotificationJob extends BaseEntity {
@@ -42,23 +45,19 @@ public class PushNotificationJob extends BaseEntity {
     private int attempts;
     @Column(name = "next_retry_at")
     private LocalDateTime nextRetryAt;
+    @Column(name = "processing_started_at")
+    private LocalDateTime processingStartedAt;
+    @Lob
+    @Column(name = "retry_fids")
+    private String retryFids;
     @Column(name = "dedupe_key", nullable = false, length = 255)
     private String dedupeKey;
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
 
-    public static PushNotificationJob create(User user, PushNotificationType type, String referenceType,
-                                              String referenceId, String title, String body, String clickUrl,
-                                              LocalDateTime scheduledAt, String dedupeKey) {
-        PushNotificationJob job = new PushNotificationJob();
-        job.user = user; job.type = type; job.referenceType = referenceType; job.referenceId = referenceId;
-        job.title = title; job.body = body; job.clickUrl = clickUrl; job.scheduledAt = scheduledAt;
-        job.dedupeKey = dedupeKey; job.status = PushNotificationJobStatus.PENDING;
-        return job;
-    }
-
-    public void reschedule(LocalDateTime scheduledAt) {
+    private void reschedule(LocalDateTime scheduledAt) {
         this.scheduledAt = scheduledAt; this.nextRetryAt = null; this.attempts = 0;
+        this.processingStartedAt = null; this.retryFids = null;
         this.status = PushNotificationJobStatus.PENDING;
     }
     public void restore(LocalDateTime scheduledAt) {
@@ -72,10 +71,18 @@ public class PushNotificationJob extends BaseEntity {
         this.clickUrl = clickUrl;
         restore(scheduledAt);
     }
-    public void cancel() { if (status == PushNotificationJobStatus.PENDING) status = PushNotificationJobStatus.CANCELLED; }
-    public void claim() { status = PushNotificationJobStatus.PROCESSING; attempts++; }
-    public void markSent(LocalDateTime now) { status = PushNotificationJobStatus.SENT; sentAt = now; nextRetryAt = null; }
-    public void retryAt(LocalDateTime retryAt) { status = PushNotificationJobStatus.PENDING; nextRetryAt = retryAt; }
-    public void fail() { status = PushNotificationJobStatus.FAILED; nextRetryAt = null; }
-    public void cancelAfterClaim() { status = PushNotificationJobStatus.CANCELLED; nextRetryAt = null; }
+    public void claim(LocalDateTime now) { status = PushNotificationJobStatus.PROCESSING; attempts++; processingStartedAt = now; }
+    public void markSent(LocalDateTime now) {
+        status = PushNotificationJobStatus.SENT; sentAt = now; nextRetryAt = null;
+        processingStartedAt = null; retryFids = null;
+    }
+    public void retryAt(LocalDateTime retryAt, String retryFids) {
+        status = PushNotificationJobStatus.PENDING; nextRetryAt = retryAt;
+        processingStartedAt = null; this.retryFids = retryFids;
+    }
+    public void fail() { status = PushNotificationJobStatus.FAILED; nextRetryAt = null; processingStartedAt = null; }
+    public void cancelAfterClaim() {
+        status = PushNotificationJobStatus.CANCELLED; nextRetryAt = null;
+        processingStartedAt = null; retryFids = null;
+    }
 }

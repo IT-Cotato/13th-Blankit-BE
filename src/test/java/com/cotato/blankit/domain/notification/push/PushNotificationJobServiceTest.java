@@ -52,9 +52,26 @@ class PushNotificationJobServiceTest {
         assertThat(secondClaim).isEmpty();
 
         service.complete(job.getId(), com.cotato.blankit.domain.notification.push.service.PushNotificationService
-                .PushSendOutcome.RETRYABLE_FAILURE);
+                .PushSendResult.retryAll(java.util.List.of("retry-fid")));
         var saved = repository.findById(job.getId()).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(com.cotato.blankit.domain.notification.push.entity.PushNotificationJobStatus.PENDING);
         assertThat(saved.getNextRetryAt()).isAfter(LocalDateTime.now());
+        assertThat(saved.getRetryFids()).isNotBlank();
+    }
+
+    @Test
+    void expiredProcessingLeaseIsClaimedAgain() {
+        User user = userRepository.save(User.create(SocialProvider.KAKAO, UUID.randomUUID().toString(),
+                "lease@example.com", "lease", null, 60));
+        var job = service.schedule(user.getId(), PushNotificationType.SERVICE, "NOTICE", "3",
+                "title", "body", "/", LocalDateTime.now().minusMinutes(10), "expired-lease-key");
+        job.claim(LocalDateTime.now().minusMinutes(10));
+        repository.saveAndFlush(job);
+
+        var reclaimed = service.claimNext();
+
+        assertThat(reclaimed).isPresent();
+        assertThat(reclaimed.orElseThrow().id()).isEqualTo(job.getId());
+        assertThat(reclaimed.orElseThrow().attempts()).isEqualTo(2);
     }
 }

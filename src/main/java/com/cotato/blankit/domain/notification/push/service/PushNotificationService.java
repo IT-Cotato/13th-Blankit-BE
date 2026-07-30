@@ -26,31 +26,57 @@ public class PushNotificationService {
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
 
-    public PushSendOutcome send(Long userId, PushNotificationType type, PushPayload payload) {
-        if (!preferenceService.isEnabled(userId, type)) return PushSendOutcome.SKIPPED_PREFERENCE;
-        List<PushSubscription> subscriptions = findActive(userId);
-        if (subscriptions.isEmpty()) return PushSendOutcome.SKIPPED_NO_SUBSCRIPTION;
+    public PushSendResult send(
+            Long userId,
+            PushNotificationType type,
+            PushPayload payload,
+            List<String> retryInstallationIds
+    ) {
+        if (!preferenceService.isEnabled(userId, type)) {
+            return PushSendResult.of(PushSendOutcome.SKIPPED_PREFERENCE);
+        }
+        List<PushSubscription> subscriptions = findActive(userId, retryInstallationIds);
+        if (subscriptions.isEmpty()) {
+            return PushSendResult.of(PushSendOutcome.SKIPPED_NO_SUBSCRIPTION);
+        }
 
         // 실제 외부 호출 직전에 다시 정책을 확인한다.
-        if (!preferenceService.isEnabled(userId, type)) return PushSendOutcome.SKIPPED_PREFERENCE;
+        if (!preferenceService.isEnabled(userId, type)) {
+            return PushSendResult.of(PushSendOutcome.SKIPPED_PREFERENCE);
+        }
         PushDeliveryResult result = gateway.send(
                 subscriptions.stream().map(PushSubscription::getFirebaseInstallationId).toList(), payload);
         transactionTemplate.executeWithoutResult(ignored -> applyResults(result));
-        boolean retryable = result.items().stream().anyMatch(item -> !item.success()
-                && (item.errorType() == PushErrorType.RETRYABLE || item.errorType() == PushErrorType.CONFIGURATION));
+        List<String> retryTargets = result.items().stream()
+                .filter(item -> !item.success() && item.errorType() != PushErrorType.PERMANENT_TARGET)
+                .map(PushDeliveryResult.Item::installationId)
+                .distinct()
+                .toList();
         boolean anySuccess = result.items().stream().anyMatch(PushDeliveryResult.Item::success);
-        return retryable ? PushSendOutcome.RETRYABLE_FAILURE
-                : anySuccess ? PushSendOutcome.SENT : PushSendOutcome.FAILED;
+        if (!retryTargets.isEmpty()) {
+            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, retryTargets);
+        }
+        return PushSendResult.of(anySuccess ? PushSendOutcome.SENT : PushSendOutcome.FAILED);
     }
 
-    private List<PushSubscription> findActive(Long userId) {
+    private List<PushSubscription> findActive(Long userId, List<String> retryInstallationIds) {
+        if (retryInstallationIds != null && !retryInstallationIds.isEmpty()) {
+            return repository
+                    .findByUserIdAndActiveTrueAndFirebaseInstallationIdInOrderByIdAsc(
+                            userId,
+                            retryInstallationIds
+                    );
+        }
         return repository.findByUserIdAndActiveTrueOrderByIdAsc(userId);
     }
 
     private void applyResults(PushDeliveryResult result) {
-        Map<String, PushSubscription> byFid = result.items().stream()
-                .map(PushDeliveryResult.Item::installationId).distinct()
-                .map(repository::findByFirebaseInstallationId).flatMap(java.util.Optional::stream)
+        List<String> installationIds = result.items().stream()
+                .map(PushDeliveryResult.Item::installationId)
+                .distinct()
+                .toList();
+        Map<String, PushSubscription> byFid =
+                repository.findByFirebaseInstallationIdIn(installationIds).stream()
                 .collect(Collectors.toMap(PushSubscription::getFirebaseInstallationId, Function.identity()));
         LocalDateTime now = LocalDateTime.now(clock);
         for (PushDeliveryResult.Item item : result.items()) {
@@ -68,5 +94,24 @@ public class PushNotificationService {
 
     public enum PushSendOutcome {
         SENT, SKIPPED_PREFERENCE, SKIPPED_NO_SUBSCRIPTION, RETRYABLE_FAILURE, FAILED
+    }
+
+    public record PushSendResult(
+            PushSendOutcome outcome,
+            List<String> retryInstallationIds
+    ) {
+        public PushSendResult {
+            retryInstallationIds = retryInstallationIds == null
+                    ? List.of()
+                    : List.copyOf(retryInstallationIds);
+        }
+
+        public static PushSendResult of(PushSendOutcome outcome) {
+            return new PushSendResult(outcome, List.of());
+        }
+
+        public static PushSendResult retryAll(List<String> installationIds) {
+            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, installationIds);
+        }
     }
 }

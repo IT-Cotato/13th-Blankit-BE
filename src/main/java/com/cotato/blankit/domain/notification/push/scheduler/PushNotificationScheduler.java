@@ -28,12 +28,17 @@ public class PushNotificationScheduler {
             var job = claimed.get();
             PushPayload payload = new PushPayload(job.type().name(), job.title(), job.body(),
                     job.referenceId(), job.clickUrl(), Map.of("referenceType", job.referenceType()));
-            PushNotificationService.PushSendOutcome outcome;
+            PushNotificationService.PushSendResult outcome;
             try {
-                outcome = notificationService.send(job.userId(), job.type(), payload);
+                outcome = notificationService.send(
+                        job.userId(),
+                        job.type(),
+                        payload,
+                        job.retryInstallationIds()
+                );
             } catch (RuntimeException exception) {
                 log.error("Push job execution failed: jobId={}, attempt={}", job.id(), job.attempts(), exception);
-                outcome = PushNotificationService.PushSendOutcome.RETRYABLE_FAILURE;
+                outcome = PushNotificationService.PushSendResult.retryAll(job.retryInstallationIds());
             }
             jobService.complete(job.id(), outcome);
         }

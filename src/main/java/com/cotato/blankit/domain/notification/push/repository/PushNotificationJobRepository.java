@@ -2,7 +2,6 @@ package com.cotato.blankit.domain.notification.push.repository;
 
 import com.cotato.blankit.domain.notification.push.entity.PushNotificationJob;
 import com.cotato.blankit.domain.notification.push.entity.PushNotificationJobStatus;
-import com.cotato.blankit.domain.notification.push.entity.PushNotificationType;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -16,19 +15,52 @@ import java.util.Optional;
 
 public interface PushNotificationJobRepository extends JpaRepository<PushNotificationJob, Long> {
     Optional<PushNotificationJob> findByDedupeKey(String dedupeKey);
-    List<PushNotificationJob> findByUserIdAndTypeOrderByScheduledAtAsc(Long userId, PushNotificationType type);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select job from PushNotificationJob job
-            where job.status = :status
-              and job.scheduledAt <= :now
-              and (job.nextRetryAt is null or job.nextRetryAt <= :now)
+            where (
+                    job.status = com.cotato.blankit.domain.notification.push.entity.PushNotificationJobStatus.PENDING
+                    and job.scheduledAt <= :now
+                    and (job.nextRetryAt is null or job.nextRetryAt <= :now)
+                  )
+               or (
+                    job.status = com.cotato.blankit.domain.notification.push.entity.PushNotificationJobStatus.PROCESSING
+                    and job.processingStartedAt <= :leaseExpiredBefore
+                  )
             order by job.scheduledAt asc, job.id asc
             """)
-    List<PushNotificationJob> findDueForUpdate(@Param("status") PushNotificationJobStatus status,
-                                                @Param("now") LocalDateTime now,
-                                                org.springframework.data.domain.Pageable pageable);
+    List<PushNotificationJob> findClaimableForUpdate(
+            @Param("now") LocalDateTime now,
+            @Param("leaseExpiredBefore") LocalDateTime leaseExpiredBefore,
+            org.springframework.data.domain.Pageable pageable
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            INSERT INTO push_notification_job (
+                user_id, type, reference_type, reference_id, title, body, click_url,
+                scheduled_at, status, attempts, next_retry_at, processing_started_at,
+                retry_fids, dedupe_key, sent_at, created_at, updated_at
+            ) VALUES (
+                :userId, :type, :referenceType, :referenceId, :title, :body, :clickUrl,
+                :scheduledAt, 'PENDING', 0, NULL, NULL,
+                NULL, :dedupeKey, NULL, :now, :now
+            )
+            ON DUPLICATE KEY UPDATE
+                dedupe_key = VALUES(dedupe_key)
+            """, nativeQuery = true)
+    int insertIfAbsent(
+            @Param("userId") Long userId,
+            @Param("type") String type,
+            @Param("referenceType") String referenceType,
+            @Param("referenceId") String referenceId,
+            @Param("title") String title,
+            @Param("body") String body,
+            @Param("clickUrl") String clickUrl,
+            @Param("scheduledAt") LocalDateTime scheduledAt,
+            @Param("dedupeKey") String dedupeKey,
+            @Param("now") LocalDateTime now
+    );
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""

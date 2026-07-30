@@ -70,8 +70,8 @@ class TaskDeadlineNotificationScheduleServiceTest {
     void schedulesAtConfiguredDeadlineTimeMinusNotifyBefore() {
         service.synchronizeTask(task.getId());
 
-        var jobs = jobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.TASK_DEADLINE);
+        var jobs = PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.TASK_DEADLINE);
         assertThat(jobs).singleElement().satisfies(job -> {
             assertThat(job.getScheduledAt()).isEqualTo(LocalDateTime.of(2026, 6, 4, 9, 0));
             assertThat(job.getReferenceType()).isEqualTo("TASK");
@@ -88,8 +88,8 @@ class TaskDeadlineNotificationScheduleServiceTest {
 
         service.synchronizeTask(task.getId());
 
-        assertThat(jobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.TASK_DEADLINE))
+        assertThat(PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.TASK_DEADLINE))
                 .allMatch(job -> job.getStatus() == PushNotificationJobStatus.CANCELLED);
     }
 
@@ -100,7 +100,7 @@ class TaskDeadlineNotificationScheduleServiceTest {
 
         service.synchronizeTask(task.getId());
 
-        assertThat(jobRepository.findByUserIdAndTypeOrderByScheduledAtAsc(
-                user.getId(), PushNotificationType.TASK_DEADLINE)).isEmpty();
+        assertThat(PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.TASK_DEADLINE)).isEmpty();
     }
 }
