@@ -25,6 +25,7 @@ public class ThirtyMinutePackScheduleService {
     private final TimetableRepository timetableRepository;
     private final UserNotificationSettingRepository settingRepository;
     private final PushNotificationJobService jobService;
+    private final PushNotificationContentFactory contentFactory;
     private final Clock clock;
 
     @Value("${blankit.push.thirty-minute-pack.horizon-days:14}")
@@ -72,11 +73,9 @@ public class ThirtyMinutePackScheduleService {
             String referenceId = before.getTimetableId() + ":" + after.getTimetableId() + ":" + date;
             String dedupeKey = "THIRTY_MIN_PACK:TIMETABLE_GAP:" + userId + ":"
                     + before.getTimetableId() + ":" + after.getTimetableId() + ":" + scheduledAt.format(DEDUPE_TIME);
+            PushNotificationContentFactory.Content content = contentFactory.thirtyMinutePack(gapMinutes);
             jobService.schedule(userId, PushNotificationType.THIRTY_MIN_PACK, "TIMETABLE_GAP", referenceId,
-                    "지금 30분 Pack을 시작해 볼까요?",
-                    gapMinutes + "분 동안 빠르게 진행할 수 있는 과업을 추천해 드려요.",
-                    "/recommendations/pack30?availableMinutes=" + gapMinutes,
-                    scheduledAt, dedupeKey);
+                    content.title(), content.body(), content.clickUrl(), scheduledAt, dedupeKey);
         }
     }
 }

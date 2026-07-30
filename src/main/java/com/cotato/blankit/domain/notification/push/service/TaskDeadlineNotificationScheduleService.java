@@ -21,6 +21,7 @@ public class TaskDeadlineNotificationScheduleService {
     private final NotificationSettingRepository notificationSettingRepository;
     private final UserNotificationSettingRepository userSettingRepository;
     private final PushNotificationJobService jobService;
+    private final PushNotificationContentFactory contentFactory;
     private final Clock clock;
 
     @Value("${blankit.push.task-deadline.deadline-time:09:00}")
@@ -60,19 +61,13 @@ public class TaskDeadlineNotificationScheduleService {
                 .minusMinutes(setting.getNotifyBefore());
         if (!scheduledAt.isAfter(LocalDateTime.now(clock))) return;
 
-        String label = switch (setting.getNotifyBefore()) {
-            case 1440 -> "1일";
-            case 4320 -> "3일";
-            case 10080 -> "1주일";
-            default -> setting.getNotifyBefore() + "분";
-        };
+        PushNotificationContentFactory.Content content =
+                contentFactory.taskDeadline(task, setting.getNotifyBefore());
         String dedupeKey = "TASK_DEADLINE:TASK:" + task.getId() + ":"
                 + task.getDeadline() + ":" + setting.getNotifyBefore();
         jobService.schedule(task.getUser().getId(), PushNotificationType.TASK_DEADLINE,
                 "TASK", String.valueOf(task.getId()),
-                "과업 마감이 " + label + " 남았어요",
-                task.getTitle() + " 과업을 확인해 주세요.",
-                "/tasks/" + task.getId(), scheduledAt, dedupeKey);
+                content.title(), content.body(), content.clickUrl(), scheduledAt, dedupeKey);
     }
 
     private boolean isServiceAlarmEnabled(Long userId) {

@@ -13,7 +13,7 @@ public class TaskDeadlineScheduleRefreshScheduler {
     private final TaskDeadlineNotificationScheduleService scheduleService;
 
     @Scheduled(cron = "${blankit.push.task-deadline.refresh-cron:0 20 0 * * *}",
-            zone = "${blankit.push.task-deadline.zone:Asia/Seoul}")
+            zone = "${blankit.time-zone:Asia/Seoul}")
     public void refreshSchedules() {
         scheduleService.synchronizeServiceAlarmUsers();
     }

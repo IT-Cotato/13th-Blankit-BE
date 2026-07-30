@@ -13,7 +13,7 @@ import java.time.ZoneId;
 public class TimeConfig {
 
     @Bean
-    public Clock clock(@Value("${blankit.task.repeat-deadline.zone:Asia/Seoul}") String zone) {
+    public Clock clock(@Value("${blankit.time-zone:Asia/Seoul}") String zone) {
         return Clock.system(ZoneId.of(zone));
     }
 }

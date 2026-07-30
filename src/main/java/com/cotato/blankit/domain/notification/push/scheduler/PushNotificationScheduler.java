@@ -3,6 +3,7 @@ package com.cotato.blankit.domain.notification.push.scheduler;
 import com.cotato.blankit.domain.notification.push.gateway.PushPayload;
 import com.cotato.blankit.domain.notification.push.service.PushNotificationJobService;
 import com.cotato.blankit.domain.notification.push.service.PushNotificationService;
+import com.cotato.blankit.global.config.PushSchedulerProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,13 +17,13 @@ import java.util.Map;
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "blankit.push.scheduler", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class PushNotificationScheduler {
-    private static final int MAX_PER_TICK = 100;
     private final PushNotificationJobService jobService;
     private final PushNotificationService notificationService;
+    private final PushSchedulerProperties schedulerProperties;
 
     @Scheduled(fixedDelayString = "${blankit.push.scheduler.fixed-delay:60000}")
     public void processDueJobs() {
-        for (int count = 0; count < MAX_PER_TICK; count++) {
+        for (int count = 0; count < schedulerProperties.maxJobsPerTick(); count++) {
             var claimed = jobService.claimNext();
             if (claimed.isEmpty()) return;
             var job = claimed.get();

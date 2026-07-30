@@ -38,7 +38,8 @@ dependencies {
     // Swagger / OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
-    // CI 테스트 편의
+    // local 프로필 및 테스트용 인메모리 DB
+    developmentOnly 'com.h2database:h2'
     testRuntimeOnly 'com.h2database:h2'
 
     // jwt

@@ -13,7 +13,7 @@ public class ThirtyMinutePackScheduleRefreshScheduler {
     private final ThirtyMinutePackScheduleService scheduleService;
 
     @Scheduled(cron = "${blankit.push.thirty-minute-pack.refresh-cron:0 10 0 * * *}",
-            zone = "${blankit.push.thirty-minute-pack.zone:Asia/Seoul}")
+            zone = "${blankit.time-zone:Asia/Seoul}")
     public void refreshScheduleHorizon() {
         scheduleService.synchronizeEnabledUsers();
     }

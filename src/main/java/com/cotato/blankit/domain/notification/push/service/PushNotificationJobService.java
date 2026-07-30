@@ -4,10 +4,10 @@ import com.cotato.blankit.domain.notification.push.entity.*;
 import com.cotato.blankit.domain.notification.push.repository.PushNotificationJobRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
+import com.cotato.blankit.global.config.PushSchedulerProperties;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -22,14 +22,10 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class PushNotificationJobService {
-    private static final List<Duration> RETRY_DELAYS = List.of(
-            Duration.ofMinutes(1), Duration.ofMinutes(5), Duration.ofMinutes(15), Duration.ofHours(1));
     private final PushNotificationJobRepository repository;
     private final UserRepository userRepository;
     private final Clock clock;
-
-    @Value("${blankit.push.scheduler.processing-lease-millis:300000}")
-    private long processingLeaseMillis;
+    private final PushSchedulerProperties schedulerProperties;
 
     @Transactional
     public PushNotificationJob schedule(Long userId, PushNotificationType type, String referenceType,
@@ -73,7 +69,7 @@ public class PushNotificationJobService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<ClaimedPushJob> claimNext() {
         LocalDateTime now = LocalDateTime.now(clock);
-        LocalDateTime leaseExpiredBefore = now.minus(Duration.ofMillis(processingLeaseMillis));
+        LocalDateTime leaseExpiredBefore = now.minus(Duration.ofMillis(schedulerProperties.processingLeaseMillis()));
         return repository.findClaimableForUpdate(now, leaseExpiredBefore, PageRequest.of(0, 1))
                 .stream().findFirst().map(job -> {
                     job.claim(now);
@@ -95,11 +91,11 @@ public class PushNotificationJobService {
 
     private void retryOrFail(PushNotificationJob job, List<String> retryInstallationIds) {
         int retryIndex = job.getAttempts() - 1;
-        if (retryIndex >= RETRY_DELAYS.size()) {
+        if (retryIndex >= schedulerProperties.retryDelays().size()) {
             job.fail();
         } else {
             job.retryAt(
-                    LocalDateTime.now(clock).plus(RETRY_DELAYS.get(retryIndex)),
+                    LocalDateTime.now(clock).plus(schedulerProperties.retryDelays().get(retryIndex)),
                     FidListCodec.encode(retryInstallationIds)
             );
         }

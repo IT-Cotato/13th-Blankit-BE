@@ -21,6 +21,7 @@ cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8081}
 
 blankit:
+  time-zone: ${APP_TIME_ZONE:Asia/Seoul}
   firebase:
     enabled: ${FIREBASE_ENABLED:false}
     project-id: ${FIREBASE_PROJECT_ID:}
@@ -28,15 +29,17 @@ blankit:
     scheduler:
       fixed-delay: ${PUSH_SCHEDULER_FIXED_DELAY:60000}
       processing-lease-millis: ${PUSH_PROCESSING_LEASE_MILLIS:300000}
+      max-jobs-per-tick: ${PUSH_MAX_JOBS_PER_TICK:100}
+      retry-delays: ${PUSH_RETRY_DELAYS:PT1M,PT5M,PT15M,PT1H}
     thirty-minute-pack:
       horizon-days: ${THIRTY_MIN_PACK_HORIZON_DAYS:14}
       refresh-cron: ${THIRTY_MIN_PACK_REFRESH_CRON:0 10 0 * * *}
-      zone: ${THIRTY_MIN_PACK_ZONE:Asia/Seoul}
     task-deadline:
       deadline-time: ${TASK_DEADLINE_TIME:09:00}
       refresh-cron: ${TASK_DEADLINE_REFRESH_CRON:0 20 0 * * *}
-      zone: ${TASK_DEADLINE_ZONE:Asia/Seoul}
+    routes:
+      task-detail: ${PUSH_TASK_DETAIL_PATH:/tasks/{taskId}}
+      thirty-minute-pack: ${PUSH_THIRTY_MIN_PACK_PATH:/recommendations/pack30?availableMinutes={minutes}}
   task:
     repeat-deadline:
       cron: ${REPEAT_DEADLINE_CRON:0 5 0 * * *}
-      zone: ${REPEAT_DEADLINE_ZONE:Asia/Seoul}
