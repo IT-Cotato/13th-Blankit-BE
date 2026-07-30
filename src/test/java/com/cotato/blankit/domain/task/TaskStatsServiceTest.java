@@ -2,9 +2,11 @@ package com.cotato.blankit.domain.task;
 
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
+import com.cotato.blankit.domain.feedback.entity.DailyElapsedTime;
 import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
+import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.dto.response.TaskCalendarResponse;
@@ -67,6 +69,7 @@ class TaskStatsServiceTest {
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private TaskRepository taskRepository;
     @Autowired private TaskSessionRepository taskSessionRepository;
+    @Autowired private DailyElapsedTimeRepository dailyElapsedTimeRepository;
     @Autowired private FeedbackRepository feedbackRepository;
     @PersistenceContext private EntityManager entityManager;
 
@@ -87,9 +90,15 @@ class TaskStatsServiceTest {
 
     private TaskSession session(Task task, LocalDate date, int elapsedSeconds) {
         LocalDateTime startedAt = date.atTime(9, 0);
-        return taskSessionRepository.save(
+        TaskSession saved = taskSessionRepository.save(
                 TaskSession.create(task, user, startedAt, startedAt.plusSeconds(elapsedSeconds), elapsedSeconds, TaskSessionStatus.DONE)
         );
+        dailyElapsedTimeRepository.findByUser_IdAndDate(user.getId(), date)
+                .ifPresentOrElse(
+                        record -> record.addElapsedSeconds(elapsedSeconds),
+                        () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(user, date, elapsedSeconds))
+                );
+        return saved;
     }
 
     private Feedback submittedFeedback(TaskSession session, Task task, int progressRate) {

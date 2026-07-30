@@ -1,9 +1,9 @@
 package com.cotato.blankit.domain.task.service;
 
+import com.cotato.blankit.domain.feedback.entity.DailyElapsedTime;
 import com.cotato.blankit.domain.feedback.entity.Feedback;
-import com.cotato.blankit.domain.feedback.entity.TaskSession;
+import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
-import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.dto.response.TaskCalendarResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDailyStatsResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskMonthlyStatsResponse;
@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 public class TaskStatsService {
 
     private final TaskRepository taskRepository;
-    private final TaskSessionRepository taskSessionRepository;
+    private final DailyElapsedTimeRepository dailyElapsedTimeRepository;
     private final FeedbackRepository feedbackRepository;
     private final Clock clock;
 
@@ -63,9 +63,7 @@ public class TaskStatsService {
 
         Integer totalElapsedSeconds = null;
         if (!date.isAfter(today)) {
-            LocalDateTime startOfDay = date.atStartOfDay();
-            LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
-            totalElapsedSeconds = (int) taskSessionRepository.sumElapsedTimeByUserIdAndDateRange(userId, startOfDay, endOfDay);
+            totalElapsedSeconds = (int) dailyElapsedTimeRepository.sumElapsedSecondsByUserIdAndDate(userId, date);
         }
 
         int totalRecommendedMinutes = calcRecommendedMinutes(
@@ -90,15 +88,11 @@ public class TaskStatsService {
         LocalDate startDate = LocalDate.of(year, month, 1);
         int daysInMonth = startDate.lengthOfMonth();
 
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = startDate.plusMonths(1).atStartOfDay();
-        List<TaskSession> sessions = taskSessionRepository.findByUserIdAndStartedAtBetween(userId, startDateTime, endDateTime);
+        LocalDate endDate = startDate.withDayOfMonth(daysInMonth);
+        List<DailyElapsedTime> dailyRecords = dailyElapsedTimeRepository.findByUser_IdAndDateBetween(userId, startDate, endDate);
 
-        Map<LocalDate, Long> elapsedByDate = sessions.stream()
-                .collect(Collectors.groupingBy(
-                        ts -> ts.getStartedAt().toLocalDate(),
-                        Collectors.summingLong(TaskSession::getElapsedTime)
-                ));
+        Map<LocalDate, Long> elapsedByDate = dailyRecords.stream()
+                .collect(Collectors.toMap(DailyElapsedTime::getDate, r -> (long) r.getElapsedSeconds()));
 
         List<Task> nonDoneTasks = taskRepository.findNonDoneTasksWithEstimatedTime(userId);
 
