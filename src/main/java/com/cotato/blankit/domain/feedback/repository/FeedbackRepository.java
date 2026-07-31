@@ -26,11 +26,11 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
             join fetch t.category
             where f.user.id = :userId
               and f.isDraft = false
-              and f.taskSession.startedAt >= :startOfDay
-              and f.taskSession.startedAt < :endOfDay
+              and f.updatedAt >= :startOfDay
+              and f.updatedAt < :endOfDay
             order by f.createdAt
             """)
-    List<Feedback> findCompletedByUserIdAndSessionDate(
+    List<Feedback> findCompletedByUserIdAndDate(
             @Param("userId") Long userId,
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay

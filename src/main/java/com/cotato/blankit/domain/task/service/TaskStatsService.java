@@ -74,7 +74,7 @@ public class TaskStatsService {
             LocalDateTime startOfDay = date.atStartOfDay();
             LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
             feedbackTasks = feedbackRepository
-                    .findCompletedByUserIdAndSessionDate(userId, startOfDay, endOfDay)
+                    .findCompletedByUserIdAndDate(userId, startOfDay, endOfDay)
                     .stream()
                     .map(this::toFeedbackTaskItem)
                     .toList();
