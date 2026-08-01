@@ -67,7 +67,7 @@ public class TaskStatsService {
         }
 
         int totalRecommendedMinutes = calcRecommendedMinutes(
-                taskRepository.findNonDoneTasksWithEstimatedTime(userId), date);
+                taskRepository.findNonDoneTasksWithEstimatedTime(userId, date), date);
 
         List<TaskDailyStatsResponse.FeedbackTaskItem> feedbackTasks = List.of();
         if (!date.isAfter(today)) {
@@ -94,7 +94,7 @@ public class TaskStatsService {
         Map<LocalDate, Long> elapsedByDate = dailyRecords.stream()
                 .collect(Collectors.toMap(DailyElapsedTime::getDate, r -> (long) r.getElapsedSeconds()));
 
-        List<Task> nonDoneTasks = taskRepository.findNonDoneTasksWithEstimatedTime(userId);
+        List<Task> nonDoneTasks = taskRepository.findNonDoneTasksWithEstimatedTime(userId, startDate);
 
         List<TaskMonthlyStatsResponse.DayStatsItem> dailyStats = new ArrayList<>();
         for (int day = 1; day <= daysInMonth; day++) {

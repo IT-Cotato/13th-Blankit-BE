@@ -116,12 +116,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     @Query("""
             select t from Task t
-            join fetch t.category
             where t.user.id = :userId
               and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
               and t.estimatedTime is not null
+              and t.deadline >= :deadlineFrom
             """)
-    List<Task> findNonDoneTasksWithEstimatedTime(@Param("userId") Long userId);
+    List<Task> findNonDoneTasksWithEstimatedTime(@Param("userId") Long userId, @Param("deadlineFrom") LocalDate deadlineFrom);
 
     @Query("""
             select t from Task t
