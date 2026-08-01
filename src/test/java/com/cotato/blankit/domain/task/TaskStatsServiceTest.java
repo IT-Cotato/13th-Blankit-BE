@@ -285,14 +285,14 @@ class TaskStatsServiceTest {
         }
 
         @Test
-        @DisplayName("오늘 이후 날짜의 actualMinutes는 null이고 오늘은 null이 아니다")
+        @DisplayName("오늘 이후 날짜의 actualMinutes는 null이고 오늘은 세션 없으면 0이다")
         void getMonthlyStats_futureDays_actualMinutesNullTodayNonNull() {
             // when
             TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             // then: 오늘 인덱스는 날짜 기반으로 계산 (0-indexed)
             int todayIndex = TODAY.getDayOfMonth() - 1;
             assertThat(result.dailyStats().get(todayIndex).date()).isEqualTo(TODAY);
-            assertThat(result.dailyStats().get(todayIndex).actualMinutes()).isNotNull();
+            assertThat(result.dailyStats().get(todayIndex).actualMinutes()).isEqualTo(0);
             if (todayIndex + 1 < TODAY.lengthOfMonth()) {
                 assertThat(result.dailyStats().get(todayIndex + 1).date()).isEqualTo(TODAY.plusDays(1));
                 assertThat(result.dailyStats().get(todayIndex + 1).actualMinutes()).isNull();
