@@ -14,10 +14,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
+
 import java.time.LocalDate;
 
 @Tag(name = "과업 - 통계", description = "캘린더 통계 화면(3.4~3.6) API")
 @SecurityRequirement(name = "bearerAuth")
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/tasks/stats")
@@ -38,7 +44,7 @@ public class TaskStatsController {
     public ApiResponse<TaskDailyStatsResponse> getDailyStats(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Parameter(description = "조회 날짜 (YYYY-MM-DD)", example = "2026-07-13", required = true)
-            @RequestParam LocalDate date) {
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @RequestParam LocalDate date) {
         return ApiResponse.success(taskStatsService.getDailyStats(userDetails.getUserId(), date));
     }
 
@@ -55,9 +61,9 @@ public class TaskStatsController {
     public ApiResponse<TaskMonthlyStatsResponse> getMonthlyStats(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Parameter(description = "조회 연도", example = "2026", required = true)
-            @RequestParam int year,
+            @Min(1970) @Max(9999) @RequestParam int year,
             @Parameter(description = "조회 월 (1~12)", example = "7", required = true)
-            @RequestParam int month) {
+            @Min(1) @Max(12) @RequestParam int month) {
         return ApiResponse.success(taskStatsService.getMonthlyStats(userDetails.getUserId(), year, month));
     }
 }

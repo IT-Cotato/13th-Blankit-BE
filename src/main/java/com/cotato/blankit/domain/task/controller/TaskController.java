@@ -22,11 +22,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -41,6 +44,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "Task", description = "홈 화면 과업 및 이전 완료 과업 API")
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/tasks")
@@ -123,9 +127,9 @@ public class TaskController {
     public ApiResponse<List<TaskCalendarResponse>> getCalendar(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Parameter(description = "조회 연도", example = "2026", required = true)
-            @RequestParam int year,
+            @Min(1970) @Max(9999) @RequestParam int year,
             @Parameter(description = "조회 월 (1~12)", example = "7", required = true)
-            @RequestParam int month
+            @Min(1) @Max(12) @RequestParam int month
     ) {
         return ApiResponse.success(taskStatsService.getMonthlyCalendar(userDetails.getUserId(), year, month));
     }
