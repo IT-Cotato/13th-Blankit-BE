@@ -30,7 +30,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
               and f.updatedAt < :endOfDay
             order by f.createdAt
             """)
-    List<Feedback> findCompletedByUserIdAndDate(
+    List<Feedback> findSubmittedByUserIdAndDateRange(
             @Param("userId") Long userId,
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay
