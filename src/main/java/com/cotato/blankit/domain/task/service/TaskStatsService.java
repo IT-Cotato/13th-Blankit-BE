@@ -116,8 +116,10 @@ public class TaskStatsService {
     private int calcRecommendedMinutes(List<Task> tasks, LocalDate date) {
         return (int) Math.round(
                 tasks.stream()
-                        .filter(t -> ChronoUnit.DAYS.between(date, t.getDeadline()) > 0)
-                        .mapToDouble(t -> (double) t.getEstimatedTime() / ChronoUnit.DAYS.between(date, t.getDeadline()))
+                        .mapToDouble(t -> {
+                            long days = ChronoUnit.DAYS.between(date, t.getDeadline());
+                            return days > 0 ? (double) t.getEstimatedTime() / days : 0.0;
+                        })
                         .sum()
         );
     }
