@@ -3,9 +3,12 @@ package com.cotato.blankit.domain.feedback;
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.feedback.entity.Feedback;
+import com.cotato.blankit.domain.feedback.entity.PlayInterval;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
+import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
+import com.cotato.blankit.domain.feedback.repository.PlayIntervalRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.playlist.entity.Playlist;
 import com.cotato.blankit.domain.playlist.entity.PlaylistItem;
@@ -79,6 +82,8 @@ class FeedbackControllerTest {
     @Autowired private TaskRepository taskRepository;
     @Autowired private TaskSessionRepository taskSessionRepository;
     @Autowired private FeedbackRepository feedbackRepository;
+    @Autowired private PlayIntervalRepository playIntervalRepository;
+    @Autowired private DailyElapsedTimeRepository dailyElapsedTimeRepository;
     @Autowired private PlaylistRepository playlistRepository;
     @Autowired private PlaylistItemRepository playlistItemRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
@@ -433,5 +438,31 @@ class FeedbackControllerTest {
         entityManager.clear();
         assertThat(taskSessionRepository.findById(session.getTaskSessionId()).orElseThrow().getStatus())
                 .isEqualTo(TaskSessionStatus.DONE);
+    }
+
+    @Test
+    void submitFeedback_final_reflectsDailyElapsedTime() throws Exception {
+        // 피드백 최종 제출(isDraft=false) 시 PlayInterval 기반 DailyElapsedTime이 반영되어야 한다
+        LocalDate day = LocalDate.of(2026, 7, 13);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, day.atTime(9, 0), null, 5400, TaskSessionStatus.PAUSED));
+        PlayInterval interval = PlayInterval.start(session, day.atTime(9, 0));
+        interval.end(day.atTime(10, 30));
+        playIntervalRepository.save(interval);
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": null, "isDraft": false }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isDraft").value(false));
+
+        entityManager.flush();
+        entityManager.clear();
+        long elapsed = dailyElapsedTimeRepository.sumElapsedSecondsByUserIdAndDate(user.getId(), day);
+        assertThat(elapsed).isEqualTo(5400);
     }
 }

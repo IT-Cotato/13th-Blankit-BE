@@ -97,6 +97,18 @@ public class TaskSessionService {
         return TaskSessionResponse.from(session);
     }
 
+    @Transactional
+    public void completeSession(TaskSession session, LocalDateTime now) {
+        if (session.getStatus() == TaskSessionStatus.DONE) {
+            return;
+        }
+        playIntervalRepository
+                .findByTaskSession_TaskSessionIdAndEndedAtIsNull(session.getTaskSessionId())
+                .ifPresent(interval -> interval.end(now));
+        session.updateStatus(TaskSessionStatus.DONE, clock);
+        reflectDailyElapsedTime(session, now);
+    }
+
     private void reflectDailyElapsedTime(TaskSession session, LocalDateTime now) {
         List<PlayInterval> intervals = playIntervalRepository.findByTaskSession_TaskSessionId(session.getTaskSessionId());
         User user = session.getUser();

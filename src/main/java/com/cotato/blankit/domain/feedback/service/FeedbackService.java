@@ -6,7 +6,6 @@ import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
-import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
@@ -18,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -26,6 +26,7 @@ public class FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
     private final TaskSessionRepository taskSessionRepository;
+    private final TaskSessionService taskSessionService;
     private final PlaylistItemRepository playlistItemRepository;
     private final EstimatedTimeCalculator calculator;
     private final Clock clock;
@@ -58,7 +59,7 @@ public class FeedbackService {
                 });
         feedback.update(request.progressRate(), request.memo(), request.isDraft());
         if (!request.isDraft()) {
-            session.updateStatus(TaskSessionStatus.DONE, clock);
+            taskSessionService.completeSession(session, LocalDateTime.now(clock));
             if (request.progressRate() != null && request.progressRate() == 100) {
                 feedback.complete();
                 Task task = session.getTask();
