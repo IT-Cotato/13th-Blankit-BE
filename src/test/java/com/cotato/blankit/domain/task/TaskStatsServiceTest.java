@@ -57,9 +57,9 @@ import static org.mockito.Mockito.when;
 })
 class TaskStatsServiceTest {
 
-    private static final LocalDate TODAY = LocalDate.of(2026, 7, 15);
-    private static final Instant FIXED_INSTANT = Instant.parse("2026-07-15T00:00:00Z");
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    private static final LocalDate TODAY = LocalDate.now();
+    private static final Instant FIXED_INSTANT = TODAY.atStartOfDay(SEOUL).toInstant();
 
     @MockitoBean
     private Clock clock;
@@ -119,7 +119,7 @@ class TaskStatsServiceTest {
         @DisplayName("해당 월에 마감 과업이 없으면 빈 리스트를 반환한다")
         void getMonthlyCalendar_noTasks_returnsEmptyList() {
             // when
-            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), 2026, 7);
+            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             // then
             assertThat(result).isEmpty();
         }
@@ -128,24 +128,24 @@ class TaskStatsServiceTest {
         @DisplayName("서로 다른 날짜의 과업을 마감일 오름차순으로 반환한다")
         void getMonthlyCalendar_tasksOnDifferentDates_sortedByDate() {
             // given
-            task("후반", LocalDate.of(2026, 7, 20), 60);
-            task("초반", LocalDate.of(2026, 7, 5),  60);
+            task("후반", TODAY.withDayOfMonth(20), 60);
+            task("초반", TODAY.withDayOfMonth(5),  60);
             // when
-            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), 2026, 7);
+            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             // then
             assertThat(result).hasSize(2);
-            assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2026, 7, 5));
-            assertThat(result.get(1).date()).isEqualTo(LocalDate.of(2026, 7, 20));
+            assertThat(result.get(0).date()).isEqualTo(TODAY.withDayOfMonth(5));
+            assertThat(result.get(1).date()).isEqualTo(TODAY.withDayOfMonth(20));
         }
 
         @Test
         @DisplayName("같은 날짜의 여러 과업은 하나의 그룹으로 묶인다")
         void getMonthlyCalendar_multipleTasksSameDate_groupedIntoOneEntry() {
             // given
-            task("A", LocalDate.of(2026, 7, 10), 60);
-            task("B", LocalDate.of(2026, 7, 10), 60);
+            task("A", TODAY.withDayOfMonth(10), 60);
+            task("B", TODAY.withDayOfMonth(10), 60);
             // when
-            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), 2026, 7);
+            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).tasks()).hasSize(2);
@@ -155,11 +155,11 @@ class TaskStatsServiceTest {
         @DisplayName("해당 월 범위 밖의 과업은 포함되지 않는다")
         void getMonthlyCalendar_tasksOutsideMonth_excluded() {
             // given
-            Task thisMonth = task("이번달", LocalDate.of(2026, 7, 15), 60);
-            task("지난달", LocalDate.of(2026, 6, 30), 60);
-            task("다음달", LocalDate.of(2026, 8, 1),  60);
+            Task thisMonth = task("이번달", TODAY, 60);
+            task("지난달", TODAY.minusMonths(1), 60);
+            task("다음달", TODAY.plusMonths(1), 60);
             // when
-            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), 2026, 7);
+            List<TaskCalendarResponse> result = taskStatsService.getMonthlyCalendar(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             // then
             assertThat(result).hasSize(1);
             assertThat(result.get(0).tasks().get(0).taskId()).isEqualTo(thisMonth.getId());
@@ -277,59 +277,63 @@ class TaskStatsServiceTest {
         @DisplayName("월별 통계는 해당 월의 모든 날짜 항목을 반환한다")
         void getMonthlyStats_returnsAllDaysOfMonth() {
             // when
-            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), 2026, 7);
-            // then: 7월은 31일
-            assertThat(result.dailyStats()).hasSize(31);
-            assertThat(result.dailyStats().get(0).date()).isEqualTo(LocalDate.of(2026, 7, 1));
-            assertThat(result.dailyStats().get(30).date()).isEqualTo(LocalDate.of(2026, 7, 31));
+            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
+            // then
+            assertThat(result.dailyStats()).hasSize(TODAY.lengthOfMonth());
+            assertThat(result.dailyStats().get(0).date()).isEqualTo(TODAY.withDayOfMonth(1));
+            assertThat(result.dailyStats().get(TODAY.lengthOfMonth() - 1).date()).isEqualTo(TODAY.withDayOfMonth(TODAY.lengthOfMonth()));
         }
 
         @Test
         @DisplayName("오늘 이후 날짜의 actualMinutes는 null이고 오늘은 null이 아니다")
         void getMonthlyStats_futureDays_actualMinutesNullTodayNonNull() {
             // when
-            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), 2026, 7);
-            // then: index 14 = 7월 15일(오늘), index 15 = 7월 16일(내일)
-            assertThat(result.dailyStats().get(14).date()).isEqualTo(TODAY);
-            assertThat(result.dailyStats().get(14).actualMinutes()).isNotNull();
-            assertThat(result.dailyStats().get(15).date()).isEqualTo(TODAY.plusDays(1));
-            assertThat(result.dailyStats().get(15).actualMinutes()).isNull();
+            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
+            // then: 오늘 인덱스는 날짜 기반으로 계산 (0-indexed)
+            int todayIndex = TODAY.getDayOfMonth() - 1;
+            assertThat(result.dailyStats().get(todayIndex).date()).isEqualTo(TODAY);
+            assertThat(result.dailyStats().get(todayIndex).actualMinutes()).isNotNull();
+            if (todayIndex + 1 < TODAY.lengthOfMonth()) {
+                assertThat(result.dailyStats().get(todayIndex + 1).date()).isEqualTo(TODAY.plusDays(1));
+                assertThat(result.dailyStats().get(todayIndex + 1).actualMinutes()).isNull();
+            }
         }
 
         @Test
         @DisplayName("과거 날짜의 actualMinutes는 해당 날 세션 elapsedTime 합산을 분으로 반환한다")
         void getMonthlyStats_pastDayWithSessions_actualMinutesComputed() {
-            // given: 7월 10일 세션 2개 — 3600초 + 1800초 = 5400초 → 90분
+            // given: 이번 달 1일 세션 2개 — 3600초 + 1800초 = 5400초 → 90분
             Task taskA = task("A", TODAY.plusDays(10), 120);
-            session(taskA, LocalDate.of(2026, 7, 10), 3600);
-            session(taskA, LocalDate.of(2026, 7, 10), 1800);
+            LocalDate pastDay = TODAY.withDayOfMonth(1);
+            session(taskA, pastDay, 3600);
+            session(taskA, pastDay, 1800);
             entityManager.flush();
             // when
-            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), 2026, 7);
-            // then: index 9 = 7월 10일
-            assertThat(result.dailyStats().get(9).date()).isEqualTo(LocalDate.of(2026, 7, 10));
-            assertThat(result.dailyStats().get(9).actualMinutes()).isEqualTo(90);
+            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
+            // then: index 0 = 이번 달 1일
+            assertThat(result.dailyStats().get(0).date()).isEqualTo(pastDay);
+            assertThat(result.dailyStats().get(0).actualMinutes()).isEqualTo(90);
         }
 
         @Test
         @DisplayName("세션이 없는 과거 날짜의 actualMinutes는 0이다")
         void getMonthlyStats_pastDayNoSessions_actualMinutesIsZero() {
             // when
-            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), 2026, 7);
-            // then: 7월 1일(index=0)은 세션 없음 → 0
+            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
+            // then: 1일(index=0)은 세션 없음 → 0
             assertThat(result.dailyStats().get(0).actualMinutes()).isEqualTo(0);
         }
 
         @Test
         @DisplayName("날짜별 권장 시간은 해당 날짜 기준 마감까지 남은 일수로 계산되며 당일 마감은 0이다")
         void getMonthlyStats_recommendedMinutes_differsPerDayAndZeroOnDeadlineDay() {
-            // given: estimatedTime=10, deadline=7월 20일
-            // 7월 18일(index 17): 10 / 2 = 5분
-            // 7월 19일(index 18): 10 / 1 = 10분
-            // 7월 20일(index 19): daysUntilDeadline=0 → 제외 → 0분
-            task("마감임박", LocalDate.of(2026, 7, 20), 10);
+            // given: estimatedTime=10, deadline=이번 달 20일
+            // 이번 달 18일(index 17): 10 / 2 = 5분
+            // 이번 달 19일(index 18): 10 / 1 = 10분
+            // 이번 달 20일(index 19): daysUntilDeadline=0 → 제외 → 0분
+            task("마감임박", TODAY.withDayOfMonth(20), 10);
             // when
-            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), 2026, 7);
+            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             // then
             assertThat(result.dailyStats().get(17).recommendedMinutes()).isEqualTo(5);
             assertThat(result.dailyStats().get(18).recommendedMinutes()).isEqualTo(10);
