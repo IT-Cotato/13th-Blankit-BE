@@ -664,6 +664,20 @@ class RecommendationServiceTest {
     }
 
     @Test
+    @DisplayName("CLEAR — 오늘 마감 과업만 있으면 totalMinutes=0이므로 빈 목록을 반환한다")
+    void getRecommendationModes_clear_onlyTodayDeadlineTasks_returnsEmpty() {
+        // 오늘 마감 과업은 calculateTotalMinutes에서 days=0으로 제외 → totalMinutes=0
+        // totalMinutes<=0 조기 반환 없으면 first.est>0 조건이 항상 참 → recommendedMinutes=0 항목 반환하는 버그
+        task("오늘마감A", TODAY, 60, 0,  false);
+        task("오늘마감B", TODAY, 30, 20, false);
+
+        RecommendationModesResponse.RecommendationModeItem clear =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(3);
+
+        assertThat(clear.tasks()).isEmpty();
+    }
+
+    @Test
     @DisplayName("CLEAR — estimatedTime이 null인 과업은 제외된다")
     void getRecommendationModes_clear_nullEst_excluded() {
         // n=2: rank1=HIGH(null est), rank2=MEDIUM(est=60)

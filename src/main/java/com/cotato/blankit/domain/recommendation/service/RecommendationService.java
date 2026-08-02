@@ -141,7 +141,8 @@ public class RecommendationService {
     }
 
     private List<RecommendationModesResponse.ModeTaskItem> buildClearMode(List<ScoredTask> ranked, long totalMinutes) {
-        // 남은 예상 시간(estimatedTime) 오름차순 정렬, null은 뒤로
+        if (totalMinutes <= 0) return List.of();
+
         List<ScoredTask> byEstimated = ranked.stream()
                 .filter(st -> st.task().getEstimatedTime() != null)
                 .sorted(Comparator.comparingInt(st -> st.task().getEstimatedTime()))
