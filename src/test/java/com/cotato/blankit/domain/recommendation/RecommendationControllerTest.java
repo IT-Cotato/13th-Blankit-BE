@@ -239,4 +239,44 @@ class RecommendationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalRecommendedMinutes").value(25));
     }
+
+    // ─── GET /api/recommendations/modes ────────────────────────────────────
+
+    @Test
+    void getRecommendationModes_noToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/recommendations/modes"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getRecommendationModes_noTasks_returns4EmptyModes() throws Exception {
+        mockMvc.perform(get("/api/recommendations/modes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.modes.length()").value(4))
+                .andExpect(jsonPath("$.data.modes[0].mode").value("FIRE"))
+                .andExpect(jsonPath("$.data.modes[0].tasks").isEmpty())
+                .andExpect(jsonPath("$.data.modes[1].mode").value("BALANCE"))
+                .andExpect(jsonPath("$.data.modes[2].mode").value("TASTE"))
+                .andExpect(jsonPath("$.data.modes[3].mode").value("CLEAR"));
+    }
+
+    @Test
+    void getRecommendationModes_withThreeTasks_fireContainsHighTask() throws Exception {
+        // n=3: progress null → progress rank 동점(모두 0%) → urgency만으로 구분
+        // rank1=HIGH(+1일), rank2=MEDIUM(+2일), rank3=LOW(+3일)
+        // totalMinutes=round(60/1+30/2+60/3)=round(60+15+20)=95
+        // FIRE: HIGH=high(est=60) < 95 → [high(min(60,95)=60)]
+        Task high = taskRepository.save(Task.create(user, category, "HIGH과업", TODAY.plusDays(1), null, 60));
+        taskRepository.save(Task.create(user, category, "MED과업", TODAY.plusDays(2), null, 30));
+        taskRepository.save(Task.create(user, category, "LOW과업", TODAY.plusDays(3), null, 60));
+
+        mockMvc.perform(get("/api/recommendations/modes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.modes[0].mode").value("FIRE"))
+                .andExpect(jsonPath("$.data.modes[0].tasks[0].taskId").value(high.getId()))
+                .andExpect(jsonPath("$.data.modes[0].tasks[0].priority").value("HIGH"))
+                .andExpect(jsonPath("$.data.modes[0].tasks[0].recommendedMinutes").value(60));
+    }
 }
