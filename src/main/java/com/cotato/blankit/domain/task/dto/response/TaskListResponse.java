@@ -24,7 +24,7 @@ public record TaskListResponse(
         boolean starred,
         @Schema(description = "예상 남은 시간(분)", nullable = true)
         Integer estimatedTime,
-        @Schema(description = "오늘 권장 소요 시간(분). estimatedTime / 남은 일수. estimatedTime이 없으면 null", nullable = true)
+        @Schema(description = "오늘 권장 소요 시간(분). estimatedTime / 남은 일수. estimatedTime이 없거나 마감일이 지난 경우, 마감일이 당일인 경우 null", nullable = true)
         Integer recommendedMinutes,
         @Schema(description = "상태", example = "TODO")
         TaskStatus status,
