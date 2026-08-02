@@ -1,6 +1,7 @@
 package com.cotato.blankit.domain.recommendation.service;
 
 import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.task.entity.Task;
@@ -37,11 +38,7 @@ public class RecommendationService {
             return new TodayRecommendationResponse(today, 0L, List.of());
         }
 
-        long totalMinutes = Math.round(
-                filterForTimeCalculation(ranked, today).stream()
-                        .mapToDouble(st -> (double) st.task().getEstimatedTime() / ChronoUnit.DAYS.between(today, st.task().getDeadline()))
-                        .sum()
-        );
+        long totalMinutes = calculateTotalMinutes(ranked, today);
 
         List<RecommendedTaskItem> topTasks = new ArrayList<>();
         for (int i = 0; i < Math.min(3, ranked.size()); i++) {
@@ -67,6 +64,125 @@ public class RecommendationService {
         return new AllRecommendationResponse(today, allTasks);
     }
 
+    public RecommendationModesResponse getRecommendationModes(Long userId) {
+        LocalDate today = LocalDate.now(clock);
+        List<ScoredTask> ranked = buildRanked(userId, today);
+        long totalMinutes = calculateTotalMinutes(ranked, today);
+
+        return new RecommendationModesResponse(List.of(
+                buildModeItem("FIRE", "불끄기", "오늘 최소 시간을 빨간색(상) 과업에 올인하는 조합",
+                        buildFireMode(ranked, totalMinutes)),
+                buildModeItem("BALANCE", "밸런스", "빨리 끝나는 과업으로 성취감을 먼저 얻고 빨간색 과업 진입",
+                        buildBalanceMode(ranked)),
+                buildModeItem("TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합",
+                        buildTasteMode(ranked)),
+                buildModeItem("CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합",
+                        buildClearMode(ranked, totalMinutes))
+        ));
+    }
+
+    private RecommendationModesResponse.RecommendationModeItem buildModeItem(
+            String mode, String modeName, String description,
+            List<RecommendationModesResponse.ModeTaskItem> tasks) {
+        return new RecommendationModesResponse.RecommendationModeItem(mode, modeName, description, tasks);
+    }
+
+    private List<RecommendationModesResponse.ModeTaskItem> buildFireMode(List<ScoredTask> ranked, long totalMinutes) {
+        List<ScoredTask> highTasks = ranked.stream()
+                .filter(st -> st.task().getPriority() == TaskPriority.HIGH)
+                .filter(st -> st.task().getEstimatedTime() != null)
+                .toList();
+
+        List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
+        long remaining = totalMinutes;
+
+        for (ScoredTask st : highTasks) {
+            if (remaining <= 0) break;
+            int allocated = (int) Math.min(st.task().getEstimatedTime(), remaining);
+            result.add(toModeTaskItem(st.task(), allocated));
+            remaining -= allocated;
+        }
+
+        return result;
+    }
+
+    private List<RecommendationModesResponse.ModeTaskItem> buildBalanceMode(List<ScoredTask> ranked) {
+        ScoredTask quickTask = ranked.stream()
+                .filter(st -> st.task().getPriority() != TaskPriority.HIGH)
+                .filter(st -> st.task().getEstimatedTime() != null)
+                .min(Comparator.comparingInt(st -> st.task().getEstimatedTime()))
+                .orElse(null);
+
+        ScoredTask highTask = ranked.stream()
+                .filter(st -> st.task().getPriority() == TaskPriority.HIGH)
+                .findFirst()
+                .orElse(null);
+
+        List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
+        if (quickTask != null) result.add(toModeTaskItem(quickTask.task(), quickTask.task().getEstimatedTime()));
+        if (highTask != null) result.add(toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime()));
+        return result;
+    }
+
+    private List<RecommendationModesResponse.ModeTaskItem> buildTasteMode(List<ScoredTask> ranked) {
+        ScoredTask highTask = ranked.stream()
+                .filter(st -> st.task().getPriority() == TaskPriority.HIGH)
+                .findFirst().orElse(null);
+        ScoredTask medTask = ranked.stream()
+                .filter(st -> st.task().getPriority() == TaskPriority.MEDIUM)
+                .findFirst().orElse(null);
+        ScoredTask lowTask = ranked.stream()
+                .filter(st -> st.task().getPriority() == TaskPriority.LOW)
+                .findFirst().orElse(null);
+
+        List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
+        if (highTask != null) result.add(toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime()));
+        if (medTask != null) result.add(toModeTaskItem(medTask.task(), medTask.task().getEstimatedTime()));
+        if (lowTask != null) result.add(toModeTaskItem(lowTask.task(), lowTask.task().getEstimatedTime()));
+        return result;
+    }
+
+    private List<RecommendationModesResponse.ModeTaskItem> buildClearMode(List<ScoredTask> ranked, long totalMinutes) {
+        // 남은 예상 시간(estimatedTime) 오름차순 정렬, null은 뒤로
+        List<ScoredTask> byEstimated = ranked.stream()
+                .filter(st -> st.task().getEstimatedTime() != null)
+                .sorted(Comparator.comparingInt(st -> st.task().getEstimatedTime()))
+                .toList();
+
+        if (byEstimated.isEmpty()) return List.of();
+
+        Task first = byEstimated.get(0).task();
+
+        if (first.getEstimatedTime() > totalMinutes) {
+            return List.of(toModeTaskItem(first, (int) totalMinutes));
+        }
+
+        List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
+        long remaining = totalMinutes;
+
+        for (ScoredTask st : byEstimated) {
+            if (remaining <= 0) break;
+            int est = st.task().getEstimatedTime();
+            if (est <= remaining) {
+                result.add(toModeTaskItem(st.task(), est));
+                remaining -= est;
+            }
+        }
+
+        return result;
+    }
+
+    private RecommendationModesResponse.ModeTaskItem toModeTaskItem(Task task, Integer recommendedMinutes) {
+        return new RecommendationModesResponse.ModeTaskItem(
+                task.getId(),
+                task.getTitle(),
+                task.getPriority(),
+                task.getCategory().getColor(),
+                task.getCategory().getIconKey(),
+                recommendedMinutes
+        );
+    }
+
     private List<ScoredTask> buildRanked(Long userId, LocalDate today) {
         List<Task> tasks = taskRepository.findActiveTasksForRecommendation(userId, today);
         if (tasks.isEmpty()) return List.of();
@@ -75,11 +191,15 @@ public class RecommendationService {
         return ranked;
     }
 
-    private List<ScoredTask> filterForTimeCalculation(List<ScoredTask> ranked, LocalDate today) {
-        return ranked.stream()
-                .filter(st -> st.task().getEstimatedTime() != null
-                        && ChronoUnit.DAYS.between(today, st.task().getDeadline()) > 0)
-                .toList();
+    private long calculateTotalMinutes(List<ScoredTask> ranked, LocalDate today) {
+        return Math.round(
+                ranked.stream()
+                        .filter(st -> st.task().getEstimatedTime() != null
+                                && ChronoUnit.DAYS.between(today, st.task().getDeadline()) > 0)
+                        .mapToDouble(st -> (double) st.task().getEstimatedTime()
+                                / ChronoUnit.DAYS.between(today, st.task().getDeadline()))
+                        .sum()
+        );
     }
 
     private List<ScoredTask> rankTasks(List<Task> tasks, LocalDate today) {
