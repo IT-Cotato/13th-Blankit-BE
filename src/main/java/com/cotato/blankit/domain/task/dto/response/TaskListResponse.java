@@ -64,10 +64,10 @@ public record TaskListResponse(
     }
 
     private static Integer calculateRecommendedMinutes(Integer estimatedTime, LocalDate deadline, LocalDate today) {
-        if (estimatedTime == null) {
+        long daysRemaining = ChronoUnit.DAYS.between(today, deadline);
+        if (estimatedTime == null || daysRemaining <= 0) {
             return null;
         }
-        long daysRemaining = Math.max(1, ChronoUnit.DAYS.between(today, deadline));
-        return (int) Math.ceil((double) estimatedTime / daysRemaining);
+        return (int) Math.round((double) estimatedTime / daysRemaining);
     }
 }
