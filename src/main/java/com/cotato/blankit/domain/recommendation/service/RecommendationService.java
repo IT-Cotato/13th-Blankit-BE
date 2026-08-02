@@ -113,10 +113,7 @@ public class RecommendationService {
                 .min(Comparator.comparingInt(st -> st.task().getEstimatedTime()))
                 .orElse(null);
 
-        ScoredTask highTask = ranked.stream()
-                .filter(st -> st.task().getPriority() == TaskPriority.HIGH)
-                .findFirst()
-                .orElse(null);
+        ScoredTask highTask = firstByPriority(ranked, TaskPriority.HIGH);
 
         List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
         if (quickTask != null) result.add(toModeTaskItem(quickTask.task(), quickTask.task().getEstimatedTime()));
@@ -125,21 +122,22 @@ public class RecommendationService {
     }
 
     private List<RecommendationModesResponse.ModeTaskItem> buildTasteMode(List<ScoredTask> ranked) {
-        ScoredTask highTask = ranked.stream()
-                .filter(st -> st.task().getPriority() == TaskPriority.HIGH)
-                .findFirst().orElse(null);
-        ScoredTask medTask = ranked.stream()
-                .filter(st -> st.task().getPriority() == TaskPriority.MEDIUM)
-                .findFirst().orElse(null);
-        ScoredTask lowTask = ranked.stream()
-                .filter(st -> st.task().getPriority() == TaskPriority.LOW)
-                .findFirst().orElse(null);
+        ScoredTask highTask = firstByPriority(ranked, TaskPriority.HIGH);
+        ScoredTask medTask  = firstByPriority(ranked, TaskPriority.MEDIUM);
+        ScoredTask lowTask  = firstByPriority(ranked, TaskPriority.LOW);
 
         List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
         if (highTask != null) result.add(toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime()));
-        if (medTask != null) result.add(toModeTaskItem(medTask.task(), medTask.task().getEstimatedTime()));
-        if (lowTask != null) result.add(toModeTaskItem(lowTask.task(), lowTask.task().getEstimatedTime()));
+        if (medTask != null)  result.add(toModeTaskItem(medTask.task(),  medTask.task().getEstimatedTime()));
+        if (lowTask != null)  result.add(toModeTaskItem(lowTask.task(),  lowTask.task().getEstimatedTime()));
         return result;
+    }
+
+    private ScoredTask firstByPriority(List<ScoredTask> ranked, TaskPriority priority) {
+        return ranked.stream()
+                .filter(st -> st.task().getPriority() == priority)
+                .findFirst()
+                .orElse(null);
     }
 
     private List<RecommendationModesResponse.ModeTaskItem> buildClearMode(List<ScoredTask> ranked, long totalMinutes) {
