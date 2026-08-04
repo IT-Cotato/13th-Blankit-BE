@@ -4,9 +4,12 @@ import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationRe
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.dto.response.ThirtyMinutePackRecommendationResponse;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
+import com.cotato.blankit.global.exception.CustomException;
+import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -180,6 +183,47 @@ public class RecommendationService {
                 task.getCategory().getIconKey(),
                 recommendedMinutes
         );
+    }
+
+    @Transactional(readOnly = true)
+    public ThirtyMinutePackRecommendationResponse getThirtyMinutePackRecommendation(
+            Long userId, int availableMinutes
+    ) {
+        if (availableMinutes != 30) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+        LocalDate today = LocalDate.now(clock);
+        List<ThirtyMinutePackRecommendationResponse.TaskItem> tasks =
+                taskRepository.findActiveTasksForRecommendation(userId, today).stream()
+                        .filter(task -> task.getEstimatedTime() != null && task.getEstimatedTime() > 0)
+                        .filter(task -> progress(task) < 100)
+                        .map(task -> toThirtyMinutePackItem(task, availableMinutes))
+                        .sorted(Comparator
+                                .comparing(ThirtyMinutePackRecommendationResponse.TaskItem::progressPerMinute)
+                                .reversed()
+                                .thenComparing(ThirtyMinutePackRecommendationResponse.TaskItem::taskId))
+                        .limit(3)
+                        .toList();
+        return new ThirtyMinutePackRecommendationResponse(availableMinutes, tasks);
+    }
+
+    private ThirtyMinutePackRecommendationResponse.TaskItem toThirtyMinutePackItem(
+            Task task, int availableMinutes
+    ) {
+        int currentProgress = progress(task);
+        int remainingProgress = 100 - currentProgress;
+        BigDecimal progressPerMinute = BigDecimal.valueOf(remainingProgress)
+                .divide(BigDecimal.valueOf(task.getEstimatedTime()), 4, RoundingMode.HALF_UP);
+        BigDecimal expectedIncrease = progressPerMinute.multiply(BigDecimal.valueOf(availableMinutes))
+                .min(BigDecimal.valueOf(remainingProgress))
+                .setScale(2, RoundingMode.HALF_UP);
+        return new ThirtyMinutePackRecommendationResponse.TaskItem(
+                task.getId(), task.getTitle(), task.getCategory().getColor(), task.getCategory().getIconKey(),
+                currentProgress, task.getEstimatedTime(), progressPerMinute, expectedIncrease);
+    }
+
+    private int progress(Task task) {
+        return task.getProgressRate() == null ? 0 : task.getProgressRate();
     }
 
     private List<ScoredTask> buildRanked(Long userId, LocalDate today) {

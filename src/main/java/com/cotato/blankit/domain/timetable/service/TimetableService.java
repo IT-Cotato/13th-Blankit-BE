@@ -1,6 +1,7 @@
 package com.cotato.blankit.domain.timetable.service;
 
 import com.cotato.blankit.domain.timetable.dto.request.TimetableCreateRequest;
+import com.cotato.blankit.domain.notification.push.service.ThirtyMinutePackScheduleService;
 import com.cotato.blankit.domain.timetable.dto.request.TimetableUpdateRequest;
 import com.cotato.blankit.domain.timetable.dto.response.TimetableResponse;
 import com.cotato.blankit.domain.timetable.entity.Timetable;
@@ -22,6 +23,7 @@ public class TimetableService {
 
     private final TimetableRepository timetableRepository;
     private final UserRepository userRepository;
+    private final ThirtyMinutePackScheduleService thirtyMinutePackScheduleService;
 
     @Transactional(readOnly = true)
     public List<TimetableResponse> getTimetables(Long userId) {
@@ -46,7 +48,10 @@ public class TimetableService {
                 request.place(),
                 request.color()
         );
-        return TimetableResponse.from(timetableRepository.save(timetable));
+        Timetable saved = timetableRepository.save(timetable);
+        timetableRepository.flush();
+        thirtyMinutePackScheduleService.synchronize(userId);
+        return TimetableResponse.from(saved);
     }
 
     @Transactional
@@ -69,6 +74,8 @@ public class TimetableService {
                 request.place(),
                 request.color()
         );
+        timetableRepository.flush();
+        thirtyMinutePackScheduleService.synchronize(userId);
         return TimetableResponse.from(timetable);
     }
 
@@ -76,11 +83,14 @@ public class TimetableService {
     public void deleteTimetable(Long userId, Long timetableId) {
         Timetable timetable = getTimetable(userId, timetableId);
         timetableRepository.delete(timetable);
+        timetableRepository.flush();
+        thirtyMinutePackScheduleService.synchronize(userId);
     }
 
     @Transactional
     public void deleteAllTimetables(Long userId) {
         timetableRepository.deleteByUserId(userId);
+        thirtyMinutePackScheduleService.synchronize(userId);
     }
 
     private void validateTimeRange(LocalTime startTime, LocalTime endTime) {

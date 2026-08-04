@@ -3,6 +3,16 @@
 이 디렉터리의 SQL 파일은 기존 운영 DB에 수동으로 한 번만 적용합니다.
 신규 DB는 [`docs/schema.sql`](../schema.sql)로 생성하므로 별도 마이그레이션이 필요하지 않습니다.
 
+## Web Push 테이블 추가
+
+Firebase FID 구독 및 예약 작업을 위해 애플리케이션 배포 전에 아래 파일을 실행합니다.
+
+```text
+20260729_add_web_push.sql
+20260730_add_push_delivery_recovery.sql
+20260804_add_push_job_failure_type.sql
+```
+
 ## `category.icon_key` 추가
 
 애플리케이션 배포 전에 아래 파일을 MySQL에서 실행합니다.

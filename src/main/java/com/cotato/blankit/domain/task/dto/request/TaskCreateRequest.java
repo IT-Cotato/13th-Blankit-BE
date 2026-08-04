@@ -17,7 +17,7 @@ public record TaskCreateRequest(
         @Schema(description = "일반 과업 마감일. 반복 과업에서는 서버가 repeatRule 기준으로 deadline을 계산합니다.", example = "2026-08-12", nullable = true)
         LocalDate deadline,
 
-        @Schema(description = "알림 오프셋(분). 생략 시 1440분입니다. 허용값: 10, 60, 1440, 4320, 10080", example = "1440", allowableValues = {"10", "60", "1440", "4320", "10080"})
+        @Schema(description = "알림 오프셋(분). 생략 시 1440분입니다. 허용값: 1440, 4320, 10080", example = "1440", allowableValues = {"1440", "4320", "10080"})
         Integer notifyBefore,
 
         @Schema(description = "알림 활성화 여부. 생략 시 true입니다.", example = "true")

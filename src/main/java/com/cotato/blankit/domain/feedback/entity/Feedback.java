@@ -4,6 +4,7 @@ import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.global.entity.BaseEntity;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -44,6 +45,8 @@ public class Feedback extends BaseEntity {
     @Column(nullable = false)
     private boolean isDraft;
 
+    private LocalDateTime submittedAt;
+
     private Integer intervalStartRate;
 
     private Long cumulativeElapsedTime;
@@ -68,12 +71,18 @@ public class Feedback extends BaseEntity {
         feedback.memo = memo;
         feedback.isCompleted = false;
         feedback.isDraft = isDraft;
+        if (!isDraft) {
+            feedback.submittedAt = LocalDateTime.now();
+        }
         return feedback;
     }
 
-    public void update(Integer progressRate, String memo, boolean isDraft) {
+    public void update(Integer progressRate, String memo, boolean isDraft, LocalDateTime now) {
         this.progressRate = progressRate;
         this.memo = memo;
+        if (this.submittedAt == null && !isDraft) {
+            this.submittedAt = now;
+        }
         this.isDraft = isDraft;
     }
 
