@@ -8,6 +8,7 @@ import com.cotato.blankit.domain.notification.push.service.PushNotificationJobSe
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,6 +25,11 @@ class PushNotificationJobServiceTest {
     @Autowired PushNotificationJobService service;
     @Autowired PushNotificationJobRepository repository;
     @Autowired UserRepository userRepository;
+
+    @BeforeEach
+    void clearPushJobs() {
+        repository.deleteAllInBatch();
+    }
 
     @Test
     void sameDedupeKeyDoesNotCreateDuplicate() {
@@ -81,7 +87,7 @@ class PushNotificationJobServiceTest {
     void synchronizationRestoresRetryableFailure() {
         User user = userRepository.save(User.create(SocialProvider.KAKAO, UUID.randomUUID().toString(),
                 "restorable@example.com", "restorable", null, 60));
-        LocalDateTime scheduledAt = LocalDateTime.now().plusHours(1);
+        LocalDateTime scheduledAt = LocalDateTime.now().withNano(0).plusHours(1);
         String dedupeKey = UUID.randomUUID().toString();
         var job = service.schedule(user.getId(), PushNotificationType.SERVICE, "NOTICE", "4",
                 "title", "body", "/", scheduledAt, dedupeKey);
@@ -101,7 +107,7 @@ class PushNotificationJobServiceTest {
     void synchronizationDoesNotRestoreNonRetryableFailure() {
         User user = userRepository.save(User.create(SocialProvider.KAKAO, UUID.randomUUID().toString(),
                 "permanent@example.com", "permanent", null, 60));
-        LocalDateTime scheduledAt = LocalDateTime.now().plusHours(1);
+        LocalDateTime scheduledAt = LocalDateTime.now().withNano(0).plusHours(1);
         String dedupeKey = UUID.randomUUID().toString();
         var job = service.schedule(user.getId(), PushNotificationType.SERVICE, "NOTICE", "5",
                 "title", "body", "/", scheduledAt, dedupeKey);
