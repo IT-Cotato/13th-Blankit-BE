@@ -26,6 +26,7 @@ public enum ErrorCode {
 
     // Task
     TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "TASK_NOT_FOUND", "과업을 찾을 수 없습니다."),
+    TASK_STEP_NOT_FOUND(HttpStatus.NOT_FOUND, "TASK_STEP_NOT_FOUND", "세부 단계를 찾을 수 없습니다."),
     CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "CATEGORY_NOT_FOUND", "카테고리를 찾을 수 없습니다."),
     CATEGORY_REQUIRED(HttpStatus.BAD_REQUEST, "CATEGORY_REQUIRED", "사용 가능한 카테고리가 필요합니다."),
     CATEGORY_COLOR_ALREADY_USED(HttpStatus.CONFLICT, "CATEGORY_COLOR_ALREADY_USED", "이미 사용 중인 카테고리 색상입니다."),

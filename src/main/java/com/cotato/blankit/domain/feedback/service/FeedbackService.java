@@ -9,6 +9,7 @@ import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
+import com.cotato.blankit.domain.task.service.TaskStepService;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +32,7 @@ public class FeedbackService {
     private final TaskSessionService taskSessionService;
     private final PlaylistItemRepository playlistItemRepository;
     private final EstimatedTimeCalculator calculator;
+    private final TaskStepService taskStepService;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -43,13 +47,14 @@ public class FeedbackService {
     @Transactional
     public FeedbackResponse submitFeedback(Long userId, Long sessionId, FeedbackSubmitRequest request) {
         TaskSession session = getSessionAndVerifyOwner(userId, sessionId);
+        Integer effectiveProgressRate = resolveProgressRate(request, session.getTask().getId());
         Feedback feedback = feedbackRepository.findByTaskSessionAndIsDraftTrue(session)
                 .or(() -> feedbackRepository.findByTaskSessionAndIsDraftFalse(session))
                 .orElseGet(() -> {
                     try {
                         return feedbackRepository.saveAndFlush(
                                 Feedback.create(session, session.getTask(), session.getUser(),
-                                        request.progressRate(), request.memo(), request.isDraft()));
+                                        effectiveProgressRate, request.memo(), request.isDraft()));
                     } catch (DataIntegrityViolationException e) {
                         if (e.getMessage() != null && e.getMessage().contains("uk_feedback_task_session")) {
                             throw new CustomException(ErrorCode.FEEDBACK_DUPLICATE);
@@ -58,21 +63,33 @@ public class FeedbackService {
                     }
                 });
         LocalDateTime now = LocalDateTime.now(clock);
-        feedback.update(request.progressRate(), request.memo(), request.isDraft(), now);
+        feedback.update(effectiveProgressRate, request.memo(), request.isDraft(), now);
         if (!request.isDraft()) {
             taskSessionService.completeSession(session, now);
-            if (request.progressRate() != null && request.progressRate() == 100) {
+            if (effectiveProgressRate != null && effectiveProgressRate == 100) {
                 feedback.complete();
                 Task task = session.getTask();
                 task.updateStatus(TaskStatus.DONE);
                 playlistItemRepository.deleteByTask(task);
             }
         }
-        if (!request.isDraft() && request.progressRate() != null && request.progressRate() > 0) {
+        if (!request.isDraft() && effectiveProgressRate != null && effectiveProgressRate > 0) {
             updateEstimatedTime(userId, feedback, session.getTask());
-            session.getTask().updateProgressRate(request.progressRate());
+            session.getTask().updateProgressRate(effectiveProgressRate);
         }
         return FeedbackResponse.from(feedback);
+    }
+
+    private Integer resolveProgressRate(FeedbackSubmitRequest request, Long taskId) {
+        if (request.steps() == null || request.steps().isEmpty()) {
+            return request.progressRate();
+        }
+        Map<Long, Integer> stepProgressMap = request.steps().stream()
+                .collect(Collectors.toMap(
+                        FeedbackSubmitRequest.StepProgressItem::stepId,
+                        FeedbackSubmitRequest.StepProgressItem::progressRate
+                ));
+        return taskStepService.applyAndCalculateProgress(taskId, stepProgressMap);
     }
 
     private void updateEstimatedTime(Long userId, Feedback feedback, Task task) {
