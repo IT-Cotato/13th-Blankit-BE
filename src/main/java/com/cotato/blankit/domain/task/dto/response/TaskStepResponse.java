@@ -12,9 +12,6 @@ public record TaskStepResponse(
         String title,
 
         @Schema(description = "진척도 (0~100)", example = "100")
-        int progressRate,
-
-        @Schema(description = "정렬 순서", example = "0")
-        int sortOrder
+        int progressRate
 ) {
 }
