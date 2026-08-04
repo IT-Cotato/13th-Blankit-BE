@@ -19,7 +19,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ThirtyMinutePackScheduleService {
-    private static final int PACK_MINUTES = 30;
+    private static final int MIN_PACK_MINUTES = 10;
+    private static final int MAX_PACK_MINUTES = 30;
     private static final DateTimeFormatter DEDUPE_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
 
     private final TimetableRepository timetableRepository;
@@ -66,7 +67,7 @@ public class ThirtyMinutePackScheduleService {
             Timetable before = ordered.get(i);
             Timetable after = ordered.get(i + 1);
             long gapMinutes = Duration.between(before.getEndTime(), after.getStartTime()).toMinutes();
-            if (gapMinutes != PACK_MINUTES) continue;
+            if (gapMinutes < MIN_PACK_MINUTES || gapMinutes > MAX_PACK_MINUTES) continue;
             LocalDateTime scheduledAt = LocalDateTime.of(date, before.getEndTime());
             if (!scheduledAt.isAfter(now)) continue;
 

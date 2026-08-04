@@ -54,9 +54,26 @@ public class PushNotificationService {
                 .toList();
         boolean anySuccess = result.items().stream().anyMatch(PushDeliveryResult.Item::success);
         if (!retryTargets.isEmpty()) {
-            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, retryTargets);
+            return new PushSendResult(
+                    PushSendOutcome.RETRYABLE_FAILURE,
+                    retryTargets,
+                    selectFailureType(result)
+            );
         }
-        return PushSendResult.of(anySuccess ? PushSendOutcome.SENT : PushSendOutcome.FAILED);
+        return anySuccess
+                ? PushSendResult.of(PushSendOutcome.SENT)
+                : PushSendResult.failed(selectFailureType(result));
+    }
+
+    private PushErrorType selectFailureType(PushDeliveryResult result) {
+        List<PushErrorType> failureTypes = result.items().stream()
+                .filter(item -> !item.success())
+                .map(PushDeliveryResult.Item::errorType)
+                .toList();
+        if (failureTypes.contains(PushErrorType.CONFIGURATION)) return PushErrorType.CONFIGURATION;
+        if (failureTypes.contains(PushErrorType.UNKNOWN)) return PushErrorType.UNKNOWN;
+        if (failureTypes.contains(PushErrorType.RETRYABLE)) return PushErrorType.RETRYABLE;
+        return PushErrorType.PERMANENT_TARGET;
     }
 
     private List<PushSubscription> findActive(Long userId, List<String> retryInstallationIds) {
@@ -98,7 +115,8 @@ public class PushNotificationService {
 
     public record PushSendResult(
             PushSendOutcome outcome,
-            List<String> retryInstallationIds
+            List<String> retryInstallationIds,
+            PushErrorType failureType
     ) {
         public PushSendResult {
             retryInstallationIds = retryInstallationIds == null
@@ -107,11 +125,15 @@ public class PushNotificationService {
         }
 
         public static PushSendResult of(PushSendOutcome outcome) {
-            return new PushSendResult(outcome, List.of());
+            return new PushSendResult(outcome, List.of(), null);
         }
 
         public static PushSendResult retryAll(List<String> installationIds) {
-            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, installationIds);
+            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, installationIds, PushErrorType.UNKNOWN);
+        }
+
+        public static PushSendResult failed(PushErrorType failureType) {
+            return new PushSendResult(PushSendOutcome.FAILED, List.of(), failureType);
         }
     }
 }

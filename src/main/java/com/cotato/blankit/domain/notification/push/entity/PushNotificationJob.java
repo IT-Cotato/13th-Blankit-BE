@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.notification.push.entity;
 
+import com.cotato.blankit.domain.notification.push.gateway.PushErrorType;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.global.entity.BaseEntity;
 import jakarta.persistence.*;
@@ -50,6 +51,9 @@ public class PushNotificationJob extends BaseEntity {
     @Lob
     @Column(name = "retry_fids")
     private String retryFids;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "failure_type", length = 30)
+    private PushErrorType failureType;
     @Column(name = "dedupe_key", nullable = false, length = 255)
     private String dedupeKey;
     @Column(name = "sent_at")
@@ -58,10 +62,12 @@ public class PushNotificationJob extends BaseEntity {
     private void reschedule(LocalDateTime scheduledAt) {
         this.scheduledAt = scheduledAt; this.nextRetryAt = null; this.attempts = 0;
         this.processingStartedAt = null; this.retryFids = null;
+        this.failureType = null;
         this.status = PushNotificationJobStatus.PENDING;
     }
     public void restore(LocalDateTime scheduledAt) {
-        if (status != PushNotificationJobStatus.SENT) {
+        if (status != PushNotificationJobStatus.SENT
+                && (status != PushNotificationJobStatus.FAILED || failureType == PushErrorType.RETRYABLE)) {
             reschedule(scheduledAt);
         }
     }
@@ -74,15 +80,18 @@ public class PushNotificationJob extends BaseEntity {
     public void claim(LocalDateTime now) { status = PushNotificationJobStatus.PROCESSING; attempts++; processingStartedAt = now; }
     public void markSent(LocalDateTime now) {
         status = PushNotificationJobStatus.SENT; sentAt = now; nextRetryAt = null;
-        processingStartedAt = null; retryFids = null;
+        processingStartedAt = null; retryFids = null; failureType = null;
     }
-    public void retryAt(LocalDateTime retryAt, String retryFids) {
+    public void retryAt(LocalDateTime retryAt, String retryFids, PushErrorType failureType) {
         status = PushNotificationJobStatus.PENDING; nextRetryAt = retryAt;
-        processingStartedAt = null; this.retryFids = retryFids;
+        processingStartedAt = null; this.retryFids = retryFids; this.failureType = failureType;
     }
-    public void fail() { status = PushNotificationJobStatus.FAILED; nextRetryAt = null; processingStartedAt = null; }
+    public void fail(PushErrorType failureType) {
+        status = PushNotificationJobStatus.FAILED; nextRetryAt = null;
+        processingStartedAt = null; this.failureType = failureType;
+    }
     public void cancelAfterClaim() {
         status = PushNotificationJobStatus.CANCELLED; nextRetryAt = null;
-        processingStartedAt = null; retryFids = null;
+        processingStartedAt = null; retryFids = null; failureType = null;
     }
 }

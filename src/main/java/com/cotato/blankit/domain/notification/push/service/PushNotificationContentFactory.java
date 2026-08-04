@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.notification.push.service;
 
+import com.cotato.blankit.domain.task.entity.NotifyBeforeOption;
 import com.cotato.blankit.domain.task.entity.Task;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -19,12 +20,7 @@ public class PushNotificationContentFactory {
     }
 
     public Content taskDeadline(Task task, int notifyBeforeMinutes) {
-        String label = switch (notifyBeforeMinutes) {
-            case 1440 -> "1일";
-            case 4320 -> "3일";
-            case 10080 -> "1주일";
-            default -> notifyBeforeMinutes + "분";
-        };
+        String label = NotifyBeforeOption.labelFor(notifyBeforeMinutes);
         return new Content(
                 "과업 마감이 " + label + " 남았어요",
                 task.getTitle() + " 과업을 확인해 주세요.",

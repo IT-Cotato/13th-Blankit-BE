@@ -12,7 +12,7 @@ CREATE TABLE push_subscription (
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (push_subscription_id),
     CONSTRAINT uk_push_subscription_fid UNIQUE (firebase_installation_id),
-    CONSTRAINT fk_push_subscription_user FOREIGN KEY (user_id) REFERENCES user (user_id),
+    CONSTRAINT fk_push_subscription_user FOREIGN KEY (user_id) REFERENCES user (user_id) ON DELETE CASCADE,
     INDEX idx_push_subscription_user_active (user_id, active)
 );
 
@@ -35,6 +35,6 @@ CREATE TABLE push_notification_job (
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (push_notification_job_id),
     CONSTRAINT uk_push_job_dedupe_key UNIQUE (dedupe_key),
-    CONSTRAINT fk_push_job_user FOREIGN KEY (user_id) REFERENCES user (user_id),
+    CONSTRAINT fk_push_job_user FOREIGN KEY (user_id) REFERENCES user (user_id) ON DELETE CASCADE,
     INDEX idx_push_job_due (status, scheduled_at, next_retry_at)
 );

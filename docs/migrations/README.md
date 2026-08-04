@@ -9,6 +9,8 @@ Firebase FID 구독 및 예약 작업을 위해 애플리케이션 배포 전에
 
 ```text
 20260729_add_web_push.sql
+20260730_add_push_delivery_recovery.sql
+20260804_add_push_job_failure_type.sql
 ```
 
 ## `category.icon_key` 추가

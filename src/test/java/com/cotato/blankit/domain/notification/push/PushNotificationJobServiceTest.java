@@ -1,6 +1,8 @@
 package com.cotato.blankit.domain.notification.push;
 
 import com.cotato.blankit.domain.notification.push.entity.PushNotificationType;
+import com.cotato.blankit.domain.notification.push.entity.PushNotificationJobStatus;
+import com.cotato.blankit.domain.notification.push.gateway.PushErrorType;
 import com.cotato.blankit.domain.notification.push.repository.PushNotificationJobRepository;
 import com.cotato.blankit.domain.notification.push.service.PushNotificationJobService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
@@ -73,5 +75,46 @@ class PushNotificationJobServiceTest {
         assertThat(reclaimed).isPresent();
         assertThat(reclaimed.orElseThrow().id()).isEqualTo(job.getId());
         assertThat(reclaimed.orElseThrow().attempts()).isEqualTo(2);
+    }
+
+    @Test
+    void synchronizationRestoresRetryableFailure() {
+        User user = userRepository.save(User.create(SocialProvider.KAKAO, UUID.randomUUID().toString(),
+                "restorable@example.com", "restorable", null, 60));
+        LocalDateTime scheduledAt = LocalDateTime.now().plusHours(1);
+        String dedupeKey = UUID.randomUUID().toString();
+        var job = service.schedule(user.getId(), PushNotificationType.SERVICE, "NOTICE", "4",
+                "title", "body", "/", scheduledAt, dedupeKey);
+        job.fail(PushErrorType.RETRYABLE);
+        repository.saveAndFlush(job);
+
+        service.schedule(user.getId(), PushNotificationType.SERVICE, "NOTICE", "4",
+                "updated title", "body", "/", scheduledAt.plusMinutes(10), dedupeKey);
+
+        var restored = repository.findById(job.getId()).orElseThrow();
+        assertThat(restored.getStatus()).isEqualTo(PushNotificationJobStatus.PENDING);
+        assertThat(restored.getFailureType()).isNull();
+        assertThat(restored.getTitle()).isEqualTo("updated title");
+    }
+
+    @Test
+    void synchronizationDoesNotRestoreNonRetryableFailure() {
+        User user = userRepository.save(User.create(SocialProvider.KAKAO, UUID.randomUUID().toString(),
+                "permanent@example.com", "permanent", null, 60));
+        LocalDateTime scheduledAt = LocalDateTime.now().plusHours(1);
+        String dedupeKey = UUID.randomUUID().toString();
+        var job = service.schedule(user.getId(), PushNotificationType.SERVICE, "NOTICE", "5",
+                "title", "body", "/", scheduledAt, dedupeKey);
+        job.fail(PushErrorType.CONFIGURATION);
+        repository.saveAndFlush(job);
+
+        service.schedule(user.getId(), PushNotificationType.SERVICE, "NOTICE", "5",
+                "updated title", "body", "/", scheduledAt.plusMinutes(10), dedupeKey);
+
+        var unchanged = repository.findById(job.getId()).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(PushNotificationJobStatus.FAILED);
+        assertThat(unchanged.getFailureType()).isEqualTo(PushErrorType.CONFIGURATION);
+        assertThat(unchanged.getTitle()).isEqualTo("updated title");
+        assertThat(unchanged.getScheduledAt()).isEqualTo(scheduledAt);
     }
 }

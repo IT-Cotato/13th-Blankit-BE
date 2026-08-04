@@ -40,11 +40,11 @@ public interface PushNotificationJobRepository extends JpaRepository<PushNotific
             INSERT INTO push_notification_job (
                 user_id, type, reference_type, reference_id, title, body, click_url,
                 scheduled_at, status, attempts, next_retry_at, processing_started_at,
-                retry_fids, dedupe_key, sent_at, created_at, updated_at
+                retry_fids, failure_type, dedupe_key, sent_at, created_at, updated_at
             ) VALUES (
                 :userId, :type, :referenceType, :referenceId, :title, :body, :clickUrl,
                 :scheduledAt, 'PENDING', 0, NULL, NULL,
-                NULL, :dedupeKey, NULL, :now, :now
+                NULL, NULL, :dedupeKey, NULL, :now, :now
             )
             ON DUPLICATE KEY UPDATE
                 dedupe_key = VALUES(dedupe_key)

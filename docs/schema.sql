@@ -367,6 +367,7 @@ CREATE TABLE push_notification_job (
     next_retry_at DATETIME(6) NULL,
     processing_started_at DATETIME(6) NULL,
     retry_fids TEXT NULL,
+    failure_type VARCHAR(30) NULL,
     dedupe_key VARCHAR(255) NOT NULL,
     sent_at DATETIME(6) NULL,
     created_at DATETIME(6) NOT NULL,

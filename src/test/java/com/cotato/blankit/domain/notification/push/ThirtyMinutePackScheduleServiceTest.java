@@ -56,19 +56,30 @@ class ThirtyMinutePackScheduleServiceTest {
     }
 
     @Test
-    void schedulesOnlyThirtyMinuteGapBetweenTwoTimetables() {
+    void schedulesGapsFromTenToThirtyMinutesBetweenTimetables() {
         setting.update(false, true);
         timetable((byte) 1, 10, 0, 11, 0);
-        timetable((byte) 1, 11, 30, 12, 0); // 30분: 예약 대상
-        timetable((byte) 1, 13, 0, 14, 0);  // 60분: 예약 제외
+        timetable((byte) 1, 11, 10, 12, 0); // 10분: 예약 대상
+        timetable((byte) 1, 12, 30, 13, 0); // 30분: 예약 대상
+        timetable((byte) 1, 14, 0, 15, 0);  // 60분: 예약 제외
 
         service.synchronize(user.getId());
 
         var jobs = PushJobTestQueries.findByUserAndType(
                 jobRepository, user.getId(), PushNotificationType.THIRTY_MIN_PACK);
-        assertThat(jobs).hasSize(1);
-        assertThat(jobs.get(0).getScheduledAt()).isEqualTo(LocalDateTime.of(2026, 6, 1, 11, 0));
-        assertThat(jobs.get(0).getClickUrl()).contains("availableMinutes=30");
+        assertThat(jobs).hasSize(2);
+        assertThat(jobs)
+                .extracting(job -> job.getScheduledAt())
+                .containsExactlyInAnyOrder(
+                        LocalDateTime.of(2026, 6, 1, 11, 0),
+                        LocalDateTime.of(2026, 6, 1, 12, 0)
+                );
+        assertThat(jobs)
+                .extracting(job -> job.getClickUrl())
+                .containsExactlyInAnyOrder(
+                        "/recommendations/pack30?availableMinutes=10",
+                        "/recommendations/pack30?availableMinutes=30"
+                );
     }
 
     @Test

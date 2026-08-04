@@ -1,6 +1,7 @@
 package com.cotato.blankit.global.config;
 
 import com.cotato.blankit.domain.notification.push.service.PushNotificationContentFactory;
+import com.cotato.blankit.domain.task.entity.NotifyBeforeOption;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.io.ClassPathResource;
@@ -31,6 +32,13 @@ class PushConfigurationTest {
         );
 
         assertThat(factory.thirtyMinutePack(30).clickUrl()).isEqualTo("/quick-pack/30");
+    }
+
+    @Test
+    void taskDeadlineUsesNotifyBeforeOptionLabel() {
+        assertThat(NotifyBeforeOption.labelFor(1440)).isEqualTo("1일");
+        assertThat(NotifyBeforeOption.labelFor(4320)).isEqualTo("3일");
+        assertThat(NotifyBeforeOption.labelFor(10080)).isEqualTo("1주일");
     }
 
     @Test

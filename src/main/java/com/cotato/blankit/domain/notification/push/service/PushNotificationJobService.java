@@ -1,6 +1,7 @@
 package com.cotato.blankit.domain.notification.push.service;
 
 import com.cotato.blankit.domain.notification.push.entity.*;
+import com.cotato.blankit.domain.notification.push.gateway.PushErrorType;
 import com.cotato.blankit.domain.notification.push.repository.PushNotificationJobRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
@@ -84,19 +85,24 @@ public class PushNotificationJobService {
         switch (result.outcome()) {
             case SENT, SKIPPED_NO_SUBSCRIPTION -> job.markSent(LocalDateTime.now(clock));
             case SKIPPED_PREFERENCE -> job.cancelAfterClaim();
-            case RETRYABLE_FAILURE -> retryOrFail(job, result.retryInstallationIds());
-            case FAILED -> job.fail();
+            case RETRYABLE_FAILURE -> retryOrFail(job, result.retryInstallationIds(), result.failureType());
+            case FAILED -> job.fail(result.failureType());
         }
     }
 
-    private void retryOrFail(PushNotificationJob job, List<String> retryInstallationIds) {
+    private void retryOrFail(
+            PushNotificationJob job,
+            List<String> retryInstallationIds,
+            PushErrorType failureType
+    ) {
         int retryIndex = job.getAttempts() - 1;
         if (retryIndex >= schedulerProperties.retryDelays().size()) {
-            job.fail();
+            job.fail(failureType);
         } else {
             job.retryAt(
                     LocalDateTime.now(clock).plus(schedulerProperties.retryDelays().get(retryIndex)),
-                    FidListCodec.encode(retryInstallationIds)
+                    FidListCodec.encode(retryInstallationIds),
+                    failureType
             );
         }
     }

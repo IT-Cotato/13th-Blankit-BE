@@ -132,6 +132,7 @@ class PushNotificationServiceTest {
 
         assertThat(first.outcome()).isEqualTo(PushNotificationService.PushSendOutcome.RETRYABLE_FAILURE);
         assertThat(first.retryInstallationIds()).containsExactly("retryable-fid");
+        assertThat(first.failureType()).isEqualTo(PushErrorType.RETRYABLE);
         assertThat(second.outcome()).isEqualTo(PushNotificationService.PushSendOutcome.SENT);
         org.mockito.ArgumentCaptor<List<String>> targets = org.mockito.ArgumentCaptor.forClass(List.class);
         verify(gateway, times(2)).send(targets.capture(), any());
