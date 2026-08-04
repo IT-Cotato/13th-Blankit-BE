@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -23,4 +24,20 @@ public interface TaskSessionRepository extends JpaRepository<TaskSession, Long> 
     void deleteByTaskId(Long taskId);
 
     boolean existsByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long sessionId);
+
+    @Query("select coalesce(sum(ts.elapsedTime), 0) from TaskSession ts " +
+           "where ts.user.id = :userId and ts.startedAt >= :startOfDay and ts.startedAt < :endOfDay")
+    long sumElapsedTimeByUserIdAndDateRange(
+            @Param("userId") Long userId,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay
+    );
+
+    @Query("select ts from TaskSession ts " +
+           "where ts.user.id = :userId and ts.startedAt >= :startDateTime and ts.startedAt < :endDateTime")
+    List<TaskSession> findByUserIdAndStartedAtBetween(
+            @Param("userId") Long userId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }

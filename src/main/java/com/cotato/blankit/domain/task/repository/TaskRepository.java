@@ -82,6 +82,18 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("userId") Long userId
     );
 
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            update Task t
+            set t.similarTask = null
+            where t.similarTask.id = :similarTaskId
+              and t.user.id = :userId
+            """)
+    void clearSimilarTaskForOccurrenceDeletion(
+            @Param("similarTaskId") Long similarTaskId,
+            @Param("userId") Long userId
+    );
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update Task t
@@ -98,6 +110,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     Optional<Task> findBySourceTaskIdAndDeadline(Long sourceTaskId, LocalDate deadline);
 
+    Optional<Task> findTopBySourceTaskIdOrderByDeadlineDescIdDesc(Long sourceTaskId);
+
+    List<Task> findBySourceTaskIdAndDeadlineAfterOrderByDeadlineAscIdAsc(
+            Long sourceTaskId,
+            LocalDate deadline
+    );
+
     List<Task> findAllByIdInAndUserId(Collection<Long> ids, Long userId);
 
     boolean existsByCategoryIdAndUserId(Long categoryId, Long userId);
@@ -112,5 +131,40 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findActiveTasksForRecommendation(
             @Param("userId") Long userId,
             @Param("today") LocalDate today
+    );
+
+    @EntityGraph(attributePaths = {"category"})
+    @Query("""
+            select t from Task t
+            where t.user.id = :userId
+              and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
+              and t.deadline >= :today
+            order by t.deadline asc, t.id asc
+            """)
+    List<Task> findFutureActiveTasksForNotification(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today
+    );
+
+    @Query("""
+            select t from Task t
+            where t.user.id = :userId
+              and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
+              and t.estimatedTime is not null
+              and t.deadline >= :deadlineFrom
+            """)
+    List<Task> findNonDoneTasksWithEstimatedTime(@Param("userId") Long userId, @Param("deadlineFrom") LocalDate deadlineFrom);
+
+    @Query("""
+            select t from Task t
+            join fetch t.category
+            where t.user.id = :userId
+              and t.deadline between :startDate and :endDate
+            order by t.deadline, t.id
+            """)
+    List<Task> findTasksByUserIdAndDeadlineBetween(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
     );
 }

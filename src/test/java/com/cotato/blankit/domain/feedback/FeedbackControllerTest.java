@@ -3,9 +3,12 @@ package com.cotato.blankit.domain.feedback;
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.feedback.entity.Feedback;
+import com.cotato.blankit.domain.feedback.entity.PlayInterval;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
+import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
+import com.cotato.blankit.domain.feedback.repository.PlayIntervalRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.playlist.entity.Playlist;
 import com.cotato.blankit.domain.playlist.entity.PlaylistItem;
@@ -79,6 +82,8 @@ class FeedbackControllerTest {
     @Autowired private TaskRepository taskRepository;
     @Autowired private TaskSessionRepository taskSessionRepository;
     @Autowired private FeedbackRepository feedbackRepository;
+    @Autowired private PlayIntervalRepository playIntervalRepository;
+    @Autowired private DailyElapsedTimeRepository dailyElapsedTimeRepository;
     @Autowired private PlaylistRepository playlistRepository;
     @Autowired private PlaylistItemRepository playlistItemRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
@@ -433,5 +438,110 @@ class FeedbackControllerTest {
         entityManager.clear();
         assertThat(taskSessionRepository.findById(session.getTaskSessionId()).orElseThrow().getStatus())
                 .isEqualTo(TaskSessionStatus.DONE);
+    }
+
+    @Test
+    void submitFeedback_draftSave_submittedAtRemainsNull() throws Exception {
+        // 임시저장(isDraft=true) 후 submittedAt은 null이어야 한다
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 300, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 30, "memo": "중간", "isDraft": true }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        TaskSession reloaded = taskSessionRepository.findById(session.getTaskSessionId()).orElseThrow();
+        Feedback saved = feedbackRepository.findByTaskSessionAndIsDraftTrue(reloaded).orElseThrow();
+        assertThat(saved.getSubmittedAt()).isNull();
+    }
+
+    @Test
+    void submitFeedback_finalSubmit_setsSubmittedAt() throws Exception {
+        // 최종 제출(isDraft=false) 시 submittedAt이 설정되어야 한다
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 1800, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": "완료", "isDraft": false }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        Feedback submitted = feedbackRepository.findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(taskA.getId()).get(0);
+        assertThat(submitted.getSubmittedAt()).isNotNull();
+    }
+
+    @Test
+    void submitFeedback_memoEditAfterFinalSubmit_submittedAtUnchanged() throws Exception {
+        // 최종 제출 후 메모 수정 시 submittedAt은 변경되지 않아야 한다
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 1800, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": "최초 메모", "isDraft": false }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime firstSubmittedAt = feedbackRepository
+                .findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(taskA.getId()).get(0).getSubmittedAt();
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": "수정된 메모", "isDraft": false }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime afterEditSubmittedAt = feedbackRepository
+                .findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(taskA.getId()).get(0).getSubmittedAt();
+        assertThat(afterEditSubmittedAt).isEqualTo(firstSubmittedAt);
+    }
+
+    @Test
+    void submitFeedback_final_reflectsDailyElapsedTime() throws Exception {
+        // 피드백 최종 제출(isDraft=false) 시 PlayInterval 기반 DailyElapsedTime이 반영되어야 한다
+        LocalDate day = LocalDate.of(2026, 7, 13);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, day.atTime(9, 0), null, 5400, TaskSessionStatus.PAUSED));
+        PlayInterval interval = PlayInterval.start(session, day.atTime(9, 0));
+        interval.end(day.atTime(10, 30));
+        playIntervalRepository.save(interval);
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": null, "isDraft": false }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isDraft").value(false));
+
+        entityManager.flush();
+        entityManager.clear();
+        long elapsed = dailyElapsedTimeRepository.sumElapsedSecondsByUserIdAndDate(user.getId(), day);
+        assertThat(elapsed).isEqualTo(5400);
     }
 }

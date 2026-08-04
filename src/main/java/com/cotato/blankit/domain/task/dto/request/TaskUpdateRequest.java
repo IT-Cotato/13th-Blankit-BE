@@ -15,7 +15,7 @@ public record TaskUpdateRequest(
         @Schema(description = "마감일", example = "2026-08-12")
         LocalDate deadline,
 
-        @Schema(description = "알림 오프셋(분). 허용값: 10, 60, 1440, 4320, 10080", example = "1440", allowableValues = {"10", "60", "1440", "4320", "10080"})
+        @Schema(description = "알림 오프셋(분). 허용값: 1440, 4320, 10080", example = "1440", allowableValues = {"1440", "4320", "10080"})
         Integer notifyBefore,
 
         @Schema(description = "알림 활성화 여부")

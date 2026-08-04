@@ -3,6 +3,7 @@ package com.cotato.blankit.domain.recommendation.controller;
 import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.dto.response.ThirtyMinutePackRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.service.RecommendationService;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.global.config.swagger.NotImplementedYet;
@@ -15,12 +16,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 
 @Tag(name = "추천", description = "우선순위 과업 추천 및 과업 조합 추천 API")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/api/recommendations")
 public class RecommendationController {
@@ -52,6 +57,22 @@ public class RecommendationController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return ApiResponse.success(recommendationService.getAllRecommendation(userDetails.getUserId()));
+    }
+
+    @Operation(summary = "30분 Pack 과업 추천",
+            description = "시간표 사이 30분 공백 동안 분당 진행률을 가장 빠르게 높일 수 있는 활성 과업 최대 3개를 반환합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "추천 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "공백 시간 범위 오류"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+    })
+    @GetMapping("/pack30")
+    public ApiResponse<ThirtyMinutePackRecommendationResponse> getThirtyMinutePackRecommendation(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam @Min(30) @Max(30) int availableMinutes
+    ) {
+        return ApiResponse.success(
+                recommendationService.getThirtyMinutePackRecommendation(userDetails.getUserId(), availableMinutes));
     }
 
     @NotImplementedYet

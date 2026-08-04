@@ -22,6 +22,51 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate Firebase deployment configuration
+        shell: bash
+        env:
+          FIREBASE_ENABLED: "true"
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
+        run: |
+          set -eu
+
+          if [ -z "${FIREBASE_ENABLED:-}" ]; then
+            echo "::error::FIREBASE_ENABLED is missing"
+            exit 1
+          fi
+          case "$FIREBASE_ENABLED" in
+            true|false) ;;
+            *)
+              echo "::error::FIREBASE_ENABLED must be exactly true or false"
+              exit 1
+              ;;
+          esac
+
+          if [ "$FIREBASE_ENABLED" = "true" ]; then
+            if [ -z "${FIREBASE_PROJECT_ID:-}" ]; then
+              echo "::error::FIREBASE_PROJECT_ID is missing"
+              exit 1
+            fi
+            if [ -z "${FIREBASE_SERVICE_ACCOUNT_BASE64:-}" ]; then
+              echo "::error::FIREBASE_SERVICE_ACCOUNT_BASE64 is missing"
+              exit 1
+            fi
+
+            FIREBASE_VALIDATION_FILE=$(mktemp)
+            trap 'rm -f "$FIREBASE_VALIDATION_FILE"' EXIT
+            if ! python3 -c 'import base64, os, sys; sys.stdout.buffer.write(base64.b64decode(os.environ["FIREBASE_SERVICE_ACCOUNT_BASE64"], validate=True))' \
+                > "$FIREBASE_VALIDATION_FILE" 2> /dev/null; then
+              echo "::error::FIREBASE_SERVICE_ACCOUNT_BASE64 is not valid Base64"
+              exit 1
+            fi
+            if ! python3 -c 'import json, sys; data=json.load(open(sys.argv[1], encoding="utf-8")); required=("project_id", "private_key_id", "private_key", "client_email", "client_id", "auth_uri", "token_uri", "auth_provider_x509_cert_url", "client_x509_cert_url"); valid=isinstance(data, dict) and data.get("type") == "service_account" and all(isinstance(data.get(key), str) and data[key].strip() for key in required); sys.exit(0 if valid else 1)' \
+                "$FIREBASE_VALIDATION_FILE" > /dev/null 2>&1; then
+              echo "::error::Decoded Firebase credentials do not match the required service account schema"
+              exit 1
+            fi
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -62,16 +107,77 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_ACCESS_TOKEN_EXPIRATION: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION }}
           JWT_REFRESH_TOKEN_EXPIRATION: ${{ secrets.JWT_REFRESH_TOKEN_EXPIRATION }}
+
+          FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_ENABLED: "true"
+
           APP_IMAGE_TAG: ockk/blankit-be:${{ github.sha }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: DB_NAME,DB_USERNAME,DB_PASSWORD,DB_USER_PASSWORD,DB_URL,JWT_SECRET,JWT_ACCESS_TOKEN_EXPIRATION,JWT_REFRESH_TOKEN_EXPIRATION,APP_IMAGE_TAG
+          envs: DB_NAME,DB_USERNAME,DB_PASSWORD,DB_USER_PASSWORD,DB_URL,JWT_SECRET,JWT_ACCESS_TOKEN_EXPIRATION,JWT_REFRESH_TOKEN_EXPIRATION,FIREBASE_SERVICE_ACCOUNT_BASE64,FIREBASE_PROJECT_ID,FIREBASE_ENABLED,APP_IMAGE_TAG
           script: |
+            set -eu
             cd ~/blankit
-            printf 'DB_NAME=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nDB_USER_PASSWORD=%s\nDB_URL=%s\nJWT_SECRET=%s\nJWT_ACCESS_TOKEN_EXPIRATION=%s\nJWT_REFRESH_TOKEN_EXPIRATION=%s\nAPP_IMAGE_TAG=%s\n' \
-              "$DB_NAME" "$DB_USERNAME" "$DB_PASSWORD" "$DB_USER_PASSWORD" "$DB_URL" "$JWT_SECRET" "${JWT_ACCESS_TOKEN_EXPIRATION:-3600000}" "${JWT_REFRESH_TOKEN_EXPIRATION:-1209600000}" "$APP_IMAGE_TAG" > .env
+            umask 077
+
+            if [ -z "${FIREBASE_ENABLED:-}" ]; then
+              echo "FIREBASE_ENABLED is missing"
+              exit 1
+            fi
+            case "$FIREBASE_ENABLED" in
+              true|false) ;;
+              *)
+                echo "FIREBASE_ENABLED must be exactly true or false"
+                exit 1
+                ;;
+            esac
+
+            mkdir -p secrets
+            chmod 700 secrets
+            FIREBASE_CREDENTIALS_FILE=secrets/firebase-service-account.json
+
+            if [ "$FIREBASE_ENABLED" = "true" ]; then
+              if [ -z "${FIREBASE_PROJECT_ID:-}" ]; then
+                echo "FIREBASE_PROJECT_ID is missing while Firebase is enabled"
+                exit 1
+              fi
+              if [ -z "${FIREBASE_SERVICE_ACCOUNT_BASE64:-}" ]; then
+                echo "FIREBASE_SERVICE_ACCOUNT_BASE64 is missing while Firebase is enabled"
+                exit 1
+              fi
+              if ! command -v python3 > /dev/null 2>&1; then
+                echo "python3 is required to validate the Firebase service account JSON"
+                exit 1
+              fi
+
+              FIREBASE_CREDENTIALS_TMP="${FIREBASE_CREDENTIALS_FILE}.tmp"
+              trap 'rm -f "$FIREBASE_CREDENTIALS_TMP"' EXIT
+              if ! python3 -c 'import base64, os, sys; sys.stdout.buffer.write(base64.b64decode(os.environ["FIREBASE_SERVICE_ACCOUNT_BASE64"], validate=True))' \
+                  > "$FIREBASE_CREDENTIALS_TMP" 2> /dev/null; then
+                echo "FIREBASE_SERVICE_ACCOUNT_BASE64 is not valid Base64"
+                exit 1
+              fi
+              if ! python3 -c 'import json, sys; data=json.load(open(sys.argv[1], encoding="utf-8")); required=("project_id", "private_key_id", "private_key", "client_email", "client_id", "auth_uri", "token_uri", "auth_provider_x509_cert_url", "client_x509_cert_url"); valid=isinstance(data, dict) and data.get("type") == "service_account" and all(isinstance(data.get(key), str) and data[key].strip() for key in required); sys.exit(0 if valid else 1)' \
+                  "$FIREBASE_CREDENTIALS_TMP" > /dev/null 2>&1; then
+                echo "Decoded Firebase credentials do not match the required service account schema"
+                exit 1
+              fi
+              chmod 600 "$FIREBASE_CREDENTIALS_TMP"
+              mv "$FIREBASE_CREDENTIALS_TMP" "$FIREBASE_CREDENTIALS_FILE"
+              trap - EXIT
+            elif [ ! -f "$FIREBASE_CREDENTIALS_FILE" ]; then
+              printf '{}\n' > "$FIREBASE_CREDENTIALS_FILE"
+            fi
+            chmod 600 "$FIREBASE_CREDENTIALS_FILE"
+
+            APP_RUNTIME_UID=$(id -u)
+            APP_RUNTIME_GID=$(id -g)
+
+            printf 'DB_NAME=%s\nDB_USERNAME=%s\nDB_PASSWORD=%s\nDB_USER_PASSWORD=%s\nDB_URL=%s\nJPA_DDL_AUTO=%s\nJWT_SECRET=%s\nJWT_ACCESS_TOKEN_EXPIRATION=%s\nJWT_REFRESH_TOKEN_EXPIRATION=%s\nFIREBASE_ENABLED=%s\nFIREBASE_PROJECT_ID=%s\nGOOGLE_APPLICATION_CREDENTIALS=%s\nAPP_IMAGE_TAG=%s\nAPP_RUNTIME_UID=%s\nAPP_RUNTIME_GID=%s\n' \
+              "$DB_NAME" "$DB_USERNAME" "$DB_PASSWORD" "$DB_USER_PASSWORD" "$DB_URL" "update" "$JWT_SECRET" "${JWT_ACCESS_TOKEN_EXPIRATION:-3600000}" "${JWT_REFRESH_TOKEN_EXPIRATION:-1209600000}" "$FIREBASE_ENABLED" "$FIREBASE_PROJECT_ID" "/run/secrets/firebase-service-account.json" "$APP_IMAGE_TAG" "$APP_RUNTIME_UID" "$APP_RUNTIME_GID" > .env
             chmod 600 .env
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans

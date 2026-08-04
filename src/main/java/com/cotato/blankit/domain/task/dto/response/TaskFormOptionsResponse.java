@@ -17,7 +17,7 @@ public record TaskFormOptionsResponse(
         List<CategoryResponse> categories,
         @Schema(description = "알림 설정 가능 범위")
         ReminderRangeResponse reminderRange,
-        @Schema(description = "알림 선택지(분). 10분 전, 1시간 전, 1일 전, 3일 전, 일주일 전", example = "[10, 60, 1440, 4320, 10080]")
+        @Schema(description = "알림 선택지(분). 1일 전, 3일 전, 일주일 전", example = "[1440, 4320, 10080]")
         List<Integer> reminderOptions
 ) {
 }

@@ -225,6 +225,31 @@ class RecommendationControllerTest {
     }
 
     @Test
+    void getThirtyMinutePackRecommendationReturnsCalculatedTasks() throws Exception {
+        Task task = taskRepository.save(Task.create(
+                user, category, "빠른 과업", TODAY.plusDays(1), null, 20));
+        task.updateProgressRate(40);
+
+        mockMvc.perform(get("/api/recommendations/pack30")
+                        .param("availableMinutes", "30")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availableMinutes").value(30))
+                .andExpect(jsonPath("$.data.tasks[0].taskId").value(task.getId()))
+                .andExpect(jsonPath("$.data.tasks[0].progressPerMinute").value(3.0))
+                .andExpect(jsonPath("$.data.tasks[0].expectedProgressIncrease").value(60.0));
+    }
+
+    @Test
+    void getThirtyMinutePackRecommendationRejectsOutOfRangeMinutes() throws Exception {
+        mockMvc.perform(get("/api/recommendations/pack30")
+                        .param("availableMinutes", "31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
     void getTodayRecommendation_mixedValidAndInvalid_sumsOnlyValid() throws Exception {
         // 유효 과업: estimatedTime=100분, deadline=today+4 (daysRemaining=4) → round(100/4)=25
         // 나머지(DONE/null/마감초과)는 제외 → 합계 25분

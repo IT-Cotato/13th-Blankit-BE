@@ -27,9 +27,9 @@ public class CategoryService {
     private static final int GENERATED_COLOR_CANDIDATE_LIMIT = 360;
 
     private static final List<DefaultCategory> DEFAULT_CATEGORIES = List.of(
-            new DefaultCategory("학업", "#5C9EFF", "book", 0),
-            new DefaultCategory("일상", "#5CFF8A", "daily", 1),
-            new DefaultCategory("기념일", "#FFB85C", "calendar", 2)
+            new DefaultCategory("학업", "#5C9EFF", "pen", 0),
+            new DefaultCategory("일상", "#5CFF8A", "msg", 1),
+            new DefaultCategory("기념일", "#FFB85C", "pin", 2)
     );
 
     private final CategoryRepository categoryRepository;
