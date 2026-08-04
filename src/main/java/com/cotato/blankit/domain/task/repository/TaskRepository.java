@@ -110,6 +110,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     Optional<Task> findBySourceTaskIdAndDeadline(Long sourceTaskId, LocalDate deadline);
 
+    Optional<Task> findTopBySourceTaskIdOrderByDeadlineDescIdDesc(Long sourceTaskId);
+
+    List<Task> findBySourceTaskIdAndDeadlineAfterOrderByDeadlineAscIdAsc(
+            Long sourceTaskId,
+            LocalDate deadline
+    );
+
     List<Task> findAllByIdInAndUserId(Collection<Long> ids, Long userId);
 
     boolean existsByCategoryIdAndUserId(Long categoryId, Long userId);
