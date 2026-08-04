@@ -93,7 +93,7 @@ public class RecommendationService {
     private List<RecommendationModesResponse.ModeTaskItem> buildFireMode(List<ScoredTask> ranked, long totalMinutes) {
         List<ScoredTask> highTasks = ranked.stream()
                 .filter(st -> st.task().getPriority() == TaskPriority.HIGH)
-                .filter(st -> st.task().getEstimatedTime() != null)
+                .filter(st -> st.task().getEstimatedTime() != null && st.task().getEstimatedTime() > 0)
                 .toList();
 
         List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
@@ -112,7 +112,7 @@ public class RecommendationService {
     private List<RecommendationModesResponse.ModeTaskItem> buildBalanceMode(List<ScoredTask> ranked) {
         ScoredTask quickTask = ranked.stream()
                 .filter(st -> st.task().getPriority() != TaskPriority.HIGH)
-                .filter(st -> st.task().getEstimatedTime() != null)
+                .filter(st -> st.task().getEstimatedTime() != null && st.task().getEstimatedTime() > 0)
                 .min(Comparator.comparingInt(st -> st.task().getEstimatedTime()))
                 .orElse(null);
 
@@ -139,6 +139,7 @@ public class RecommendationService {
     private ScoredTask firstByPriority(List<ScoredTask> ranked, TaskPriority priority) {
         return ranked.stream()
                 .filter(st -> st.task().getPriority() == priority)
+                .filter(st -> st.task().getEstimatedTime() != null && st.task().getEstimatedTime() > 0)
                 .findFirst()
                 .orElse(null);
     }
@@ -147,7 +148,7 @@ public class RecommendationService {
         if (totalMinutes <= 0) return List.of();
 
         List<ScoredTask> byEstimated = ranked.stream()
-                .filter(st -> st.task().getEstimatedTime() != null)
+                .filter(st -> st.task().getEstimatedTime() != null && st.task().getEstimatedTime() > 0)
                 .sorted(Comparator.comparingInt(st -> st.task().getEstimatedTime()))
                 .toList();
 
