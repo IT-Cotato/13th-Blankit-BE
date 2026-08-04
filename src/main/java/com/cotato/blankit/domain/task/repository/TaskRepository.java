@@ -145,4 +145,26 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("userId") Long userId,
             @Param("today") LocalDate today
     );
+
+    @Query("""
+            select t from Task t
+            where t.user.id = :userId
+              and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
+              and t.estimatedTime is not null
+              and t.deadline >= :deadlineFrom
+            """)
+    List<Task> findNonDoneTasksWithEstimatedTime(@Param("userId") Long userId, @Param("deadlineFrom") LocalDate deadlineFrom);
+
+    @Query("""
+            select t from Task t
+            join fetch t.category
+            where t.user.id = :userId
+              and t.deadline between :startDate and :endDate
+            order by t.deadline, t.id
+            """)
+    List<Task> findTasksByUserIdAndDeadlineBetween(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
 }

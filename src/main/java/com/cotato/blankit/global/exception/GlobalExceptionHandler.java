@@ -2,6 +2,7 @@ package com.cotato.blankit.global.exception;
 
 import com.cotato.blankit.global.response.ApiResponse;
 import com.cotato.blankit.global.response.FieldErrorResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;

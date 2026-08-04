@@ -3,12 +3,14 @@ package com.cotato.blankit.domain.task.controller;
 import com.cotato.blankit.domain.task.dto.request.TaskCreateRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskStarUpdateRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskUpdateRequest;
+import com.cotato.blankit.domain.task.dto.response.TaskCalendarResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDetailResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskFormOptionsResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskHistoryResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskListResponse;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.service.TaskService;
+import com.cotato.blankit.domain.task.service.TaskStatsService;
 import com.cotato.blankit.global.response.ApiResponse;
 import com.cotato.blankit.global.response.PageResponse;
 import com.cotato.blankit.global.security.CustomUserDetails;
@@ -20,11 +22,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -36,8 +41,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Tag(name = "Task", description = "홈 화면 과업 및 이전 완료 과업 API")
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/tasks")
@@ -45,6 +52,7 @@ import java.time.LocalDate;
 public class TaskController {
 
     private final TaskService taskService;
+    private final TaskStatsService taskStatsService;
 
     @Operation(
             summary = "과업 등록 화면 초기값 조회",
@@ -109,6 +117,21 @@ public class TaskController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success(taskService.createTask(userDetails.getUserId(), request)));
+    }
+
+    @Operation(
+            summary = "캘린더 월별 과업 조회",
+            description = "해당 월에 마감일이 있는 과업을 날짜별로 반환합니다. 동그라미(●) 렌더링용 (functional-spec 3.2)."
+    )
+    @GetMapping("/calendar")
+    public ApiResponse<List<TaskCalendarResponse>> getCalendar(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Parameter(description = "조회 연도", example = "2026", required = true)
+            @Min(1970) @Max(9999) @RequestParam int year,
+            @Parameter(description = "조회 월 (1~12)", example = "7", required = true)
+            @Min(1) @Max(12) @RequestParam int month
+    ) {
+        return ApiResponse.success(taskStatsService.getMonthlyCalendar(userDetails.getUserId(), year, month));
     }
 
     @Operation(

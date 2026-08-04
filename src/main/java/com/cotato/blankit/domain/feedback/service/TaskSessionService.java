@@ -2,7 +2,11 @@ package com.cotato.blankit.domain.feedback.service;
 
 import com.cotato.blankit.domain.feedback.dto.request.SessionStatusUpdateRequest;
 import com.cotato.blankit.domain.feedback.dto.response.TaskSessionResponse;
+import com.cotato.blankit.domain.feedback.entity.DailyElapsedTime;
+import com.cotato.blankit.domain.feedback.entity.PlayInterval;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
+import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
+import com.cotato.blankit.domain.feedback.repository.PlayIntervalRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
@@ -16,13 +20,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class TaskSessionService {
 
     private final TaskSessionRepository taskSessionRepository;
+    private final PlayIntervalRepository playIntervalRepository;
+    private final DailyElapsedTimeRepository dailyElapsedTimeRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final Clock clock;
@@ -68,8 +76,60 @@ public class TaskSessionService {
                 throw new CustomException(ErrorCode.SESSION_ALREADY_PLAYING);
             }
         }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        if (request.status() == TaskSessionStatus.PLAYING) {
+            PlayInterval interval = PlayInterval.start(session, now);
+            playIntervalRepository.save(interval);
+        } else {
+            // PAUSED or DONE: close open interval if exists
+            playIntervalRepository.findByTaskSession_TaskSessionIdAndEndedAtIsNull(sessionId)
+                    .ifPresent(interval -> interval.end(now));
+
+            if (request.status() == TaskSessionStatus.DONE) {
+                reflectDailyElapsedTime(session, now);
+            }
+        }
+
         session.updateElapsedTime(request.elapsedTime());
         session.updateStatus(request.status(), clock);
         return TaskSessionResponse.from(session);
+    }
+
+    @Transactional
+    public void completeSession(TaskSession session, LocalDateTime now) {
+        if (session.getStatus() == TaskSessionStatus.DONE) {
+            return;
+        }
+        playIntervalRepository
+                .findByTaskSession_TaskSessionIdAndEndedAtIsNull(session.getTaskSessionId())
+                .ifPresent(interval -> interval.end(now));
+        session.updateStatus(TaskSessionStatus.DONE, clock);
+        reflectDailyElapsedTime(session, now);
+    }
+
+    private void reflectDailyElapsedTime(TaskSession session, LocalDateTime now) {
+        List<PlayInterval> intervals = playIntervalRepository.findByTaskSession_TaskSessionId(session.getTaskSessionId());
+        User user = session.getUser();
+
+        intervals.stream()
+                .filter(i -> i.getEndedAt() != null)
+                .forEach(interval -> {
+                    LocalDate date = interval.getStartedAt().toLocalDate();
+                    LocalDate endDate = interval.getEndedAt().toLocalDate();
+                    while (!date.isAfter(endDate)) {
+                        int seconds = (int) interval.elapsedSecondsOn(date);
+                        if (seconds > 0) {
+                            LocalDate finalDate = date;
+                            dailyElapsedTimeRepository.findByUser_IdAndDate(user.getId(), date)
+                                    .ifPresentOrElse(
+                                            record -> record.addElapsedSeconds(seconds),
+                                            () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(user, finalDate, seconds))
+                                    );
+                        }
+                        date = date.plusDays(1);
+                    }
+                });
     }
 }
