@@ -13,7 +13,7 @@ public class RepeatDeadlineRefreshScheduler {
 
     @Scheduled(
             cron = "${blankit.task.repeat-deadline.cron:0 5 0 * * *}",
-            zone = "${blankit.task.repeat-deadline.zone:Asia/Seoul}"
+            zone = "${blankit.time-zone:Asia/Seoul}"
     )
     public void generateDueRepeatedTasks() {
         repeatDeadlineRefreshService.generateDueOccurrences();

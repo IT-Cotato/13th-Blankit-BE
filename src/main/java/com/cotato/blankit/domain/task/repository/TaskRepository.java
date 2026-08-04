@@ -82,6 +82,18 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("userId") Long userId
     );
 
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            update Task t
+            set t.similarTask = null
+            where t.similarTask.id = :similarTaskId
+              and t.user.id = :userId
+            """)
+    void clearSimilarTaskForOccurrenceDeletion(
+            @Param("similarTaskId") Long similarTaskId,
+            @Param("userId") Long userId
+    );
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update Task t
@@ -110,6 +122,19 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
               and t.deadline >= :today
             """)
     List<Task> findActiveTasksForRecommendation(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today
+    );
+
+    @EntityGraph(attributePaths = {"category"})
+    @Query("""
+            select t from Task t
+            where t.user.id = :userId
+              and t.status <> com.cotato.blankit.domain.task.entity.TaskStatus.DONE
+              and t.deadline >= :today
+            order by t.deadline asc, t.id asc
+            """)
+    List<Task> findFutureActiveTasksForNotification(
             @Param("userId") Long userId,
             @Param("today") LocalDate today
     );

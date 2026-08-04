@@ -3,6 +3,8 @@ package com.cotato.blankit.domain.user.service;
 import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
+import com.cotato.blankit.domain.notification.push.service.ThirtyMinutePackScheduleService;
+import com.cotato.blankit.domain.notification.push.service.TaskDeadlineNotificationScheduleService;
 import com.cotato.blankit.domain.user.dto.request.TimetableSettingsUpdateRequest;
 import com.cotato.blankit.domain.user.dto.request.UserNotificationSettingUpdateRequest;
 import com.cotato.blankit.domain.user.dto.response.TimetableSettingsResponse;
@@ -26,6 +28,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserNotificationSettingRepository userNotificationSettingRepository;
+    private final ThirtyMinutePackScheduleService thirtyMinutePackScheduleService;
+    private final TaskDeadlineNotificationScheduleService taskDeadlineScheduleService;
 
     @Transactional(readOnly = true)
     public UserMeResponse getMe(Long userId) {
@@ -62,6 +66,9 @@ public class UserService {
                         UserNotificationSetting.createDefault(user)
                 ));
         setting.update(request.isServiceAlarmEnabled(), request.is30minPackAlarmEnabled());
+        userNotificationSettingRepository.flush();
+        thirtyMinutePackScheduleService.synchronize(userId);
+        taskDeadlineScheduleService.synchronizeUser(userId);
         return UserNotificationSettingResponse.from(setting);
     }
 

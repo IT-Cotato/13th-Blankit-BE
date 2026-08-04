@@ -25,4 +25,11 @@ public interface UserNotificationSettingRepository extends JpaRepository<UserNot
             where setting.isServiceAlarmEnabled = true
             """)
     List<Long> findServiceNotificationRecipientUserIds();
+
+    @Query("""
+            select setting.user.id
+            from UserNotificationSetting setting
+            where setting.thirtyMinPackAlarmEnabled = true
+            """)
+    List<Long> findThirtyMinutePackNotificationRecipientUserIds();
 }

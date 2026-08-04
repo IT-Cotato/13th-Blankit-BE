@@ -27,6 +27,7 @@ import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
+import com.cotato.blankit.domain.notification.push.service.TaskDeadlineNotificationScheduleService;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import com.cotato.blankit.global.response.PageResponse;
@@ -66,7 +67,9 @@ public class TaskService {
     private final UserRepository userRepository;
     private final CategoryService categoryService;
     private final RepeatDeadlineCalculator repeatDeadlineCalculator;
+    private final RepeatDeadlineRefreshService repeatDeadlineRefreshService;
     private final Clock clock;
+    private final TaskDeadlineNotificationScheduleService taskDeadlineScheduleService;
 
     @Transactional
     public TaskFormOptionsResponse getFormOptions(Long userId) {
@@ -77,7 +80,7 @@ public class TaskService {
                 DEFAULT_NOTIFY_BEFORE,
                 false,
                 categories.stream().map(CategoryResponse::from).toList(),
-                new ReminderRangeResponse(NotifyBeforeOption.TEN_MINUTES.getMinutes(), NotifyBeforeOption.ONE_WEEK.getMinutes()),
+                new ReminderRangeResponse(NotifyBeforeOption.ONE_DAY.getMinutes(), NotifyBeforeOption.ONE_WEEK.getMinutes()),
                 NotifyBeforeOption.minutesValues()
         );
     }
@@ -109,6 +112,11 @@ public class TaskService {
                 request.notificationEnabled() == null || request.notificationEnabled()
         ));
         RepeatRule repeatRule = repeatRuleData == null ? null : repeatRuleRepository.save(toRepeatRule(task, repeatRuleData));
+        notificationSettingRepository.flush();
+        taskDeadlineScheduleService.synchronizeTask(task.getId());
+        if (repeatRule != null) {
+            repeatDeadlineRefreshService.generateNextOccurrencesForTask(task.getId());
+        }
 
         return TaskDetailResponse.from(task, notificationSetting, repeatRule, 0L);
     }
@@ -171,9 +179,19 @@ public class TaskService {
         if (request.starred() != null) {
             task.updateStarred(request.starred());
         }
-        updateNotificationSetting(task, request);
-        updateDeadlineAndRepeatRule(task, request, existingRepeatRule);
+        List<Long> notificationSyncTaskIds = updateNotificationSetting(task, request);
+        List<Long> removedOccurrenceIds = updateDeadlineAndRepeatRule(task, request, existingRepeatRule);
         updateSimilarTask(userId, task, request);
+        taskRepository.flush();
+        notificationSettingRepository.flush();
+        removedOccurrenceIds.forEach(taskDeadlineScheduleService::cancelTask);
+        taskDeadlineScheduleService.synchronizeTask(task.getId());
+        notificationSyncTaskIds.stream()
+                .filter(id -> !removedOccurrenceIds.contains(id))
+                .forEach(taskDeadlineScheduleService::synchronizeTask);
+        if (request.repeatRule() != null) {
+            repeatDeadlineRefreshService.generateNextOccurrencesForTask(task.getId());
+        }
 
         return toDetailResponse(userId, task);
     }
@@ -188,6 +206,9 @@ public class TaskService {
     @Transactional
     public void deleteTask(Long userId, Long taskId) {
         Task task = getTaskByUser(taskId, userId);
+        List<Long> removedOccurrenceIds = deleteFutureOccurrences(task);
+        taskDeadlineScheduleService.cancelTask(taskId);
+        removedOccurrenceIds.forEach(taskDeadlineScheduleService::cancelTask);
         taskRepository.clearSimilarTaskBySimilarTaskIdAndUserId(task.getId(), userId);
         taskRepository.clearSourceTaskBySourceTaskIdAndUserId(task.getId(), userId);
         feedbackRepository.deleteByTask_Id(task.getId());
@@ -223,17 +244,32 @@ public class TaskService {
         );
     }
 
-    private void updateNotificationSetting(Task task, TaskUpdateRequest request) {
+    private List<Long> updateNotificationSetting(Task task, TaskUpdateRequest request) {
         if (request.notifyBefore() == null && request.notificationEnabled() == null) {
-            return;
+            return List.of();
         }
         NotificationSetting setting = getNotificationSetting(task);
         Integer notifyBefore = request.notifyBefore() == null ? setting.getNotifyBefore() : resolveNotifyBefore(request.notifyBefore());
         boolean enabled = request.notificationEnabled() == null ? setting.isEnabled() : request.notificationEnabled();
         setting.update(notifyBefore, enabled);
+        if (task.getSourceTask() != null || !repeatRuleRepository.existsByTaskId(task.getId())) {
+            return List.of();
+        }
+        List<Task> futureOccurrences =
+                taskRepository.findBySourceTaskIdAndDeadlineAfterOrderByDeadlineAscIdAsc(
+                        task.getId(),
+                        LocalDate.now(clock)
+                );
+        futureOccurrences.forEach(occurrence ->
+                getNotificationSetting(occurrence).update(notifyBefore, enabled));
+        return futureOccurrences.stream().map(Task::getId).toList();
     }
 
-    private void updateDeadlineAndRepeatRule(Task task, TaskUpdateRequest request, RepeatRule existingRepeatRule) {
+    private List<Long> updateDeadlineAndRepeatRule(
+            Task task,
+            TaskUpdateRequest request,
+            RepeatRule existingRepeatRule
+    ) {
         if (task.getSourceTask() != null && (request.repeatRule() != null || Boolean.TRUE.equals(request.clearRepeatRule()))) {
             throw new CustomException(ErrorCode.INVALID_RECURRENCE);
         }
@@ -245,12 +281,14 @@ public class TaskService {
                 validateDeadline(request.deadline());
                 task.updateDeadline(request.deadline());
             }
+            List<Long> removedOccurrenceIds = deleteFutureOccurrences(task);
             repeatRuleRepository.deleteByTaskId(task.getId());
-            return;
+            return removedOccurrenceIds;
         }
         if (request.repeatRule() != null) {
             RepeatDeadlineCalculator.RepeatRuleData data = validateAndNormalizeRepeatRule(request.repeatRule());
             LocalDate nextDeadline = calculateRepeatDeadline(data);
+            List<Long> removedOccurrenceIds = deleteFutureOccurrences(task);
             repeatRuleRepository.findByTaskId(task.getId())
                     .ifPresentOrElse(
                             repeatRule -> repeatRule.update(
@@ -264,7 +302,7 @@ public class TaskService {
                             () -> repeatRuleRepository.save(toRepeatRule(task, data))
                     );
             task.updateDeadline(nextDeadline);
-            return;
+            return removedOccurrenceIds;
         }
         if (request.deadline() != null) {
             validateDeadline(request.deadline());
@@ -273,6 +311,31 @@ public class TaskService {
             }
             task.updateDeadline(request.deadline());
         }
+        return List.of();
+    }
+
+    private List<Long> deleteFutureOccurrences(Task sourceTask) {
+        if (sourceTask.getSourceTask() != null) {
+            return List.of();
+        }
+        List<Task> futureOccurrences =
+                taskRepository.findBySourceTaskIdAndDeadlineAfterOrderByDeadlineAscIdAsc(
+                        sourceTask.getId(),
+                        LocalDate.now(clock)
+                );
+        for (Task occurrence : futureOccurrences) {
+            taskRepository.clearSimilarTaskForOccurrenceDeletion(
+                    occurrence.getId(),
+                    sourceTask.getUser().getId()
+            );
+            feedbackRepository.deleteByTask_Id(occurrence.getId());
+            taskSessionRepository.deleteByTaskId(occurrence.getId());
+            playlistItemRepository.deleteByTask(occurrence);
+            notificationSettingRepository.findByTaskId(occurrence.getId())
+                    .ifPresent(notificationSettingRepository::delete);
+            taskRepository.deleteById(occurrence.getId());
+        }
+        return futureOccurrences.stream().map(Task::getId).toList();
     }
 
     private void updateSimilarTask(Long userId, Task task, TaskUpdateRequest request) {
