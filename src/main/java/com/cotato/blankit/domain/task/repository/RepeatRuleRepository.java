@@ -1,6 +1,8 @@
 package com.cotato.blankit.domain.task.repository;
 
 import com.cotato.blankit.domain.task.entity.RepeatRule;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,15 +22,27 @@ public interface RepeatRuleRepository extends JpaRepository<RepeatRule, Long> {
 
     void deleteByTaskId(Long taskId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select rr
             from RepeatRule rr
             join fetch rr.task t
             join fetch t.category
             left join fetch t.similarTask
-            where t.deadline < :today
+            where t.id = :taskId
               and t.sourceTask is null
-              and (rr.endDate is null or rr.endDate >= :today)
+            """)
+    Optional<RepeatRule> findByTaskIdForOccurrenceGeneration(@Param("taskId") Long taskId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select rr
+            from RepeatRule rr
+            join fetch rr.task t
+            join fetch t.category
+            left join fetch t.similarTask
+            where t.deadline <= :today
+              and t.sourceTask is null
             """)
     List<RepeatRule> findOccurrenceGenerationTargets(@Param("today") LocalDate today);
 }

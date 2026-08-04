@@ -330,3 +330,51 @@ CREATE TABLE refresh_token (
                                KEY idx_refresh_token_token (token(255)),
                                CONSTRAINT fk_refresh_token_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- ------------------------------------------------------------
+-- Firebase FID Web Push
+-- ------------------------------------------------------------
+CREATE TABLE push_subscription (
+    push_subscription_id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    firebase_installation_id VARCHAR(255) NOT NULL,
+    device_name VARCHAR(100) NULL,
+    browser VARCHAR(100) NULL,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    last_registered_at DATETIME(6) NOT NULL,
+    last_success_at DATETIME(6) NULL,
+    failure_count INT NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (push_subscription_id),
+    UNIQUE KEY uk_push_subscription_fid (firebase_installation_id),
+    KEY idx_push_subscription_user_active (user_id, active),
+    CONSTRAINT fk_push_subscription_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE push_notification_job (
+    push_notification_job_id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    type VARCHAR(30) NOT NULL,
+    reference_type VARCHAR(50) NOT NULL,
+    reference_id VARCHAR(100) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    body VARCHAR(500) NOT NULL,
+    click_url VARCHAR(500) NULL,
+    scheduled_at DATETIME(6) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    attempts INT NOT NULL DEFAULT 0,
+    next_retry_at DATETIME(6) NULL,
+    processing_started_at DATETIME(6) NULL,
+    retry_fids TEXT NULL,
+    failure_type VARCHAR(30) NULL,
+    dedupe_key VARCHAR(255) NOT NULL,
+    sent_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (push_notification_job_id),
+    UNIQUE KEY uk_push_job_dedupe_key (dedupe_key),
+    KEY idx_push_job_due (status, scheduled_at, next_retry_at),
+    KEY idx_push_job_processing_lease (status, processing_started_at),
+    CONSTRAINT fk_push_job_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;

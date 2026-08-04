@@ -59,7 +59,7 @@ public class TaskController {
 
     @Operation(
             summary = "과업 생성",
-            description = "일반 과업은 deadline이 필수이며 사용자가 선택한 날짜를 저장합니다. 반복 과업은 repeatRule.startDate와 반복 조건으로 서버가 가장 가까운 deadline을 계산하며, endDate는 생략할 수 있습니다. notifyBefore 생략 시 1440, notificationEnabled 생략 시 true입니다. notifyBefore는 10, 60, 1440, 4320, 10080만 허용합니다. repeatRule이 없으면 repeat_rule 레코드를 만들지 않습니다. similarTaskId는 nullable입니다. similarTaskId가 없으면 직접 입력한 estimatedTime(분)을 저장하고, 있으면 유사 과업의 총 소요시간을 estimatedTime으로 반영합니다.",
+            description = "일반 과업은 deadline이 필수이며 사용자가 선택한 날짜를 저장합니다. 반복 과업은 repeatRule.startDate와 반복 조건으로 서버가 가장 가까운 deadline을 계산하며, endDate는 생략할 수 있습니다. notifyBefore 생략 시 1440, notificationEnabled 생략 시 true입니다. notifyBefore는 1440, 4320, 10080만 허용합니다. repeatRule이 없으면 repeat_rule 레코드를 만들지 않습니다. similarTaskId는 nullable입니다. similarTaskId가 없으면 직접 입력한 estimatedTime(분)을 저장하고, 있으면 유사 과업의 총 소요시간을 estimatedTime으로 반영합니다.",
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     content = @Content(
                             mediaType = "application/json",
@@ -113,7 +113,7 @@ public class TaskController {
 
     @Operation(
             summary = "과업 목록 조회",
-            description = "홈 화면 과업 목록을 조회합니다. date는 KST 기준 LocalDate로 해석하며 실제 저장된 과업의 deadline이 조회 날짜와 같은 항목만 반환합니다. 반복 과업은 스케줄러가 발생일에 sourceTaskId가 있는 새 과업으로 생성합니다."
+            description = "홈 화면 과업 목록을 조회합니다. date는 KST 기준 LocalDate로 해석하며 실제 저장된 과업의 deadline이 조회 날짜와 같은 항목만 반환합니다. 반복 과업은 직전 회차 마감일에 스케줄러가 sourceTaskId가 있는 다음 회차 과업으로 미리 생성합니다."
     )
     @GetMapping
     public ApiResponse<PageResponse<TaskListResponse>> getTasks(

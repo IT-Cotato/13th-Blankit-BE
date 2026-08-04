@@ -15,6 +15,10 @@ import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
+import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
+import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
+import com.cotato.blankit.domain.notification.push.entity.PushNotificationType;
+import com.cotato.blankit.domain.notification.push.repository.PushNotificationJobRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.service.RepeatDeadlineRefreshService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
@@ -94,6 +98,12 @@ class TaskControllerTest {
     private NotificationSettingRepository notificationSettingRepository;
 
     @Autowired
+    private UserNotificationSettingRepository userNotificationSettingRepository;
+
+    @Autowired
+    private PushNotificationJobRepository pushNotificationJobRepository;
+
+    @Autowired
     private RepeatRuleRepository repeatRuleRepository;
 
     @Autowired
@@ -143,11 +153,39 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data.defaultReminderOffsetMinutes").value(1440))
                 .andExpect(jsonPath("$.data.defaultRepeatEnabled").value(false))
                 .andExpect(jsonPath("$.data.categories[0].color").value("#5C9EFF"))
-                .andExpect(jsonPath("$.data.reminderOptions[0]").value(10))
-                .andExpect(jsonPath("$.data.reminderOptions[1]").value(60))
-                .andExpect(jsonPath("$.data.reminderOptions[2]").value(1440))
-                .andExpect(jsonPath("$.data.reminderOptions[3]").value(4320))
-                .andExpect(jsonPath("$.data.reminderOptions[4]").value(10080));
+                .andExpect(jsonPath("$.data.reminderRange.minimumMinutes").value(1440))
+                .andExpect(jsonPath("$.data.reminderOptions.length()").value(3))
+                .andExpect(jsonPath("$.data.reminderOptions[0]").value(1440))
+                .andExpect(jsonPath("$.data.reminderOptions[1]").value(4320))
+                .andExpect(jsonPath("$.data.reminderOptions[2]").value(10080));
+    }
+
+    @Test
+    void creatingTaskSchedulesDeadlinePushWhenBothNotificationSettingsAreEnabled() throws Exception {
+        UserNotificationSetting userSetting = UserNotificationSetting.createDefault(user);
+        userSetting.update(true, false);
+        userNotificationSettingRepository.saveAndFlush(userSetting);
+
+        mockMvc.perform(post("/api/tasks")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "마감 알림 과업",
+                                  "categoryId": %d,
+                                  "deadline": "2026-06-05",
+                                  "notifyBefore": 1440,
+                                  "notificationEnabled": true
+                                }
+                                """.formatted(studyCategory.getId())))
+                .andExpect(status().isCreated());
+
+        assertThat(com.cotato.blankit.domain.notification.push.PushJobTestQueries.findByUserAndType(
+                pushNotificationJobRepository, user.getId(), PushNotificationType.TASK_DEADLINE))
+                .singleElement()
+                .satisfies(job -> assertThat(job.getScheduledAt())
+                        .isEqualTo(LocalDateTime.of(2026, 6, 4, 9, 0)));
     }
 
     @Test
@@ -550,6 +588,34 @@ class TaskControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
+                                  "title": "제거된 10분 알림",
+                                  "deadline": "2026-08-12",
+                                  "notifyBefore": 10
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REMINDER_OFFSET"));
+
+        mockMvc.perform(post("/api/tasks")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "제거된 1시간 알림",
+                                  "deadline": "2026-08-12",
+                                  "notifyBefore": 60
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REMINDER_OFFSET"));
+
+        mockMvc.perform(post("/api/tasks")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
                                   "title": "알림 선택지 오류",
                                   "deadline": "2026-08-12",
                                   "notifyBefore": 30
@@ -705,8 +771,13 @@ class TaskControllerTest {
         notificationSettingRepository.save(NotificationSetting.create(repeatTask, 1440, true));
         notificationSettingRepository.save(NotificationSetting.create(generalTask, 1440, true));
 
-        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isEqualTo(2);
         Task occurrence = taskRepository.findBySourceTaskIdAndDeadline(repeatTask.getId(), LocalDate.parse("2026-06-01"))
+                .orElseThrow();
+        Task nextOccurrence = taskRepository.findBySourceTaskIdAndDeadline(
+                        repeatTask.getId(),
+                        LocalDate.parse("2026-06-08")
+                )
                 .orElseThrow();
         org.assertj.core.api.Assertions.assertThat(occurrence.getSourceTask().getId()).isEqualTo(repeatTask.getId());
         org.assertj.core.api.Assertions.assertThat(occurrence.getStatus()).isEqualTo(TaskStatus.TODO);
@@ -717,6 +788,8 @@ class TaskControllerTest {
                 .get()
                 .extracting(NotificationSetting::getNotifyBefore)
                 .isEqualTo(1440);
+        org.assertj.core.api.Assertions.assertThat(nextOccurrence.getSourceTask().getId())
+                .isEqualTo(repeatTask.getId());
         org.assertj.core.api.Assertions.assertThat(taskRepository.findById(repeatTask.getId()).orElseThrow().getDeadline())
                 .isEqualTo(LocalDate.parse("2026-05-25"));
         org.assertj.core.api.Assertions.assertThat(taskRepository.findById(generalTask.getId()).orElseThrow().getDeadline())
@@ -739,7 +812,138 @@ class TaskControllerTest {
         ));
         taskRepository.save(Task.createRepeatedOccurrence(repeatTask, LocalDate.parse("2026-06-01")));
 
+        org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(taskRepository.findBySourceTaskIdAndDeadline(
+                        repeatTask.getId(),
+                        LocalDate.parse("2026-06-08")
+                ))
+                .isPresent();
         org.assertj.core.api.Assertions.assertThat(repeatDeadlineRefreshService.generateDueOccurrences()).isZero();
+    }
+
+    @Test
+    void repeatedTaskGenerationRecoversMissedOccurrencesAndKeepsOneFutureOccurrence() {
+        Task repeatTask = taskRepository.save(Task.create(
+                user,
+                studyCategory,
+                "중단 복구 반복",
+                LocalDate.parse("2026-05-11"),
+                null
+        ));
+        repeatRuleRepository.save(RepeatRule.create(
+                repeatTask,
+                RecurrenceType.WEEKLY,
+                List.of(1),
+                RepeatMonthDays.none(),
+                null,
+                LocalDate.parse("2026-05-01"),
+                null
+        ));
+
+        org.assertj.core.api.Assertions.assertThat(
+                repeatDeadlineRefreshService.generateDueOccurrences()
+        ).isEqualTo(4);
+        org.assertj.core.api.Assertions.assertThat(
+                taskRepository.findTopBySourceTaskIdOrderByDeadlineDescIdDesc(repeatTask.getId())
+        )
+                .isPresent()
+                .get()
+                .extracting(Task::getDeadline)
+                .isEqualTo(LocalDate.parse("2026-06-08"));
+        org.assertj.core.api.Assertions.assertThat(
+                repeatDeadlineRefreshService.generateDueOccurrences()
+        ).isZero();
+    }
+
+    @Test
+    void sourceNotificationSettingChangePropagatesToFutureOccurrence() throws Exception {
+        Task repeatTask = taskRepository.save(Task.create(
+                user,
+                studyCategory,
+                "알림 동기화 반복",
+                LocalDate.parse("2026-06-01"),
+                null
+        ));
+        repeatRuleRepository.save(RepeatRule.create(
+                repeatTask,
+                RecurrenceType.WEEKLY,
+                List.of(1),
+                RepeatMonthDays.none(),
+                null,
+                LocalDate.parse("2026-06-01"),
+                null
+        ));
+        notificationSettingRepository.save(NotificationSetting.create(repeatTask, 1440, true));
+        repeatDeadlineRefreshService.generateDueOccurrences();
+        Task futureOccurrence = taskRepository.findBySourceTaskIdAndDeadline(
+                repeatTask.getId(),
+                LocalDate.parse("2026-06-08")
+        ).orElseThrow();
+
+        mockMvc.perform(patch("/api/tasks/{taskId}", repeatTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "notifyBefore": 4320,
+                                  "notificationEnabled": false
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(
+                notificationSettingRepository.findByTaskId(futureOccurrence.getId())
+        )
+                .isPresent()
+                .get()
+                .satisfies(setting -> {
+                    org.assertj.core.api.Assertions.assertThat(setting.getNotifyBefore()).isEqualTo(4320);
+                    org.assertj.core.api.Assertions.assertThat(setting.isEnabled()).isFalse();
+                });
+    }
+
+    @Test
+    void repeatRuleChangeDeletesOldFutureOccurrenceAndRecalculatesSourceDeadline() throws Exception {
+        Task repeatTask = taskRepository.save(Task.create(
+                user,
+                studyCategory,
+                "규칙 변경 반복",
+                LocalDate.parse("2026-06-01"),
+                null
+        ));
+        repeatRuleRepository.save(RepeatRule.create(
+                repeatTask,
+                RecurrenceType.WEEKLY,
+                List.of(1),
+                RepeatMonthDays.none(),
+                null,
+                LocalDate.parse("2026-06-01"),
+                null
+        ));
+        notificationSettingRepository.save(NotificationSetting.create(repeatTask, 1440, true));
+        repeatDeadlineRefreshService.generateDueOccurrences();
+
+        mockMvc.perform(patch("/api/tasks/{taskId}", repeatTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "repeatRule": {
+                                    "frequency": "WEEKLY",
+                                    "daysOfWeek": [2],
+                                    "startDate": "2026-06-01"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deadline").value("2026-06-02"));
+
+        org.assertj.core.api.Assertions.assertThat(taskRepository.findBySourceTaskIdAndDeadline(
+                repeatTask.getId(),
+                LocalDate.parse("2026-06-08")
+        )).isEmpty();
     }
 
     @Test
@@ -906,6 +1110,11 @@ class TaskControllerTest {
                 LocalDate.parse("2026-06-03"),
                 null
         ));
+        Task futureOccurrence = taskRepository.save(Task.createRepeatedOccurrence(
+                repeatTask,
+                LocalDate.parse("2026-06-10")
+        ));
+        notificationSettingRepository.save(NotificationSetting.create(futureOccurrence, 1440, true));
 
         mockMvc.perform(patch("/api/tasks/{taskId}", repeatTask.getId())
                         .with(csrf())
@@ -934,6 +1143,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data.repeatRule").doesNotExist());
 
         org.assertj.core.api.Assertions.assertThat(repeatRuleRepository.existsByTaskId(repeatTask.getId())).isFalse();
+        org.assertj.core.api.Assertions.assertThat(taskRepository.findById(futureOccurrence.getId())).isEmpty();
     }
 
     @Test

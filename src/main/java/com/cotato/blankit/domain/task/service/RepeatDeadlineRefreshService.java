@@ -1,19 +1,21 @@
 package com.cotato.blankit.domain.task.service;
 
-import com.cotato.blankit.domain.task.entity.RepeatRule;
+import com.cotato.blankit.domain.notification.push.service.TaskDeadlineNotificationScheduleService;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
+import com.cotato.blankit.domain.task.entity.RepeatRule;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,50 +25,84 @@ public class RepeatDeadlineRefreshService {
     private final TaskRepository taskRepository;
     private final NotificationSettingRepository notificationSettingRepository;
     private final RepeatDeadlineCalculator repeatDeadlineCalculator;
+    private final TaskDeadlineNotificationScheduleService taskDeadlineNotificationScheduleService;
     private final Clock clock;
 
     @Transactional
     public int generateDueOccurrences() {
         LocalDate today = LocalDate.now(clock);
         List<RepeatRule> targets = repeatRuleRepository.findOccurrenceGenerationTargets(today);
+        List<Long> createdTaskIds = new ArrayList<>();
         int createdCount = 0;
         for (RepeatRule repeatRule : targets) {
-            Task sourceTask = repeatRule.getTask();
-            if (!repeatDeadlineCalculator.matches(repeatRule, today)) {
-                continue;
+            createdCount += ensureNextFutureOccurrence(repeatRule, today, createdTaskIds);
+        }
+        scheduleDeadlineNotifications(createdTaskIds);
+        return createdCount;
+    }
+
+    @Transactional
+    public int generateNextOccurrencesForTask(Long sourceTaskId) {
+        LocalDate today = LocalDate.now(clock);
+        Optional<RepeatRule> repeatRule =
+                repeatRuleRepository.findByTaskIdForOccurrenceGeneration(sourceTaskId);
+        if (repeatRule.isEmpty()) {
+            return 0;
+        }
+        List<Long> createdTaskIds = new ArrayList<>();
+        int createdCount = ensureNextFutureOccurrence(repeatRule.get(), today, createdTaskIds);
+        scheduleDeadlineNotifications(createdTaskIds);
+        return createdCount;
+    }
+
+    private int ensureNextFutureOccurrence(
+            RepeatRule repeatRule,
+            LocalDate today,
+            List<Long> createdTaskIds
+    ) {
+        Task sourceTask = repeatRule.getTask();
+        LocalDate latestDeadline = taskRepository
+                .findTopBySourceTaskIdOrderByDeadlineDescIdDesc(sourceTask.getId())
+                .map(Task::getDeadline)
+                .filter(deadline -> deadline.isAfter(sourceTask.getDeadline()))
+                .orElse(sourceTask.getDeadline());
+        int createdCount = 0;
+
+        while (!latestDeadline.isAfter(today)) {
+            LocalDate nextDeadline = repeatDeadlineCalculator
+                    .calculateNextDeadline(repeatRule, latestDeadline.plusDays(1))
+                    .orElse(null);
+            if (nextDeadline == null) {
+                break;
             }
-            if (createOccurrenceIfAbsent(sourceTask, today)) {
+            if (!taskRepository.existsBySourceTaskIdAndDeadline(sourceTask.getId(), nextDeadline)) {
+                Task occurrence = taskRepository.saveAndFlush(
+                        Task.createRepeatedOccurrence(sourceTask, nextDeadline)
+                );
+                copyNotificationSetting(sourceTask, occurrence);
+                createdTaskIds.add(occurrence.getId());
                 createdCount++;
             }
+            latestDeadline = nextDeadline;
         }
         return createdCount;
     }
 
-    private boolean createOccurrenceIfAbsent(Task sourceTask, LocalDate today) {
-        if (taskRepository.existsBySourceTaskIdAndDeadline(sourceTask.getId(), today)) {
-            return false;
-        }
-        try {
-            Task occurrence = taskRepository.saveAndFlush(Task.createRepeatedOccurrence(sourceTask, today));
-            notificationSettingRepository.findByTaskId(sourceTask.getId())
-                    .map(setting -> NotificationSetting.create(
-                            occurrence,
-                            setting.getNotifyBefore(),
-                            setting.isEnabled()
-                    ))
-                    .ifPresent(notificationSettingRepository::save);
-            return true;
-        } catch (DataIntegrityViolationException e) {
-            if (isDuplicateOccurrenceConstraintViolation(e)
-                    && taskRepository.existsBySourceTaskIdAndDeadline(sourceTask.getId(), today)) {
-                return false;
-            }
-            throw e;
-        }
+    private void copyNotificationSetting(Task sourceTask, Task occurrence) {
+        notificationSettingRepository.findByTaskId(sourceTask.getId())
+                .map(setting -> NotificationSetting.create(
+                        occurrence,
+                        setting.getNotifyBefore(),
+                        setting.isEnabled()
+                ))
+                .ifPresent(notificationSettingRepository::save);
     }
 
-    private boolean isDuplicateOccurrenceConstraintViolation(DataIntegrityViolationException exception) {
-        String message = exception.getMostSpecificCause().getMessage();
-        return message != null && message.toLowerCase().contains("uk_task_source_deadline");
+    private void scheduleDeadlineNotifications(List<Long> createdTaskIds) {
+        if (createdTaskIds.isEmpty()) {
+            return;
+        }
+        notificationSettingRepository.flush();
+        createdTaskIds.forEach(taskDeadlineNotificationScheduleService::synchronizeTask);
     }
 }

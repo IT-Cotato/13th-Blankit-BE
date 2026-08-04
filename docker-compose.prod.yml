@@ -21,6 +21,7 @@ services:
   app:
     image: ${APP_IMAGE_TAG}
     container_name: blankit-app
+    user: "${APP_RUNTIME_UID}:${APP_RUNTIME_GID}"
     restart: unless-stopped
     depends_on:
       mysql:
@@ -31,6 +32,9 @@ services:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
+    volumes:
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
