@@ -71,6 +71,9 @@ public class Feedback extends BaseEntity {
         feedback.memo = memo;
         feedback.isCompleted = false;
         feedback.isDraft = isDraft;
+        if (!isDraft) {
+            feedback.submittedAt = LocalDateTime.now();
+        }
         return feedback;
     }
 
