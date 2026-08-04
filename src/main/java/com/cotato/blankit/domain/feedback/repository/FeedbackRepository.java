@@ -26,8 +26,8 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
             join fetch t.category
             where f.user.id = :userId
               and f.isDraft = false
-              and f.updatedAt >= :startOfDay
-              and f.updatedAt < :endOfDay
+              and f.submittedAt >= :startOfDay
+              and f.submittedAt < :endOfDay
             order by f.createdAt
             """)
     List<Feedback> findSubmittedByUserIdAndDateRange(

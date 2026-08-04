@@ -441,6 +441,85 @@ class FeedbackControllerTest {
     }
 
     @Test
+    void submitFeedback_draftSave_submittedAtRemainsNull() throws Exception {
+        // 임시저장(isDraft=true) 후 submittedAt은 null이어야 한다
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 300, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 30, "memo": "중간", "isDraft": true }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        TaskSession reloaded = taskSessionRepository.findById(session.getTaskSessionId()).orElseThrow();
+        Feedback saved = feedbackRepository.findByTaskSessionAndIsDraftTrue(reloaded).orElseThrow();
+        assertThat(saved.getSubmittedAt()).isNull();
+    }
+
+    @Test
+    void submitFeedback_finalSubmit_setsSubmittedAt() throws Exception {
+        // 최종 제출(isDraft=false) 시 submittedAt이 설정되어야 한다
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 1800, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": "완료", "isDraft": false }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        Feedback submitted = feedbackRepository.findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(taskA.getId()).get(0);
+        assertThat(submitted.getSubmittedAt()).isNotNull();
+    }
+
+    @Test
+    void submitFeedback_memoEditAfterFinalSubmit_submittedAtUnchanged() throws Exception {
+        // 최종 제출 후 메모 수정 시 submittedAt은 변경되지 않아야 한다
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), null, 1800, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": "최초 메모", "isDraft": false }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime firstSubmittedAt = feedbackRepository
+                .findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(taskA.getId()).get(0).getSubmittedAt();
+
+        mockMvc.perform(post("/api/sessions/{sessionId}/feedback", session.getTaskSessionId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "progressRate": 50, "memo": "수정된 메모", "isDraft": false }
+                                """))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime afterEditSubmittedAt = feedbackRepository
+                .findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(taskA.getId()).get(0).getSubmittedAt();
+        assertThat(afterEditSubmittedAt).isEqualTo(firstSubmittedAt);
+    }
+
+    @Test
     void submitFeedback_final_reflectsDailyElapsedTime() throws Exception {
         // 피드백 최종 제출(isDraft=false) 시 PlayInterval 기반 DailyElapsedTime이 반영되어야 한다
         LocalDate day = LocalDate.of(2026, 7, 13);

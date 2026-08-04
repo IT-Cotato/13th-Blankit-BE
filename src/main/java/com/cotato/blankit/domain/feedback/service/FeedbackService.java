@@ -57,9 +57,10 @@ public class FeedbackService {
                         throw e;
                     }
                 });
-        feedback.update(request.progressRate(), request.memo(), request.isDraft());
+        LocalDateTime now = LocalDateTime.now(clock);
+        feedback.update(request.progressRate(), request.memo(), request.isDraft(), now);
         if (!request.isDraft()) {
-            taskSessionService.completeSession(session, LocalDateTime.now(clock));
+            taskSessionService.completeSession(session, now);
             if (request.progressRate() != null && request.progressRate() == 100) {
                 feedback.complete();
                 Task task = session.getTask();
