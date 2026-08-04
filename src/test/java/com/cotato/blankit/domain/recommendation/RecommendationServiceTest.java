@@ -3,6 +3,7 @@ package com.cotato.blankit.domain.recommendation;
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.service.RecommendationService;
@@ -493,5 +494,309 @@ class RecommendationServiceTest {
         assertThat(result.topTasks().get(0).rankOrder()).isEqualTo(1);
         assertThat(result.topTasks().get(1).rankOrder()).isEqualTo(2);
         assertThat(result.topTasks().get(2).rankOrder()).isEqualTo(3);
+    }
+
+    // ─── getRecommendationModes ───────────────────────────────────────────────
+
+    @Test
+    @DisplayName("활성 과업이 없으면 FIRE·BALANCE·TASTE·CLEAR 4개 모드가 반환되고 각 tasks는 비어있다")
+    void getRecommendationModes_noTasks_allModesEmpty() {
+        RecommendationModesResponse result = recommendationService.getRecommendationModes(user.getId());
+        assertThat(result.modes()).extracting(RecommendationModesResponse.RecommendationModeItem::mode)
+                .containsExactly("FIRE", "BALANCE", "TASTE", "CLEAR");
+        result.modes().forEach(m -> assertThat(m.tasks()).isEmpty());
+    }
+
+    // ─ FIRE ─────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("FIRE — HIGH 과업 1개의 estimatedTime이 totalMinutes 이상이면 해당 과업 1개만 recommendedMinutes=totalMinutes로 반환된다")
+    void getRecommendationModes_fire_singleHighFillsBudget() {
+        // n=1(HIGH), deadline=+2일, est=120 → totalMinutes=round(120/2)=60
+        // min(120, 60)=60 → recommendedMinutes=60
+        Task highTask = task("HIGH", TODAY.plusDays(2), 120, 0, false);
+
+        RecommendationModesResponse.RecommendationModeItem fire =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(0);
+
+        assertThat(fire.mode()).isEqualTo("FIRE");
+        assertThat(fire.tasks()).hasSize(1);
+        assertThat(fire.tasks().get(0).taskId()).isEqualTo(highTask.getId());
+        assertThat(fire.tasks().get(0).recommendedMinutes()).isEqualTo(60);
+    }
+
+    @Test
+    @DisplayName("FIRE — 1등 HIGH의 estimatedTime이 totalMinutes 미만이면 2등 HIGH도 greedy fill로 포함된다")
+    void getRecommendationModes_fire_twoHighGreedyFill() {
+        // n=7: highEnd=round(7×0.3)=2 → rank1·2=HIGH
+        // 점수가 모두 다르도록 deadline·progress를 1씩 증가
+        // totalMinutes=round(30/1+60/2+60/3+60/4+60/5+60/6+60/7)=round(125.57)=126
+        // high1.est=30 < 126 → add(30), remaining=96
+        // high2.est=60 < 96  → add(min(60,96)=60), remaining=36; HIGH 소진 → stop
+        Task high1 = task("HIGH1", TODAY.plusDays(1), 30,  0, false);
+        Task high2 = task("HIGH2", TODAY.plusDays(2), 60, 10, false);
+        task("MED1", TODAY.plusDays(3), 60, 20, false);
+        task("MED2", TODAY.plusDays(4), 60, 30, false);
+        task("MED3", TODAY.plusDays(5), 60, 40, false);
+        task("LOW1", TODAY.plusDays(6), 60, 50, false);
+        task("LOW2", TODAY.plusDays(7), 60, 60, false);
+
+        RecommendationModesResponse.RecommendationModeItem fire =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(0);
+
+        assertThat(fire.tasks()).hasSize(2);
+        assertThat(fire.tasks().get(0).taskId()).isEqualTo(high1.getId());
+        assertThat(fire.tasks().get(0).recommendedMinutes()).isEqualTo(30);
+        assertThat(fire.tasks().get(1).taskId()).isEqualTo(high2.getId());
+        assertThat(fire.tasks().get(1).recommendedMinutes()).isEqualTo(60);
+    }
+
+    @Test
+    @DisplayName("FIRE — estimatedTime=0인 HIGH 과업은 제외된다")
+    void getRecommendationModes_fire_highWithZeroEst_excluded() {
+        // n=3: HIGH(est=0, rank1), MEDIUM(est=60, rank2), LOW(est=60, rank3)
+        // FIRE: est>0 필터 → HIGH 제외 → 결과 비어있음
+        task("HIGH(zero)", TODAY.plusDays(1),  0, 0,  false);
+        task("MED",        TODAY.plusDays(2), 60, 20, false);
+        task("LOW",        TODAY.plusDays(3), 60, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem fire =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(0);
+
+        assertThat(fire.tasks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("FIRE — estimatedTime이 null인 HIGH 과업은 제외된다")
+    void getRecommendationModes_fire_highWithNullEst_excluded() {
+        // n=3: rank1=HIGH(null est), rank2=MEDIUM, rank3=LOW
+        taskNoEst("HIGH(null)", TODAY.plusDays(1), 0);
+        task("MED", TODAY.plusDays(2), 60, 20, false);
+        task("LOW", TODAY.plusDays(3), 60, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem fire =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(0);
+
+        assertThat(fire.tasks()).isEmpty();
+    }
+
+    // ─ BALANCE ──────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("BALANCE — estimatedTime이 가장 작은 MEDIUM/LOW 과업 + HIGH 1등 과업 조합")
+    void getRecommendationModes_balance_quickNonHighPlusTopHigh() {
+        // n=3: rank1=HIGH, rank2=MEDIUM(est=90), rank3=LOW(est=30)
+        // BALANCE: LOW가 est 최소 → [LOW(30), HIGH(120)]
+        Task highTask = task("HIGH", TODAY.plusDays(1), 120,  0, false);
+        Task medTask  = task("MED",  TODAY.plusDays(2),  90, 20, false);
+        Task lowTask  = task("LOW",  TODAY.plusDays(3),  30, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem balance =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(1);
+
+        assertThat(balance.mode()).isEqualTo("BALANCE");
+        assertThat(balance.tasks()).hasSize(2);
+        assertThat(balance.tasks().get(0).taskId()).isEqualTo(lowTask.getId());
+        assertThat(balance.tasks().get(0).recommendedMinutes()).isEqualTo(30);
+        assertThat(balance.tasks().get(1).taskId()).isEqualTo(highTask.getId());
+        assertThat(balance.tasks().get(1).recommendedMinutes()).isEqualTo(120);
+    }
+
+    @Test
+    @DisplayName("BALANCE — MEDIUM/LOW 과업 모두 estimatedTime이 없으면 HIGH 과업 1개만 반환된다")
+    void getRecommendationModes_balance_noNonHighWithEst_returnsHighOnly() {
+        // n=3: HIGH(est 있음), MEDIUM(null), LOW(null)
+        Task highTask = task("HIGH", TODAY.plusDays(1), 60,  0, false);
+        taskNoEst("MED", TODAY.plusDays(2), 20);
+        taskNoEst("LOW", TODAY.plusDays(3), 40);
+
+        RecommendationModesResponse.RecommendationModeItem balance =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(1);
+
+        assertThat(balance.tasks()).hasSize(1);
+        assertThat(balance.tasks().get(0).taskId()).isEqualTo(highTask.getId());
+    }
+
+    @Test
+    @DisplayName("BALANCE — estimatedTime=0인 MEDIUM/LOW 과업은 quickTask 후보에서 제외된다")
+    void getRecommendationModes_balance_zeroEstNonHigh_notPickedAsQuick() {
+        // n=3: HIGH(est=60, rank1), MEDIUM(est=0, rank2), LOW(est=30, rank3)
+        // quickTask: est>0 필터 → MEDIUM(0) 제외 → LOW(30)이 선택됨
+        Task highTask = task("HIGH", TODAY.plusDays(1), 60,  0, false);
+        task("MED",          TODAY.plusDays(2),  0,  20, false);
+        Task lowTask  = task("LOW",  TODAY.plusDays(3), 30, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem balance =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(1);
+
+        assertThat(balance.tasks()).hasSize(2);
+        assertThat(balance.tasks().get(0).taskId()).isEqualTo(lowTask.getId());
+        assertThat(balance.tasks().get(0).recommendedMinutes()).isEqualTo(30);
+        assertThat(balance.tasks().get(1).taskId()).isEqualTo(highTask.getId());
+        assertThat(balance.tasks().get(1).recommendedMinutes()).isEqualTo(60);
+    }
+
+    @Test
+    @DisplayName("BALANCE — HIGH 과업의 estimatedTime=0이면 highTask 슬롯이 생략된다")
+    void getRecommendationModes_balance_highWithZeroEst_highSlotOmitted() {
+        // n=3: HIGH(est=0, rank1), MEDIUM(est=60, rank2), LOW(est=30, rank3)
+        // highTask: est>0 필터 → HIGH(0) 제외 → null → highTask 슬롯 생략
+        // quickTask: est 최소인 LOW(30)이 선택
+        task("HIGH(zero)", TODAY.plusDays(1),  0,  0, false);
+        task("MED",        TODAY.plusDays(2), 60, 20, false);
+        Task lowTask = task("LOW", TODAY.plusDays(3), 30, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem balance =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(1);
+
+        assertThat(balance.tasks()).hasSize(1);
+        assertThat(balance.tasks().get(0).taskId()).isEqualTo(lowTask.getId());
+    }
+
+    // ─ TASTE ────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("TASTE — HIGH·MEDIUM·LOW 각 1등 과업이 순서대로 반환된다")
+    void getRecommendationModes_taste_oneFromEachPriority() {
+        // n=3: rank1=HIGH, rank2=MEDIUM, rank3=LOW
+        Task highTask = task("HIGH", TODAY.plusDays(1), 60,  0, false);
+        Task medTask  = task("MED",  TODAY.plusDays(2), 60, 20, false);
+        Task lowTask  = task("LOW",  TODAY.plusDays(3), 60, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem taste =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(2);
+
+        assertThat(taste.mode()).isEqualTo("TASTE");
+        assertThat(taste.tasks()).hasSize(3);
+        assertThat(taste.tasks().get(0).taskId()).isEqualTo(highTask.getId());
+        assertThat(taste.tasks().get(1).taskId()).isEqualTo(medTask.getId());
+        assertThat(taste.tasks().get(2).taskId()).isEqualTo(lowTask.getId());
+    }
+
+    @Test
+    @DisplayName("TASTE — 일부 우선순위가 없으면 해당 슬롯은 생략된다")
+    void getRecommendationModes_taste_missingPriority_slotOmitted() {
+        // n=2: rank1=HIGH, rank2=MEDIUM (LOW 없음)
+        Task highTask = task("HIGH", TODAY.plusDays(1), 60,  0, false);
+        Task medTask  = task("MED",  TODAY.plusDays(2), 60, 50, false);
+
+        RecommendationModesResponse.RecommendationModeItem taste =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(2);
+
+        assertThat(taste.tasks()).hasSize(2);
+        assertThat(taste.tasks().get(0).taskId()).isEqualTo(highTask.getId());
+        assertThat(taste.tasks().get(1).taskId()).isEqualTo(medTask.getId());
+    }
+
+    @Test
+    @DisplayName("TASTE — estimatedTime=0인 과업은 우선순위 대표 과업 선택에서 제외된다")
+    void getRecommendationModes_taste_zeroEstTask_excluded() {
+        // n=3: HIGH(est=0, rank1), MEDIUM(est=60, rank2), LOW(est=90, rank3)
+        // firstByPriority: est>0 필터 → HIGH(0) 제외 → HIGH 슬롯 없음
+        task("HIGH(zero)", TODAY.plusDays(1),  0,  0, false);
+        Task medTask = task("MED", TODAY.plusDays(2), 60, 20, false);
+        Task lowTask = task("LOW", TODAY.plusDays(3), 90, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem taste =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(2);
+
+        assertThat(taste.tasks()).hasSize(2);
+        assertThat(taste.tasks().get(0).taskId()).isEqualTo(medTask.getId());
+        assertThat(taste.tasks().get(1).taskId()).isEqualTo(lowTask.getId());
+    }
+
+    // ─ CLEAR ────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("CLEAR — estimatedTime 오름차순으로 정렬하여 남은 시간 안에 들어오는 과업을 조합한다")
+    void getRecommendationModes_clear_sortedByEstimatedTimeAsc() {
+        // urgency: taskSmall(+1일)=1, taskMid(+2일)=2, taskLarge(+3일)=3
+        // progress: taskLarge(0%)=1, taskSmall(20%)=2, taskMid(40%)=3
+        // scores: taskSmall=1.20(HIGH), taskMid=2.20(MEDIUM), taskLarge=2.60(LOW)
+        // totalMinutes=round(30/1+60/2+180/3)=round(120)=120
+        // CLEAR est 오름차순: [taskSmall(30), taskMid(60), taskLarge(180)]
+        // 1등 est=30 <= 120 → greedy:
+        //   taskSmall(30<=120): add, remaining=90
+        //   taskMid(60<=90): add, remaining=30
+        //   taskLarge(180>30): skip
+        Task taskLarge = task("큰예상",  TODAY.plusDays(3), 180,  0, false);
+        Task taskSmall = task("작은예상", TODAY.plusDays(1),  30, 20, false);
+        Task taskMid   = task("중간예상", TODAY.plusDays(2),  60, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem clear =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(3);
+
+        assertThat(clear.mode()).isEqualTo("CLEAR");
+        assertThat(clear.tasks()).hasSize(2);
+        assertThat(clear.tasks().get(0).taskId()).isEqualTo(taskSmall.getId());
+        assertThat(clear.tasks().get(0).recommendedMinutes()).isEqualTo(30);
+        assertThat(clear.tasks().get(1).taskId()).isEqualTo(taskMid.getId());
+        assertThat(clear.tasks().get(1).recommendedMinutes()).isEqualTo(60);
+    }
+
+    @Test
+    @DisplayName("CLEAR — 1등 과업의 estimatedTime이 totalMinutes 초과이면 해당 과업 1개만 recommendedMinutes=totalMinutes로 반환된다")
+    void getRecommendationModes_clear_firstTaskExceedsBudget_returnsOnlyFirst() {
+        // n=1(HIGH), est=300, deadline=+2일 → totalMinutes=round(300/2)=150
+        // 300>150 → 1개만, recommendedMinutes=150
+        Task bigTask = task("큰과업", TODAY.plusDays(2), 300, 0, false);
+
+        RecommendationModesResponse.RecommendationModeItem clear =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(3);
+
+        assertThat(clear.tasks()).hasSize(1);
+        assertThat(clear.tasks().get(0).taskId()).isEqualTo(bigTask.getId());
+        assertThat(clear.tasks().get(0).recommendedMinutes()).isEqualTo(150);
+    }
+
+    @Test
+    @DisplayName("CLEAR — 오늘 마감 과업만 있으면 totalMinutes=0이므로 빈 목록을 반환한다")
+    void getRecommendationModes_clear_onlyTodayDeadlineTasks_returnsEmpty() {
+        // 오늘 마감 과업은 calculateTotalMinutes에서 days=0으로 제외 → totalMinutes=0
+        // totalMinutes<=0 조기 반환 없으면 first.est>0 조건이 항상 참 → recommendedMinutes=0 항목 반환하는 버그
+        task("오늘마감A", TODAY, 60, 0,  false);
+        task("오늘마감B", TODAY, 30, 20, false);
+
+        RecommendationModesResponse.RecommendationModeItem clear =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(3);
+
+        assertThat(clear.tasks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("CLEAR — estimatedTime=0인 과업은 시간 채우기 목록에서 제외된다")
+    void getRecommendationModes_clear_zeroEstTask_excluded() {
+        // n=3: HIGH(est=0, rank1), MEDIUM(est=30, rank2), LOW(est=60, rank3)
+        // totalMinutes=round(0/1+30/2+60/3)=round(35)=35
+        // byEstimated: est>0 필터 → [MEDIUM(30), LOW(60)]
+        // MEDIUM(30<=35) → add, remaining=5; LOW(60>5) → skip
+        task("HIGH(zero)", TODAY.plusDays(1),  0,  0, false);
+        Task medTask = task("MED", TODAY.plusDays(2), 30, 20, false);
+        task("LOW",        TODAY.plusDays(3), 60, 40, false);
+
+        RecommendationModesResponse.RecommendationModeItem clear =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(3);
+
+        assertThat(clear.tasks()).hasSize(1);
+        assertThat(clear.tasks().get(0).taskId()).isEqualTo(medTask.getId());
+        assertThat(clear.tasks().get(0).recommendedMinutes()).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("CLEAR — estimatedTime이 null인 과업은 제외된다")
+    void getRecommendationModes_clear_nullEst_excluded() {
+        // n=2: rank1=HIGH(null est), rank2=MEDIUM(est=60)
+        // totalMinutes: HIGH(null) 제외 → round(60/2)=30
+        // CLEAR byEstimated: [medTask(60)] (null 제외)
+        // medTask.est=60 > totalMinutes=30 → 1개만, recommendedMinutes=30
+        taskNoEst("HIGH(null)", TODAY.plusDays(1), 0);
+        Task medTask = task("MED", TODAY.plusDays(2), 60, 20, false);
+
+        RecommendationModesResponse.RecommendationModeItem clear =
+                recommendationService.getRecommendationModes(user.getId()).modes().get(3);
+
+        assertThat(clear.tasks()).hasSize(1);
+        assertThat(clear.tasks().get(0).taskId()).isEqualTo(medTask.getId());
+        assertThat(clear.tasks().get(0).recommendedMinutes()).isEqualTo(30);
     }
 }
