@@ -56,6 +56,7 @@ public enum ErrorCode {
     SESSION_ALREADY_DONE(HttpStatus.CONFLICT, "SESSION_ALREADY_DONE", "이미 완료된 세션입니다."),
     FEEDBACK_DUPLICATE(HttpStatus.CONFLICT, "FEEDBACK_DUPLICATE", "이미 피드백이 존재합니다."),
     FEEDBACK_CONTENT_REQUIRED(HttpStatus.BAD_REQUEST, "FEEDBACK_CONTENT_REQUIRED", "progressRate, memo, steps 중 하나는 반드시 있어야 합니다."),
+    DUPLICATE_STEP_ID(HttpStatus.BAD_REQUEST, "DUPLICATE_STEP_ID", "중복된 단계 ID가 포함되어 있습니다."),
 
     // Playlist
     PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다."),

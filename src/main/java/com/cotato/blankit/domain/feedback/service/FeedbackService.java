@@ -87,6 +87,12 @@ public class FeedbackService {
         if (request.steps() == null || request.steps().isEmpty()) {
             return request.progressRate();
         }
+        List<Long> stepIds = request.steps().stream()
+                .map(FeedbackSubmitRequest.StepProgressItem::stepId)
+                .toList();
+        if (stepIds.size() != stepIds.stream().distinct().count()) {
+            throw new CustomException(ErrorCode.DUPLICATE_STEP_ID);
+        }
         Map<Long, Integer> stepProgressMap = request.steps().stream()
                 .collect(Collectors.toMap(
                         FeedbackSubmitRequest.StepProgressItem::stepId,
