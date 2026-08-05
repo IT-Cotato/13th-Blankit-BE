@@ -28,4 +28,18 @@ public class TaskStep extends BaseEntity {
 
     @Column(nullable = false)
     private int sortOrder;
+
+    public static TaskStep create(Task task, String title) {
+        TaskStep step = new TaskStep();
+        step.task = task;
+        step.title = title;
+        step.progressRate = 0;
+        step.sortOrder = 0;
+        return step;
+    }
+
+    public void update(String title, Integer progressRate) {
+        if (title != null) this.title = title;
+        if (progressRate != null) this.progressRate = progressRate;
+    }
 }

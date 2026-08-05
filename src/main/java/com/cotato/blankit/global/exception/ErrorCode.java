@@ -26,6 +26,7 @@ public enum ErrorCode {
 
     // Task
     TASK_NOT_FOUND(HttpStatus.NOT_FOUND, "TASK_NOT_FOUND", "과업을 찾을 수 없습니다."),
+    TASK_STEP_NOT_FOUND(HttpStatus.NOT_FOUND, "TASK_STEP_NOT_FOUND", "세부 단계를 찾을 수 없습니다."),
     CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "CATEGORY_NOT_FOUND", "카테고리를 찾을 수 없습니다."),
     CATEGORY_REQUIRED(HttpStatus.BAD_REQUEST, "CATEGORY_REQUIRED", "사용 가능한 카테고리가 필요합니다."),
     CATEGORY_COLOR_ALREADY_USED(HttpStatus.CONFLICT, "CATEGORY_COLOR_ALREADY_USED", "이미 사용 중인 카테고리 색상입니다."),
@@ -54,6 +55,8 @@ public enum ErrorCode {
     SESSION_ALREADY_PLAYING(HttpStatus.CONFLICT, "SESSION_ALREADY_PLAYING", "이미 실행 중인 세션이 있습니다."),
     SESSION_ALREADY_DONE(HttpStatus.CONFLICT, "SESSION_ALREADY_DONE", "이미 완료된 세션입니다."),
     FEEDBACK_DUPLICATE(HttpStatus.CONFLICT, "FEEDBACK_DUPLICATE", "이미 피드백이 존재합니다."),
+    FEEDBACK_CONTENT_REQUIRED(HttpStatus.BAD_REQUEST, "FEEDBACK_CONTENT_REQUIRED", "progressRate, memo, steps 중 하나는 반드시 있어야 합니다."),
+    DUPLICATE_STEP_ID(HttpStatus.BAD_REQUEST, "DUPLICATE_STEP_ID", "중복된 단계 ID가 포함되어 있습니다."),
 
     // Playlist
     PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다."),

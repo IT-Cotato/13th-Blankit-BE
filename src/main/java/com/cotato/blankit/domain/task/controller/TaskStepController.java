@@ -1,47 +1,48 @@
 package com.cotato.blankit.domain.task.controller;
 
-import com.cotato.blankit.domain.task.dto.request.TaskStepBulkCreateRequest;
+import com.cotato.blankit.domain.task.dto.request.TaskStepCreateRequest;
 import com.cotato.blankit.domain.task.dto.request.TaskStepUpdateRequest;
 import com.cotato.blankit.domain.task.dto.response.TaskStepResponse;
-import com.cotato.blankit.global.config.swagger.NotImplementedYet;
+import com.cotato.blankit.domain.task.service.TaskStepService;
 import com.cotato.blankit.global.response.ApiResponse;
+import com.cotato.blankit.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@NotImplementedYet
 @Tag(name = "과업 - 세부 단계", description = "과업 세부 단계(TaskStep) 관리 API")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/tasks/{taskId}/steps")
 public class TaskStepController {
 
+    private final TaskStepService taskStepService;
+
     @Operation(summary = "세부 단계 목록 조회",
-            description = "과업에 등록된 세부 단계를 sort_order 오름차순으로 반환합니다.")
+            description = "과업에 등록된 세부 단계를 생성 순서대로 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "과업 없음")
     })
     @GetMapping
-    public ApiResponse<List<TaskStepResponse>> getSteps(@PathVariable Long taskId) {
-        return ApiResponse.success(List.of(
-                new TaskStepResponse(1L, "개념 정리", 100, 0),
-                new TaskStepResponse(2L, "문제 풀이", 20, 1),
-                new TaskStepResponse(3L, "전체 복습하기", 0, 2)
-        ));
+    public ApiResponse<List<TaskStepResponse>> getSteps(
+            @PathVariable Long taskId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(taskStepService.getSteps(taskId, userDetails.getUserId()));
     }
 
-    @Operation(summary = "세부 단계 일괄 생성",
-            description = "세부 단계를 일괄 생성합니다. " +
-                    "피드백 화면에서 단계 쪼개기 버튼 클릭 시 기본 3개(개념 정리·문제 풀이·전체 복습하기)가 전달됩니다. " +
-                    "기존 단계가 있으면 모두 교체됩니다.")
+    @Operation(summary = "세부 단계 생성",
+            description = "세부 단계를 하나 추가합니다. 첫 단계 추가 시 과업 진행률이 0으로 초기화됩니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "생성 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효성 오류"),
@@ -50,14 +51,11 @@ public class TaskStepController {
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<List<TaskStepResponse>> createSteps(
+    public ApiResponse<TaskStepResponse> createStep(
             @PathVariable Long taskId,
-            @RequestBody @Valid TaskStepBulkCreateRequest request) {
-        List<TaskStepResponse> steps = new java.util.ArrayList<>();
-        for (int i = 0; i < request.steps().size(); i++) {
-            steps.add(new TaskStepResponse((long) (i + 1), request.steps().get(i).title(), 0, i));
-        }
-        return ApiResponse.success(steps);
+            @RequestBody @Valid TaskStepCreateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(taskStepService.createStep(taskId, userDetails.getUserId(), request));
     }
 
     @Operation(summary = "세부 단계 수정",
@@ -73,17 +71,13 @@ public class TaskStepController {
     public ApiResponse<TaskStepResponse> updateStep(
             @PathVariable Long taskId,
             @PathVariable Long stepId,
-            @RequestBody @Valid TaskStepUpdateRequest request) {
-        return ApiResponse.success(new TaskStepResponse(
-                stepId,
-                request.title() != null ? request.title() : "개념 정리",
-                request.progressRate() != null ? request.progressRate() : 0,
-                0
-        ));
+            @RequestBody @Valid TaskStepUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(taskStepService.updateStep(taskId, stepId, userDetails.getUserId(), request));
     }
 
     @Operation(summary = "세부 단계 삭제",
-            description = "세부 단계를 삭제합니다.")
+            description = "세부 단계를 삭제합니다. 삭제 후 전체 과업 진행률이 자동 재계산됩니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
@@ -92,7 +86,9 @@ public class TaskStepController {
     @DeleteMapping("/{stepId}")
     public ApiResponse<Void> deleteStep(
             @PathVariable Long taskId,
-            @PathVariable Long stepId) {
+            @PathVariable Long stepId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        taskStepService.deleteStep(taskId, stepId, userDetails.getUserId());
         return ApiResponse.success();
     }
 }
