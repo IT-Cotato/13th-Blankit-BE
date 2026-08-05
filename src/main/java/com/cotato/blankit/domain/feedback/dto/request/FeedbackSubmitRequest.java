@@ -34,9 +34,10 @@ public record FeedbackSubmitRequest(
             Long stepId,
 
             @Schema(description = "진척도 (0~100)", example = "50")
+            @NotNull(message = "단계 진척도는 필수입니다.")
             @Min(value = 0, message = "진척도는 0 이상이어야 합니다.")
             @Max(value = 100, message = "진척도는 100 이하여야 합니다.")
-            int progressRate
+            Integer progressRate
     ) {
     }
 }
