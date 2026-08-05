@@ -74,8 +74,10 @@ public class FeedbackService {
                 playlistItemRepository.deleteByTask(task);
             }
         }
-        if (!request.isDraft() && effectiveProgressRate != null && effectiveProgressRate > 0) {
-            updateEstimatedTime(userId, feedback, session.getTask());
+        if (!request.isDraft() && effectiveProgressRate != null) {
+            if (effectiveProgressRate > 0) {
+                updateEstimatedTime(userId, feedback, session.getTask());
+            }
             session.getTask().updateProgressRate(effectiveProgressRate);
         }
         return FeedbackResponse.from(feedback);
