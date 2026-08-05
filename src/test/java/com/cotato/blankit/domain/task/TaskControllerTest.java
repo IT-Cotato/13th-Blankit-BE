@@ -360,6 +360,21 @@ class TaskControllerTest {
     }
 
     @Test
+    void categoryUpdateRejectsColorOutsideFixedPalette() throws Exception {
+        mockMvc.perform(patch("/api/categories/{categoryId}", studyCategory.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "color": "#123456"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
     void availableColorsExcludesAllThreeDefaultCategoryColors() throws Exception {
         categoryRepository.save(Category.create(user, "기념일", "#FBF965", "pin", 2, true));
 
