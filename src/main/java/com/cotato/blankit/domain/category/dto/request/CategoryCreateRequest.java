@@ -11,7 +11,7 @@ public record CategoryCreateRequest(
         @Size(max = 100, message = "카테고리명은 최대 100자까지 입력할 수 있습니다.")
         String name,
 
-        @Schema(description = "카테고리 색상 HEX 값. 같은 사용자 내 활성 카테고리와 중복될 수 없습니다.", example = "#FFB85C", pattern = "^#[0-9A-Fa-f]{6}$", maxLength = 20)
+        @Schema(description = "고정 팔레트의 카테고리 색상 HEX 값. 같은 사용자 내 활성 카테고리와 중복될 수 없습니다.", example = "#FC5F5F", pattern = "^#[0-9A-Fa-f]{6}$", maxLength = 20)
         @NotBlank(message = "카테고리 색상은 필수입니다.")
         @Size(max = 20, message = "카테고리 색상은 최대 20자까지 입력할 수 있습니다.")
         String color,

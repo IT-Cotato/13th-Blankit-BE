@@ -14,22 +14,34 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class CategoryService {
 
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#[0-9A-Fa-f]{6}$");
-    private static final int GENERATED_COLOR_CANDIDATE_LIMIT = 360;
+    private static final List<String> CATEGORY_COLORS = List.of(
+            "#FC5F5F",
+            "#FF9A33",
+            "#FBF965",
+            "#D3FB65",
+            "#5BE478",
+            "#5BE4CB",
+            "#6FD4FF",
+            "#B3BBFA",
+            "#F2B3FA",
+            "#C5C9CD"
+    );
 
     private static final List<DefaultCategory> DEFAULT_CATEGORIES = List.of(
-            new DefaultCategory("학업", "#5C9EFF", "pen", 0),
-            new DefaultCategory("일상", "#5CFF8A", "msg", 1),
-            new DefaultCategory("기념일", "#FFB85C", "pin", 2)
+            new DefaultCategory("학업", "#FC5F5F", "pen", 0),
+            new DefaultCategory("일상", "#FF9A33", "msg", 1),
+            new DefaultCategory("기념일", "#FBF965", "pin", 2)
     );
 
     private final CategoryRepository categoryRepository;
@@ -99,82 +111,18 @@ public class CategoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<String> getAvailableColors(Long userId, Long editingCategoryId) {
-        Category editingCategory = editingCategoryId == null ? null : getActiveCategory(userId, editingCategoryId);
-        return getRecommendedColors(userId, editingCategory);
+    public List<String> getAvailableColors(Long userId) {
+        return getRecommendedColors(userId);
     }
 
-    private List<String> getRecommendedColors(Long userId, Category editingCategory) {
-        List<String> suggestedColors = new ArrayList<>(DEFAULT_CATEGORIES.stream()
-                .map(DefaultCategory::color)
-                .distinct()
-                .toList());
-        if (editingCategory != null && !suggestedColors.contains(editingCategory.getColor())) {
-            suggestedColors.add(0, editingCategory.getColor());
-        }
-        return toAvailableColors(userId, editingCategory, suggestedColors);
-    }
+    private List<String> getRecommendedColors(Long userId) {
+        Set<String> usedColors = getActiveCategories(userId).stream()
+                .map(Category::getColor)
+                .collect(Collectors.toSet());
 
-    private List<String> toAvailableColors(Long userId, Category editingCategory, List<String> suggestedColors) {
-        List<String> availableColors = suggestedColors.stream()
-                .filter(color -> editingCategory != null && color.equals(editingCategory.getColor())
-                        || !categoryRepository.existsByUserIdAndColorAndDeletedFalse(userId, color))
+        return CATEGORY_COLORS.stream()
+                .filter(color -> !usedColors.contains(color))
                 .toList();
-        if (availableColors.isEmpty()) {
-            return List.of(generateUnusedColor(userId));
-        }
-        return availableColors;
-    }
-
-    private String generateUnusedColor(Long userId) {
-        for (int index = 0; index < GENERATED_COLOR_CANDIDATE_LIMIT; index++) {
-            String color = generateColorCandidate(index);
-            if (!categoryRepository.existsByUserIdAndColorAndDeletedFalse(userId, color)) {
-                return color;
-            }
-        }
-        throw new CustomException(ErrorCode.INVALID_INPUT);
-    }
-
-    private String generateColorCandidate(int index) {
-        double hue = (210 + index * 137.508) % 360;
-        return hslToHex(hue, 0.62, 0.62);
-    }
-
-    private String hslToHex(double hue, double saturation, double lightness) {
-        double c = (1 - Math.abs(2 * lightness - 1)) * saturation;
-        double h = hue / 60;
-        double x = c * (1 - Math.abs(h % 2 - 1));
-        double r = 0;
-        double g = 0;
-        double b = 0;
-        if (h < 1) {
-            r = c;
-            g = x;
-        } else if (h < 2) {
-            r = x;
-            g = c;
-        } else if (h < 3) {
-            g = c;
-            b = x;
-        } else if (h < 4) {
-            g = x;
-            b = c;
-        } else if (h < 5) {
-            r = x;
-            b = c;
-        } else {
-            r = c;
-            b = x;
-        }
-        double m = lightness - c / 2;
-        return String.format(
-                Locale.ROOT,
-                "#%02X%02X%02X",
-                Math.round((r + m) * 255),
-                Math.round((g + m) * 255),
-                Math.round((b + m) * 255)
-        );
     }
 
     @Transactional(readOnly = true)
@@ -217,7 +165,11 @@ public class CategoryService {
         if (!HEX_COLOR_PATTERN.matcher(normalizedColor).matches()) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
-        return normalizedColor.toUpperCase(Locale.ROOT);
+        String uppercaseColor = normalizedColor.toUpperCase(Locale.ROOT);
+        if (!CATEGORY_COLORS.contains(uppercaseColor)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+        return uppercaseColor;
     }
 
     private User getUser(Long userId) {

@@ -1,6 +1,7 @@
 package com.cotato.blankit.domain.auth;
 
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
+import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
@@ -95,6 +96,14 @@ class AuthControllerTest {
         User savedUser = userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "signup-1")
                 .orElseThrow();
         org.assertj.core.api.Assertions.assertThat(categoryRepository.countByUserId(savedUser.getId())).isEqualTo(3);
+        org.assertj.core.api.Assertions.assertThat(
+                        categoryRepository.findByUserIdAndDeletedFalseOrderBySortOrderAscCreatedAtAscIdAsc(savedUser.getId()))
+                .extracting(Category::getName, Category::getColor)
+                .containsExactly(
+                        org.assertj.core.api.Assertions.tuple("학업", "#FC5F5F"),
+                        org.assertj.core.api.Assertions.tuple("일상", "#FF9A33"),
+                        org.assertj.core.api.Assertions.tuple("기념일", "#FBF965")
+                );
         org.assertj.core.api.Assertions.assertThat(userNotificationSettingRepository.findByUserId(savedUser.getId()))
                 .isPresent()
                 .get()

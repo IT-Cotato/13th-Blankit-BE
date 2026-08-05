@@ -7,7 +7,6 @@ import com.cotato.blankit.domain.category.service.CategoryService;
 import com.cotato.blankit.global.response.ApiResponse;
 import com.cotato.blankit.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -42,7 +40,7 @@ public class CategoryController {
         return ApiResponse.success(categoryService.getCategories(userDetails.getUserId()));
     }
 
-    @Operation(summary = "카테고리 생성", description = "같은 이름은 허용하지만 같은 회원의 활성 카테고리 색상 중복은 허용하지 않습니다. color는 프론트가 사용하는 색상값 문자열입니다.")
+    @Operation(summary = "카테고리 생성", description = "같은 이름은 허용하지만 같은 회원의 활성 카테고리 색상 중복은 허용하지 않습니다. color는 고정 카테고리 팔레트의 HEX 값이어야 합니다.")
     @PostMapping
     public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -52,7 +50,7 @@ public class CategoryController {
                 .body(ApiResponse.success(categoryService.createCategory(userDetails.getUserId(), request)));
     }
 
-    @Operation(summary = "카테고리 수정", description = "수정 대상 자신의 현재 색상은 유지할 수 있습니다. color는 프론트가 사용하는 색상값 문자열입니다.")
+    @Operation(summary = "카테고리 수정", description = "수정 대상 자신의 현재 색상은 유지할 수 있습니다. color는 고정 카테고리 팔레트의 HEX 값이어야 합니다.")
     @PatchMapping("/{categoryId}")
     public ApiResponse<CategoryResponse> updateCategory(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -72,13 +70,9 @@ public class CategoryController {
         return ApiResponse.success();
     }
 
-    @Operation(summary = "추천 카테고리 색상 조회", description = "기본 추천 HEX 색상 중 현재 회원의 활성 카테고리에서 사용하지 않은 값을 반환합니다. 기본 추천 색상을 모두 사용 중이면 서버가 새 미사용 HEX 색상을 생성해 반환합니다. 실제 생성/수정 API는 이 목록 외의 HEX 색상도 받을 수 있으며, 수정 화면에서는 editingCategoryId의 현재 색상을 포함합니다.")
+    @Operation(summary = "사용 가능한 카테고리 색상 조회", description = "고정 팔레트 10개 중 현재 회원의 활성 카테고리가 사용하지 않는 색상만 반환합니다. 모두 사용 중이면 빈 배열을 반환하며, 삭제된 카테고리의 색상은 다시 사용할 수 있습니다.")
     @GetMapping("/available-colors")
-    public ApiResponse<List<String>> getAvailableColors(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Parameter(description = "수정 중인 카테고리 ID", example = "1")
-            @RequestParam(required = false) Long editingCategoryId
-    ) {
-        return ApiResponse.success(categoryService.getAvailableColors(userDetails.getUserId(), editingCategoryId));
+    public ApiResponse<List<String>> getAvailableColors(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.success(categoryService.getAvailableColors(userDetails.getUserId()));
     }
 }
