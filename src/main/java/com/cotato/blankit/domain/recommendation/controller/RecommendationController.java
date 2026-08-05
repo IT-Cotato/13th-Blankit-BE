@@ -75,7 +75,6 @@ public class RecommendationController {
                 recommendationService.getThirtyMinutePackRecommendation(userDetails.getUserId(), availableMinutes));
     }
 
-    @NotImplementedYet
     @Operation(summary = "과업 조합 추천 목록 조회",
             description = "FIRE(불끄기)·BALANCE(밸런스)·TASTE(찍먹)·CLEAR(해치우기) 모드별 과업 조합을 반환합니다. " +
                     "홈 화면 '과업 조합 추천' 영역에 사용됩니다. 각 모드의 추천 로직은 logic-spec 4번 참고.\n\n" +
