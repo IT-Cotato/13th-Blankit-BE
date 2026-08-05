@@ -21,6 +21,7 @@ import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
+import com.cotato.blankit.domain.task.repository.TaskStepRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.PlayIntervalRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
@@ -70,6 +71,7 @@ public class TaskService {
     private final RepeatDeadlineRefreshService repeatDeadlineRefreshService;
     private final Clock clock;
     private final TaskDeadlineNotificationScheduleService taskDeadlineScheduleService;
+    private final TaskStepRepository taskStepRepository;
 
     @Transactional
     public TaskFormOptionsResponse getFormOptions(Long userId) {
@@ -211,6 +213,7 @@ public class TaskService {
         removedOccurrenceIds.forEach(taskDeadlineScheduleService::cancelTask);
         taskRepository.clearSimilarTaskBySimilarTaskIdAndUserId(task.getId(), userId);
         taskRepository.clearSourceTaskBySourceTaskIdAndUserId(task.getId(), userId);
+        taskStepRepository.deleteAllByTaskId(task.getId());
         feedbackRepository.deleteByTask_Id(task.getId());
         playIntervalRepository.deleteByTaskSession_Task_Id(task.getId());
         taskSessionRepository.deleteByTaskId(task.getId());
@@ -328,6 +331,7 @@ public class TaskService {
                     occurrence.getId(),
                     sourceTask.getUser().getId()
             );
+            taskStepRepository.deleteAllByTaskId(occurrence.getId());
             feedbackRepository.deleteByTask_Id(occurrence.getId());
             taskSessionRepository.deleteByTaskId(occurrence.getId());
             playlistItemRepository.deleteByTask(occurrence);
