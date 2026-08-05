@@ -307,8 +307,13 @@ class AuthControllerTest {
                                   "socialToken": "verified:KAKAO:unknown"
                                 }
                                 """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOCIAL_ACCOUNT_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("가입되지 않은 소셜 계정입니다."));
+
+        org.assertj.core.api.Assertions.assertThat(
+                        userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "unknown"))
+                .isEmpty();
     }
 
     @Test
