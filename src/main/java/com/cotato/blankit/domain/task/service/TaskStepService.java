@@ -47,6 +47,9 @@ public class TaskStepService {
 
     @Transactional
     public TaskStepResponse updateStep(Long taskId, Long stepId, Long userId, TaskStepUpdateRequest request) {
+        if (request.title() != null && request.title().isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_TASK_TITLE);
+        }
         Task task = verifyTaskOwnership(taskId, userId);
         TaskStep step = taskStepRepository.findByTaskStepIdAndTaskId(stepId, taskId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TASK_STEP_NOT_FOUND));

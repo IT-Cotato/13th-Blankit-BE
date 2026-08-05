@@ -46,6 +46,7 @@ public class FeedbackService {
 
     @Transactional
     public FeedbackResponse submitFeedback(Long userId, Long sessionId, FeedbackSubmitRequest request) {
+        validateContentProvided(request);
         TaskSession session = getSessionAndVerifyOwner(userId, sessionId);
         Integer effectiveProgressRate = resolveProgressRate(request, session.getTask().getId());
         Feedback feedback = feedbackRepository.findByTaskSessionAndIsDraftTrue(session)
@@ -129,6 +130,15 @@ public class FeedbackService {
         }
 
         feedback.updateMetrics(prevRate, cumulativeElapsedSeconds, consecutiveCount, intervalDiff);
+    }
+
+    private void validateContentProvided(FeedbackSubmitRequest request) {
+        boolean hasProgressRate = request.progressRate() != null;
+        boolean hasMemo = request.memo() != null && !request.memo().isBlank();
+        boolean hasSteps = request.steps() != null && !request.steps().isEmpty();
+        if (!hasProgressRate && !hasMemo && !hasSteps) {
+            throw new CustomException(ErrorCode.FEEDBACK_CONTENT_REQUIRED);
+        }
     }
 
     private TaskSession getSessionAndVerifyOwner(Long userId, Long sessionId) {

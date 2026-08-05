@@ -18,6 +18,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -26,7 +28,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.cotato.blankit.global.exception.CustomException;
+import com.cotato.blankit.global.exception.ErrorCode;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -73,6 +79,51 @@ class FeedbackServiceStepTest {
 
         given(clock.instant()).willReturn(Instant.parse("2026-08-05T00:00:00Z"));
         given(clock.getZone()).willReturn(ZoneId.of("Asia/Seoul"));
+    }
+
+    // ─── 콘텐츠 필수 검증 ────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("콘텐츠 필수 검증")
+    @MockitoSettings(strictness = Strictness.LENIENT)
+    class ContentRequired {
+
+        @Test
+        @DisplayName("progressRate·memo·steps가 모두 없으면 FEEDBACK_CONTENT_REQUIRED 예외가 발생하고 세션 조회를 하지 않는다")
+        void submitFeedback_noContent_throwsFeedbackContentRequired() {
+            // given
+            FeedbackSubmitRequest request = new FeedbackSubmitRequest(null, null, false, null);
+
+            // when & then
+            assertThatThrownBy(() -> feedbackService.submitFeedback(USER_ID, SESSION_ID, request))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.FEEDBACK_CONTENT_REQUIRED);
+            then(taskSessionRepository).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("memo가 공백 문자열이고 나머지가 없으면 FEEDBACK_CONTENT_REQUIRED 예외가 발생한다")
+        void submitFeedback_blankMemoOnly_throwsFeedbackContentRequired() {
+            // given
+            FeedbackSubmitRequest request = new FeedbackSubmitRequest(null, "   ", false, null);
+
+            // when & then
+            assertThatThrownBy(() -> feedbackService.submitFeedback(USER_ID, SESSION_ID, request))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.FEEDBACK_CONTENT_REQUIRED);
+        }
+
+        @Test
+        @DisplayName("steps가 빈 리스트이고 나머지가 없으면 FEEDBACK_CONTENT_REQUIRED 예외가 발생한다")
+        void submitFeedback_emptyStepsOnly_throwsFeedbackContentRequired() {
+            // given
+            FeedbackSubmitRequest request = new FeedbackSubmitRequest(null, null, false, List.of());
+
+            // when & then
+            assertThatThrownBy(() -> feedbackService.submitFeedback(USER_ID, SESSION_ID, request))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.FEEDBACK_CONTENT_REQUIRED);
+        }
     }
 
     // ─── steps 없음 ─────────────────────────────────────────────────────────────

@@ -207,6 +207,16 @@ class TaskStepServiceTest {
         }
 
         @Test
+        @DisplayName("제목이 공백 문자열이면 INVALID_TASK_TITLE 예외가 발생하고 소유권 확인을 하지 않는다")
+        void updateStep_blankTitle_throwsInvalidTaskTitle() {
+            // given & when & then
+            assertThatThrownBy(() -> taskStepService.updateStep(TASK_ID, STEP_ID, USER_ID, new TaskStepUpdateRequest("   ", null)))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_TASK_TITLE);
+            then(taskRepository).shouldHaveNoInteractions();
+        }
+
+        @Test
         @DisplayName("단계가 없으면 TASK_STEP_NOT_FOUND 예외가 발생한다")
         void updateStep_stepNotFound() {
             // given
