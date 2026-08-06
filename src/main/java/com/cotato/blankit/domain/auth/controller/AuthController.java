@@ -10,6 +10,7 @@ import com.cotato.blankit.domain.auth.service.AuthService;
 import com.cotato.blankit.global.response.ApiResponse;
 import com.cotato.blankit.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,8 +40,15 @@ public class AuthController {
 
     @Operation(
             summary = "소셜 로그인",
-            description = "socialProvider + socialId로 사용자를 조회하고 JWT Access Token과 Refresh Token을 발급합니다."
+            description = "소셜 토큰을 검증한 뒤 socialProvider + socialId로 가입 사용자를 조회하고 JWT Access Token과 Refresh Token을 발급합니다. 유효한 소셜 계정이지만 미가입 상태라면 SOCIAL_ACCOUNT_NOT_FOUND를 반환합니다."
     )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청값 유효성 오류"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS - 소셜 토큰 또는 소셜 ID 불일치"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SOCIAL_ACCOUNT_NOT_FOUND - 인증된 소셜 계정의 가입 정보 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "REFRESH_TOKEN_CONFLICT - Refresh Token 저장 또는 갱신 충돌")
+    })
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.success(authService.login(request));

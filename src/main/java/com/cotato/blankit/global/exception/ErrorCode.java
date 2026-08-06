@@ -17,6 +17,7 @@ public enum ErrorCode {
     // Auth/User
     DUPLICATE_SOCIAL_ACCOUNT(HttpStatus.CONFLICT, "DUPLICATE_SOCIAL_ACCOUNT", "이미 가입된 소셜 계정입니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "인증 정보가 올바르지 않습니다."),
+    SOCIAL_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "SOCIAL_ACCOUNT_NOT_FOUND", "가입되지 않은 소셜 계정입니다."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "유효하지 않은 리프레시 토큰입니다."),
     REFRESH_TOKEN_CONFLICT(HttpStatus.CONFLICT, "REFRESH_TOKEN_CONFLICT", "리프레시 토큰 처리 중 충돌이 발생했습니다. 다시 시도해주세요."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."),

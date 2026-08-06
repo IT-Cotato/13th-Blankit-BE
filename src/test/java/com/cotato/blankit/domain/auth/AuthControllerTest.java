@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.auth;
 
+import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
@@ -51,6 +52,9 @@ class AuthControllerTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -296,7 +300,25 @@ class AuthControllerTest {
     }
 
     @Test
+    void socialLoginWithMismatchedSocialIdFails() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "claimed-id",
+                                  "socialToken": "verified:KAKAO:actual-id"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+    }
+
+    @Test
     void socialLoginWithUnknownAccountFails() throws Exception {
+        long refreshTokenCountBeforeLogin = refreshTokenRepository.count();
+
         mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -307,8 +329,15 @@ class AuthControllerTest {
                                   "socialToken": "verified:KAKAO:unknown"
                                 }
                                 """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOCIAL_ACCOUNT_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("가입되지 않은 소셜 계정입니다."));
+
+        org.assertj.core.api.Assertions.assertThat(
+                        userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "unknown"))
+                .isEmpty();
+        org.assertj.core.api.Assertions.assertThat(refreshTokenRepository.count())
+                .isEqualTo(refreshTokenCountBeforeLogin);
     }
 
     @Test
