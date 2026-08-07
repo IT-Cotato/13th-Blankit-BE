@@ -75,7 +75,7 @@ public class AuthService {
         socialTokenVerifier.verify(request.socialProvider(), request.socialToken(), request.socialId());
 
         User user = userRepository.findBySocialProviderAndSocialId(request.socialProvider(), request.socialId())
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
+                .orElseThrow(() -> new CustomException(ErrorCode.SOCIAL_ACCOUNT_NOT_FOUND));
 
         try {
             AuthTokens authTokens = issueAuthTokens(user);
