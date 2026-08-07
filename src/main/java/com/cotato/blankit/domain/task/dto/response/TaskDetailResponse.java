@@ -45,6 +45,8 @@ public record TaskDetailResponse(
         Long sourceTaskId,
         @Schema(description = "반복으로 생성된 과업의 원본 과업명. 원본 과업이면 null입니다.", example = "주간 회의", nullable = true)
         String sourceTaskTitle,
+        @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
+        Integer progressRate,
         @Schema(description = "총 수행 시간(초). task_session.elapsed_time 합계입니다.", example = "5400")
         Long totalElapsedTime
 ) {
@@ -74,6 +76,7 @@ public record TaskDetailResponse(
                 similarTask == null ? null : similarTask.getTitle(),
                 sourceTask == null ? null : sourceTask.getId(),
                 sourceTask == null ? null : sourceTask.getTitle(),
+                task.getProgressRate(),
                 totalElapsedTime
         );
     }

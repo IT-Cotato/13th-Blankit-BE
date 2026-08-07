@@ -36,6 +36,8 @@ public record TaskListResponse(
         Long similarTaskId,
         @Schema(description = "반복 생성 원본 과업 ID. 원본 과업이면 null입니다.", example = "1", nullable = true)
         Long sourceTaskId,
+        @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
+        Integer progressRate,
         @Schema(description = "생성일")
         LocalDateTime createdAt,
         @Schema(description = "수정일")
@@ -58,6 +60,7 @@ public record TaskListResponse(
                 similarTaskId != null,
                 similarTaskId,
                 sourceTaskId,
+                task.getProgressRate(),
                 task.getCreatedAt(),
                 task.getUpdatedAt()
         );

@@ -156,7 +156,8 @@ public class PlaylistService {
                         item.getTask().getCategory().getColor(),
                         item.getTask().getCategory().getIconKey(),
                         item.getSortOrder(),
-                        item.getSourceMode()
+                        item.getSourceMode(),
+                        item.getTask().getProgressRate()
                 ))
                 .toList();
         return new PlaylistResponse(playlist.getPlaylistId(), totalCount, itemResponses);

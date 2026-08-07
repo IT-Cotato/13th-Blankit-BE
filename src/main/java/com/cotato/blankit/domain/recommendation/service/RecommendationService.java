@@ -182,7 +182,8 @@ public class RecommendationService {
                 task.getPriority(),
                 task.getCategory().getColor(),
                 task.getCategory().getIconKey(),
-                recommendedMinutes
+                recommendedMinutes,
+                task.getProgressRate()
         );
     }
 
@@ -312,7 +313,8 @@ public class RecommendationService {
                 t.getCategory().getIconKey(),
                 rankOrder,
                 st.score(),
-                recommendedMinutes
+                recommendedMinutes,
+                t.getProgressRate()
         );
     }
 
