@@ -72,15 +72,19 @@ public class RecommendationService {
         List<ScoredTask> ranked = buildRanked(userId, today);
         long totalMinutes = calculateTotalMinutes(ranked, today);
 
+        List<ScoredTask> modeRanked = ranked.stream()
+                .filter(st -> ChronoUnit.DAYS.between(today, st.task().getDeadline()) > 0)
+                .toList();
+
         return new RecommendationModesResponse(List.of(
                 buildModeItem("FIRE", "불끄기", "오늘 최소 시간을 빨간색(상) 과업에 올인하는 조합",
-                        buildFireMode(ranked, totalMinutes)),
+                        buildFireMode(modeRanked, totalMinutes)),
                 buildModeItem("BALANCE", "밸런스", "빨리 끝나는 과업으로 성취감을 먼저 얻고 빨간색 과업 진입",
-                        buildBalanceMode(ranked)),
+                        buildBalanceMode(modeRanked)),
                 buildModeItem("TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합",
-                        buildTasteMode(ranked)),
+                        buildTasteMode(modeRanked)),
                 buildModeItem("CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합",
-                        buildClearMode(ranked, totalMinutes))
+                        buildClearMode(modeRanked, totalMinutes))
         ));
     }
 
@@ -118,16 +122,21 @@ public class RecommendationService {
 
         ScoredTask highTask = firstByPriority(ranked, TaskPriority.HIGH);
 
-        List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
-        if (quickTask != null) result.add(toModeTaskItem(quickTask.task(), quickTask.task().getEstimatedTime()));
-        if (highTask != null) result.add(toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime()));
-        return result;
+        if (quickTask == null || highTask == null) return List.of();
+
+        return List.of(
+                toModeTaskItem(quickTask.task(), quickTask.task().getEstimatedTime()),
+                toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime())
+        );
     }
 
     private List<RecommendationModesResponse.ModeTaskItem> buildTasteMode(List<ScoredTask> ranked) {
         ScoredTask highTask = firstByPriority(ranked, TaskPriority.HIGH);
         ScoredTask medTask  = firstByPriority(ranked, TaskPriority.MEDIUM);
         ScoredTask lowTask  = firstByPriority(ranked, TaskPriority.LOW);
+
+        int present = (highTask != null ? 1 : 0) + (medTask != null ? 1 : 0) + (lowTask != null ? 1 : 0);
+        if (present < 2) return List.of();
 
         List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
         if (highTask != null) result.add(toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime()));
@@ -154,22 +163,14 @@ public class RecommendationService {
 
         if (byEstimated.isEmpty()) return List.of();
 
-        Task first = byEstimated.get(0).task();
-
-        if (first.getEstimatedTime() > totalMinutes) {
-            return List.of(toModeTaskItem(first, (int) totalMinutes));
-        }
-
         List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
-        long remaining = totalMinutes;
+        long accumulated = 0;
 
         for (ScoredTask st : byEstimated) {
-            if (remaining <= 0) break;
             int est = st.task().getEstimatedTime();
-            if (est <= remaining) {
-                result.add(toModeTaskItem(st.task(), est));
-                remaining -= est;
-            }
+            result.add(toModeTaskItem(st.task(), est));
+            accumulated += est;
+            if (accumulated >= totalMinutes) break;
         }
 
         return result;
