@@ -304,4 +304,33 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.modes[0].tasks[0].priority").value("HIGH"))
                 .andExpect(jsonPath("$.data.modes[0].tasks[0].recommendedMinutes").value(60));
     }
+
+    @Test
+    void getAllRecommendation_progressRateAppearsInResponse() throws Exception {
+        // progressRate가 설정된 과업은 해당 값을, 미설정 과업은 null을 반환
+        // rank1=+1일(urgency 높음), rank2=+2일
+        Task withProgress = taskRepository.save(Task.create(user, category, "진행률 과업", TODAY.plusDays(1), null, 60));
+        withProgress.updateProgressRate(50);
+        taskRepository.save(Task.create(user, category, "진행률 없는 과업", TODAY.plusDays(2), null, 30));
+
+        mockMvc.perform(get("/api/recommendations/all")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tasks[0].progressRate").value(50))
+                .andExpect(jsonPath("$.data.tasks[1].progressRate").value((Object) null));
+    }
+
+    @Test
+    void getRecommendationModes_progressRateAppearsInResponse() throws Exception {
+        // HIGH 과업에 progressRate를 설정하면 FIRE 모드 응답에 해당 값이 포함됨
+        Task task = taskRepository.save(Task.create(user, category, "HIGH과업", TODAY.plusDays(1), null, 60));
+        task.updateProgressRate(70);
+        taskRepository.save(Task.create(user, category, "MED과업", TODAY.plusDays(2), null, 30));
+        taskRepository.save(Task.create(user, category, "LOW과업", TODAY.plusDays(3), null, 60));
+
+        mockMvc.perform(get("/api/recommendations/modes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.modes[0].tasks[0].progressRate").value(70));
+    }
 }

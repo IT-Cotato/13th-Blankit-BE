@@ -385,4 +385,19 @@ class PlaylistControllerTest {
 
         assertThat(playlistItemRepository.countByPlaylist(playlist)).isEqualTo(0);
     }
+
+    @Test
+    void getPlaylist_progressRateAppearsInResponse() throws Exception {
+        // progressRate가 설정된 과업은 해당 값을, 미설정 과업은 null을 반환
+        taskA.updateProgressRate(30);
+        Playlist playlist = playlistRepository.save(Playlist.create(user));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskA, 0, null));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskB, 1, null));
+
+        mockMvc.perform(get("/api/playlist")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].progressRate").value(30))
+                .andExpect(jsonPath("$.data.items[1].progressRate").value((Object) null));
+    }
 }
