@@ -30,6 +30,9 @@ public record RecommendedTaskItem(
         BigDecimal score,
 
         @Schema(description = "오늘 권장 학습 시간 (분)", example = "90")
-        Integer recommendedMinutes
+        Integer recommendedMinutes,
+
+        @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
+        Integer progressRate
 ) {
 }

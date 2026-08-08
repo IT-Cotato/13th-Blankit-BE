@@ -1353,6 +1353,42 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data[0].message").value("isStarred 값은 필수입니다."));
     }
 
+    @Test
+    void getTaskDetail_progressRateAppearsInResponse() throws Exception {
+        Task withProgress = saveTask(user, studyCategory, "진행률 과업", LocalDate.of(2026, 8, 12), null, TaskStatus.TODO);
+        withProgress.updateProgressRate(45);
+        Task noProgress = saveTask(user, studyCategory, "진행률 없는 과업", LocalDate.of(2026, 8, 13), null, TaskStatus.TODO);
+
+        mockMvc.perform(get("/api/tasks/{taskId}", withProgress.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.progressRate").value(45));
+
+        mockMvc.perform(get("/api/tasks/{taskId}", noProgress.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.progressRate").value((Object) null));
+    }
+
+    @Test
+    void getTaskList_progressRateAppearsInResponse() throws Exception {
+        Task withProgress = saveTask(user, studyCategory, "진행률 과업", LocalDate.of(2026, 8, 12), null, TaskStatus.TODO);
+        withProgress.updateProgressRate(60);
+        saveTask(user, studyCategory, "진행률 없는 과업", LocalDate.of(2026, 8, 13), null, TaskStatus.TODO);
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .param("date", "2026-08-12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].progressRate").value(60));
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .param("date", "2026-08-13"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].progressRate").value((Object) null));
+    }
+
     private Task saveTask(User owner, Category category, String title, LocalDate deadline, Task similarTask, TaskStatus status) {
         Task task = taskRepository.save(Task.create(owner, category, title, deadline, similarTask));
         task.updateStatus(status);

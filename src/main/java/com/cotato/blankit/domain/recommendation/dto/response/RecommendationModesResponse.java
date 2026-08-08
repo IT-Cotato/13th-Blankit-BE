@@ -49,7 +49,10 @@ public record RecommendationModesResponse(
             String categoryIconKey,
 
             @Schema(description = "이 모드에서 권장하는 학습 시간 (분)", example = "120")
-            Integer recommendedMinutes
+            Integer recommendedMinutes,
+
+            @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
+            Integer progressRate
     ) {
     }
 }

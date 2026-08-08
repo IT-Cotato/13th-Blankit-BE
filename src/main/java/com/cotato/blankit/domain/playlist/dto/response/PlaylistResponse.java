@@ -42,7 +42,10 @@ public record PlaylistResponse(
             int sortOrder,
 
             @Schema(description = "추가 경로 모드 (수동 추가 시 null)", example = "FIRE")
-            String sourceMode
+            String sourceMode,
+
+            @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
+            Integer progressRate
     ) {
     }
 }
