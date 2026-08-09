@@ -42,7 +42,7 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
     private final Environment environment;
 
-    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:8081}")
+    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:8081,https://13th-blankit-fe-git-develop-sumins-projects-d5fecc68.vercel.app}")
     private String allowedOrigins;
 
     @Bean
