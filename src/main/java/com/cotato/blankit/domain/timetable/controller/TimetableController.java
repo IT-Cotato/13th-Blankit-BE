@@ -1,8 +1,10 @@
 package com.cotato.blankit.domain.timetable.controller;
 
+import com.cotato.blankit.domain.timetable.dto.request.EverytimeImportRequest;
 import com.cotato.blankit.domain.timetable.dto.request.TimetableCreateRequest;
 import com.cotato.blankit.domain.timetable.dto.request.TimetableUpdateRequest;
 import com.cotato.blankit.domain.timetable.dto.response.TimetableResponse;
+import com.cotato.blankit.domain.timetable.service.EverytimeParseService;
 import com.cotato.blankit.domain.timetable.service.TimetableService;
 import com.cotato.blankit.global.response.ApiResponse;
 import com.cotato.blankit.global.security.CustomUserDetails;
@@ -26,6 +28,23 @@ import java.util.List;
 public class TimetableController {
 
     private final TimetableService timetableService;
+    private final EverytimeParseService everytimeParseService;
+
+    @Operation(summary = "에브리타임 시간표 가져오기",
+            description = "에브리타임 공유 URL을 입력하면 파싱된 시간표 블록 목록을 반환합니다. DB에 저장하지 않으며, 프론트에서 확인 후 개별 저장할 수 있습니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "파싱 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 URL"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "에브리타임 요청 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "파싱 실패")
+    })
+    @PostMapping("/import/everytime")
+    public ApiResponse<List<TimetableResponse>> importFromEverytime(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody @Valid EverytimeImportRequest request) {
+        return ApiResponse.success(everytimeParseService.parse(request.url()));
+    }
 
     @Operation(summary = "시간표 목록 조회",
             description = "등록된 시간표 블록을 요일(dayOfWeek) 오름차순으로 반환합니다.")

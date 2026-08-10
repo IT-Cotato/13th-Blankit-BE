@@ -49,6 +49,9 @@ dependencies {
 
     // Firebase Cloud Messaging (Web Push)
     implementation 'com.google.firebase:firebase-admin:9.10.0'
+
+    // HTML 파싱 (에브리타임 시간표 크롤링)
+    implementation 'org.jsoup:jsoup:1.18.3'
 }
 
 tasks.named('test') {

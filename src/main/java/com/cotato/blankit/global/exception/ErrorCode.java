@@ -61,7 +61,11 @@ public enum ErrorCode {
 
     // Playlist
     PLAYLIST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "PLAYLIST_ITEM_NOT_FOUND", "플레이리스트 항목을 찾을 수 없습니다."),
-    INVALID_PLAYLIST_ORDER(HttpStatus.BAD_REQUEST, "INVALID_PLAYLIST_ORDER", "순서 변경 요청에 중복된 항목 ID 또는 sortOrder가 있습니다.");
+    INVALID_PLAYLIST_ORDER(HttpStatus.BAD_REQUEST, "INVALID_PLAYLIST_ORDER", "순서 변경 요청에 중복된 항목 ID 또는 sortOrder가 있습니다."),
+
+    // Everytime
+    INVALID_EVERYTIME_URL(HttpStatus.BAD_REQUEST, "INVALID_EVERYTIME_URL", "유효하지 않은 에브리타임 URL입니다."),
+    EVERYTIME_FETCH_FAILED(HttpStatus.BAD_GATEWAY, "EVERYTIME_FETCH_FAILED", "에브리타임 시간표를 가져오지 못했습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;
