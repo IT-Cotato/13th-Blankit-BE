@@ -51,6 +51,34 @@ class EverytimeParseServiceTest {
                 .isEqualTo(ErrorCode.INVALID_EVERYTIME_URL);
     }
 
+    @Test
+    @DisplayName("query string이 포함된 URL에서 query를 제외한 identifier만 추출한다")
+    void extractIdentifier_withQueryString_extractsOnlyIdentifier() {
+        assertThat(service.extractIdentifier("https://everytime.kr/@abc123?param=value"))
+                .isEqualTo("abc123");
+    }
+
+    @Test
+    @DisplayName("fragment가 포함된 URL에서 fragment를 제외한 identifier만 추출한다")
+    void extractIdentifier_withFragment_extractsOnlyIdentifier() {
+        assertThat(service.extractIdentifier("https://everytime.kr/@abc123#section"))
+                .isEqualTo("abc123");
+    }
+
+    @Test
+    @DisplayName("@ 기호가 두 개인 URL에서 첫 번째 identifier만 추출한다")
+    void extractIdentifier_withDoubleAt_extractsFirstIdentifier() {
+        assertThat(service.extractIdentifier("https://everytime.kr/@abc123@extra"))
+                .isEqualTo("abc123@extra");
+    }
+
+    @Test
+    @DisplayName("추가 path segment가 있는 URL에서는 path 전체가 추출된다")
+    void extractIdentifier_withExtraPath_extractsFullPath() {
+        assertThat(service.extractIdentifier("https://everytime.kr/@abc123/extra"))
+                .isEqualTo("abc123/extra");
+    }
+
     // ── extractTimetableItems ──────────────────────────────────────────
 
     @Test

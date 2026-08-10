@@ -12,6 +12,7 @@ import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,11 +30,15 @@ public class EverytimeParseService {
     }
 
     String extractIdentifier(String url) {
-        int atIndex = url.lastIndexOf('@');
-        if (atIndex == -1 || atIndex == url.length() - 1) {
+        try {
+            String path = URI.create(url).getRawPath();
+            if (path == null || !path.startsWith("/@") || path.length() <= 2) {
+                throw new CustomException(ErrorCode.INVALID_EVERYTIME_URL);
+            }
+            return path.substring(2);
+        } catch (IllegalArgumentException e) {
             throw new CustomException(ErrorCode.INVALID_EVERYTIME_URL);
         }
-        return url.substring(atIndex + 1);
     }
 
     private Document fetchXml(String identifier) {

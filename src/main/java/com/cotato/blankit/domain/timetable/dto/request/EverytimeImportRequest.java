@@ -9,7 +9,7 @@ public record EverytimeImportRequest(
 
         @Schema(description = "에브리타임 공유 URL", example = "https://everytime.kr/@abcd1234")
         @NotBlank(message = "URL은 필수입니다.")
-        @Pattern(regexp = "^https://everytime\\.kr/@\\S+$", message = "유효하지 않은 에브리타임 URL입니다.")
+        @Pattern(regexp = "^https://everytime\\.kr/@[A-Za-z0-9_-]+$", message = "유효하지 않은 에브리타임 URL입니다.")
         String url
 ) {
 }
