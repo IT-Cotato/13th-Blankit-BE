@@ -36,8 +36,7 @@ public class TimetableController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "파싱 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 URL"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "에브리타임 요청 실패"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "파싱 실패")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "에브리타임 요청 실패")
     })
     @PostMapping("/import/everytime")
     public ApiResponse<List<TimetableResponse>> importFromEverytime(
