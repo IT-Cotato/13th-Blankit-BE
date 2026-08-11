@@ -22,6 +22,8 @@ public class EverytimeParseService {
 
     private static final String API_URL = "https://api.everytime.kr/find/timetable/table/friend";
     private static final String DEFAULT_COLOR = "#7B5EA7";
+    private static final int MAX_EVERYTIME_DAY = 6;
+    private static final int MAX_TIME_SLOT = 287; // 287 * 5min = 23:55
 
     public List<TimetableResponse> parse(String url) {
         String identifier = extractIdentifier(url);
@@ -84,6 +86,11 @@ public class EverytimeParseService {
             int day = Integer.parseInt(data.attr("day"));
             int startSlots = Integer.parseInt(data.attr("starttime"));
             int endSlots = Integer.parseInt(data.attr("endtime"));
+
+            if (day < 0 || day > MAX_EVERYTIME_DAY) return null;
+            if (startSlots < 0 || startSlots > MAX_TIME_SLOT) return null;
+            if (endSlots < 0 || endSlots > MAX_TIME_SLOT) return null;
+            if (startSlots >= endSlots) return null;
 
             // 에브리타임: 0=월, 1=화, ..., 5=토, 6=일 → 프로젝트: 0=일, 1=월, ..., 6=토
             int dayOfWeek = (day + 1) % 7;

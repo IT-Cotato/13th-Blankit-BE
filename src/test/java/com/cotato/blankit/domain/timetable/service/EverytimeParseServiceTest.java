@@ -13,6 +13,10 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalTime;
 import java.util.List;
 
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+
 import static org.assertj.core.api.Assertions.*;
 
 class EverytimeParseServiceTest {
@@ -246,7 +250,82 @@ class EverytimeParseServiceTest {
         assertThat(service.extractTimetableItems(doc)).isEmpty();
     }
 
+    // ── 범위 검증 ──────────────────────────────────────────────────────
+
+    @ParameterizedTest
+    @DisplayName("day가 0~6 범위를 벗어나면 해당 항목을 건너뛴다")
+    @ValueSource(ints = {-1, 7})
+    void extractTimetableItems_dayOutOfRange_skipped(int day) {
+        Document doc = parseXml(subjectXml(day, 108, 142));
+
+        assertThat(service.extractTimetableItems(doc)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @DisplayName("starttime이 유효 범위(0~287)를 벗어나면 해당 항목을 건너뛴다")
+    @ValueSource(ints = {-1, 288})
+    void extractTimetableItems_startSlotOutOfRange_skipped(int startSlot) {
+        Document doc = parseXml(subjectXml(0, startSlot, 142));
+
+        assertThat(service.extractTimetableItems(doc)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @DisplayName("endtime이 유효 범위(0~287)를 벗어나면 해당 항목을 건너뛴다")
+    @ValueSource(ints = {-1, 288})
+    void extractTimetableItems_endSlotOutOfRange_skipped(int endSlot) {
+        Document doc = parseXml(subjectXml(0, 108, endSlot));
+
+        assertThat(service.extractTimetableItems(doc)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @DisplayName("starttime이 endtime 이상이면 해당 항목을 건너뛴다")
+    @CsvSource({"108, 108", "142, 108"})
+    void extractTimetableItems_startNotBeforeEnd_skipped(int startSlot, int endSlot) {
+        Document doc = parseXml(subjectXml(0, startSlot, endSlot));
+
+        assertThat(service.extractTimetableItems(doc)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("비정상 항목이 섞여 있어도 정상 항목만 반환된다")
+    void extractTimetableItems_mixedValidAndInvalid_returnsOnlyValid() {
+        Document doc = parseXml("""
+                <response>
+                  <table>
+                    <subject id="1">
+                      <name value="알고리즘"/>
+                      <time value="">
+                        <data day="0" starttime="108" endtime="142" place=""/>
+                        <data day="7" starttime="108" endtime="142" place=""/>
+                      </time>
+                      <place value=""/>
+                    </subject>
+                  </table>
+                </response>
+                """);
+
+        assertThat(service.extractTimetableItems(doc)).hasSize(1);
+    }
+
     private Document parseXml(String xml) {
         return Jsoup.parse(xml, "", Parser.xmlParser());
+    }
+
+    private String subjectXml(int day, int startSlot, int endSlot) {
+        return """
+                <response>
+                  <table>
+                    <subject id="1">
+                      <name value="테스트과목"/>
+                      <time value="">
+                        <data day="%d" starttime="%d" endtime="%d" place=""/>
+                      </time>
+                      <place value=""/>
+                    </subject>
+                  </table>
+                </response>
+                """.formatted(day, startSlot, endSlot);
     }
 }
