@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -138,6 +139,19 @@ public class FeedbackService {
         }
 
         feedback.updateMetrics(prevRate, cumulativeElapsedSeconds, consecutiveCount, intervalDiff);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, String> getLatestMemoMap(List<Long> taskIds) {
+        if (taskIds.isEmpty()) return Map.of();
+        Map<Long, String> result = new HashMap<>();
+        feedbackRepository.findSubmittedByTaskIds(taskIds).forEach(f -> {
+            Long taskId = f.getTask().getId();
+            if (!result.containsKey(taskId)) {
+                result.put(taskId, (f.getMemo() != null && !f.getMemo().isBlank()) ? f.getMemo() : null);
+            }
+        });
+        return result;
     }
 
     private void validateContentProvided(FeedbackSubmitRequest request) {

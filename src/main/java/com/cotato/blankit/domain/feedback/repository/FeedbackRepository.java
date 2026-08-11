@@ -35,4 +35,12 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay
     );
+
+    @Query("""
+            select f from Feedback f
+            where f.task.id in :taskIds
+              and f.isDraft = false
+            order by f.submittedAt desc
+            """)
+    List<Feedback> findSubmittedByTaskIds(@Param("taskIds") List<Long> taskIds);
 }
