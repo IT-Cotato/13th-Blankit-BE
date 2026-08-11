@@ -2,6 +2,11 @@ package com.cotato.blankit.domain.recommendation;
 
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
+import com.cotato.blankit.domain.feedback.entity.Feedback;
+import com.cotato.blankit.domain.feedback.entity.TaskSession;
+import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
+import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
+import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
@@ -26,6 +31,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -60,6 +66,8 @@ class RecommendationControllerTest {
     @Autowired private UserRepository userRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private TaskRepository taskRepository;
+    @Autowired private FeedbackRepository feedbackRepository;
+    @Autowired private TaskSessionRepository taskSessionRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
 
     @TestConfiguration
@@ -318,6 +326,62 @@ class RecommendationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.tasks[0].progressRate").value(50))
                 .andExpect(jsonPath("$.data.tasks[1].progressRate").value((Object) null));
+    }
+
+    @Test
+    void getTodayRecommendation_memoAppearsInTopTasks() throws Exception {
+        // 최종 제출 피드백이 있는 과업: memo 포함
+        Task taskWithMemo = taskRepository.save(Task.create(user, category, "메모 있는 과업", TODAY.plusDays(1), null, 60));
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskWithMemo, user, LocalDateTime.now(), LocalDateTime.now(), 600, TaskSessionStatus.DONE));
+        feedbackRepository.save(Feedback.create(session, taskWithMemo, user, 50, "추천 피드백 메모", false));
+
+        // 피드백 없는 과업: memo는 null
+        taskRepository.save(Task.create(user, category, "피드백 없는 과업", TODAY.plusDays(2), null, 30));
+
+        mockMvc.perform(get("/api/recommendations/today")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.topTasks[0].memo").value("추천 피드백 메모"))
+                .andExpect(jsonPath("$.data.topTasks[1].memo").value((Object) null));
+    }
+
+    @Test
+    void getAllRecommendation_memoAppearsInTasks() throws Exception {
+        // 최종 제출 피드백이 있는 과업: memo 포함
+        Task taskWithMemo = taskRepository.save(Task.create(user, category, "메모 있는 과업", TODAY.plusDays(1), null, 60));
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskWithMemo, user, LocalDateTime.now(), LocalDateTime.now(), 600, TaskSessionStatus.DONE));
+        feedbackRepository.save(Feedback.create(session, taskWithMemo, user, 50, "전체 추천 메모", false));
+
+        // 임시저장만 있는 과업: memo는 null
+        Task taskDraftOnly = taskRepository.save(Task.create(user, category, "임시저장만 있는 과업", TODAY.plusDays(2), null, 30));
+        TaskSession draftSession = taskSessionRepository.save(
+                TaskSession.create(taskDraftOnly, user, LocalDateTime.now(), null, 0, TaskSessionStatus.PLAYING));
+        feedbackRepository.save(Feedback.create(draftSession, taskDraftOnly, user, 20, "임시 메모", true));
+
+        mockMvc.perform(get("/api/recommendations/all")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tasks[0].memo").value("전체 추천 메모"))
+                .andExpect(jsonPath("$.data.tasks[1].memo").value((Object) null));
+    }
+
+    @Test
+    void getRecommendationModes_memoAppearsInModeTasks() throws Exception {
+        // HIGH 과업에 최종 제출 피드백이 있는 경우: FIRE 모드에 memo 포함
+        Task highTask = taskRepository.save(Task.create(user, category, "HIGH과업", TODAY.plusDays(1), null, 60));
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(highTask, user, LocalDateTime.now(), LocalDateTime.now(), 600, TaskSessionStatus.DONE));
+        feedbackRepository.save(Feedback.create(session, highTask, user, 50, "모드 피드백 메모", false));
+
+        taskRepository.save(Task.create(user, category, "MED과업", TODAY.plusDays(2), null, 30));
+        taskRepository.save(Task.create(user, category, "LOW과업", TODAY.plusDays(3), null, 60));
+
+        mockMvc.perform(get("/api/recommendations/modes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.modes[0].tasks[0].memo").value("모드 피드백 메모"));
     }
 
     @Test

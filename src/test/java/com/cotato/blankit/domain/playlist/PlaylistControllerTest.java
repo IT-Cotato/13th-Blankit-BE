@@ -2,6 +2,11 @@ package com.cotato.blankit.domain.playlist;
 
 import com.cotato.blankit.domain.category.entity.Category;
 import com.cotato.blankit.domain.category.repository.CategoryRepository;
+import com.cotato.blankit.domain.feedback.entity.Feedback;
+import com.cotato.blankit.domain.feedback.entity.TaskSession;
+import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
+import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
+import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.playlist.entity.Playlist;
 import com.cotato.blankit.domain.playlist.entity.PlaylistItem;
 import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
@@ -28,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -68,6 +74,8 @@ class PlaylistControllerTest {
     @Autowired private PlaylistRepository playlistRepository;
     @Autowired private PlaylistItemRepository playlistItemRepository;
     @Autowired private NotificationSettingRepository notificationSettingRepository;
+    @Autowired private FeedbackRepository feedbackRepository;
+    @Autowired private TaskSessionRepository taskSessionRepository;
     @Autowired private JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
@@ -384,6 +392,31 @@ class PlaylistControllerTest {
                 .andExpect(status().isOk());
 
         assertThat(playlistItemRepository.countByPlaylist(playlist)).isEqualTo(0);
+    }
+
+    @Test
+    void getPlaylist_memoAppearsInResponse() throws Exception {
+        // 최종 제출 피드백이 있는 과업: memo 포함
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskA, user, LocalDateTime.now(), LocalDateTime.now(), 600, TaskSessionStatus.DONE));
+        feedbackRepository.save(Feedback.create(session, taskA, user, 50, "플레이리스트 메모", false));
+
+        // 임시저장만 있는 과업: memo는 null
+        TaskSession draftSession = taskSessionRepository.save(
+                TaskSession.create(taskB, user, LocalDateTime.now(), null, 0, TaskSessionStatus.PLAYING));
+        feedbackRepository.save(Feedback.create(draftSession, taskB, user, 30, "임시 메모", true));
+
+        Playlist playlist = playlistRepository.save(Playlist.create(user));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskA, 0, null));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskB, 1, null));
+        playlistItemRepository.save(PlaylistItem.create(playlist, taskC, 2, null));
+
+        mockMvc.perform(get("/api/playlist")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].memo").value("플레이리스트 메모"))
+                .andExpect(jsonPath("$.data.items[1].memo").value((Object) null))
+                .andExpect(jsonPath("$.data.items[2].memo").value((Object) null));
     }
 
     @Test
