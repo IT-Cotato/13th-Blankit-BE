@@ -47,6 +47,24 @@ class EverytimeParseServiceTest {
     }
 
     @Test
+    @DisplayName("http scheme URL은 INVALID_EVERYTIME_URL 예외를 던진다")
+    void extractIdentifier_httpScheme_throwsException() {
+        assertThatThrownBy(() -> service.extractIdentifier("http://everytime.kr/@abc123"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_EVERYTIME_URL);
+    }
+
+    @Test
+    @DisplayName("everytime.kr가 아닌 도메인은 INVALID_EVERYTIME_URL 예외를 던진다")
+    void extractIdentifier_wrongHost_throwsException() {
+        assertThatThrownBy(() -> service.extractIdentifier("https://otherdomain.kr/@abc123"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_EVERYTIME_URL);
+    }
+
+    @Test
     @DisplayName("@ 이후 값이 없는 URL은 INVALID_EVERYTIME_URL 예외를 던진다")
     void extractIdentifier_emptyAfterAt_throwsException() {
         assertThatThrownBy(() -> service.extractIdentifier("https://everytime.kr/@"))

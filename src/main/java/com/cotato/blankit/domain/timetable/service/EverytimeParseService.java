@@ -33,7 +33,11 @@ public class EverytimeParseService {
 
     String extractIdentifier(String url) {
         try {
-            String path = URI.create(url).getRawPath();
+            URI uri = URI.create(url);
+            if (!"https".equals(uri.getScheme()) || !"everytime.kr".equals(uri.getHost())) {
+                throw new CustomException(ErrorCode.INVALID_EVERYTIME_URL);
+            }
+            String path = uri.getRawPath();
             if (path == null || !path.startsWith("/@") || path.length() <= 2) {
                 throw new CustomException(ErrorCode.INVALID_EVERYTIME_URL);
             }
