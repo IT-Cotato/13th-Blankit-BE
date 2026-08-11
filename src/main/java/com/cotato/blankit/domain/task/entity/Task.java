@@ -75,7 +75,6 @@ public class Task extends BaseEntity {
 
     @Column(nullable = false)
     private LocalDate deadline;
-
     @Column(name = "estimated_time")
     private Integer estimatedTime;
 

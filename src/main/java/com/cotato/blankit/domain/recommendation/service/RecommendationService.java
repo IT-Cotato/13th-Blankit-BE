@@ -6,6 +6,7 @@ import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.ThirtyMinutePackRecommendationResponse;
 import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.feedback.service.FeedbackService;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.global.exception.CustomException;
@@ -31,6 +32,7 @@ import java.util.Map;
 public class RecommendationService {
 
     private final TaskRepository taskRepository;
+    private final FeedbackService feedbackService;
     private final Clock clock;
 
     public TodayRecommendationResponse getTodayRecommendation(Long userId) {
@@ -42,10 +44,12 @@ public class RecommendationService {
         }
 
         long totalMinutes = calculateTotalMinutes(ranked, today);
+        List<ScoredTask> top = ranked.subList(0, Math.min(3, ranked.size()));
+        Map<Long, String> memoMap = getLatestMemoMap(top.stream().map(st -> st.task().getId()).toList());
 
         List<RecommendedTaskItem> topTasks = new ArrayList<>();
-        for (int i = 0; i < Math.min(3, ranked.size()); i++) {
-            topTasks.add(toItem(ranked.get(i), i + 1, today));
+        for (int i = 0; i < top.size(); i++) {
+            topTasks.add(toItem(top.get(i), i + 1, today, memoMap));
         }
 
         return new TodayRecommendationResponse(today, totalMinutes, topTasks);
@@ -59,9 +63,10 @@ public class RecommendationService {
             return new AllRecommendationResponse(today, List.of());
         }
 
+        Map<Long, String> memoMap = getLatestMemoMap(ranked.stream().map(st -> st.task().getId()).toList());
         List<RecommendedTaskItem> allTasks = new ArrayList<>();
         for (int i = 0; i < ranked.size(); i++) {
-            allTasks.add(toItem(ranked.get(i), i + 1, today));
+            allTasks.add(toItem(ranked.get(i), i + 1, today, memoMap));
         }
 
         return new AllRecommendationResponse(today, allTasks);
@@ -76,15 +81,17 @@ public class RecommendationService {
                 .filter(st -> ChronoUnit.DAYS.between(today, st.task().getDeadline()) > 0)
                 .toList();
 
+        Map<Long, String> memoMap = getLatestMemoMap(modeRanked.stream().map(st -> st.task().getId()).toList());
+
         return new RecommendationModesResponse(List.of(
                 buildModeItem("FIRE", "불끄기", "오늘 최소 시간을 빨간색(상) 과업에 올인하는 조합",
-                        buildFireMode(modeRanked, totalMinutes)),
+                        buildFireMode(modeRanked, totalMinutes, memoMap)),
                 buildModeItem("BALANCE", "밸런스", "빨리 끝나는 과업으로 성취감을 먼저 얻고 빨간색 과업 진입",
-                        buildBalanceMode(modeRanked)),
+                        buildBalanceMode(modeRanked, memoMap)),
                 buildModeItem("TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합",
-                        buildTasteMode(modeRanked)),
+                        buildTasteMode(modeRanked, memoMap)),
                 buildModeItem("CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합",
-                        buildClearMode(modeRanked, totalMinutes))
+                        buildClearMode(modeRanked, totalMinutes, memoMap))
         ));
     }
 
@@ -94,7 +101,7 @@ public class RecommendationService {
         return new RecommendationModesResponse.RecommendationModeItem(mode, modeName, description, tasks);
     }
 
-    private List<RecommendationModesResponse.ModeTaskItem> buildFireMode(List<ScoredTask> ranked, long totalMinutes) {
+    private List<RecommendationModesResponse.ModeTaskItem> buildFireMode(List<ScoredTask> ranked, long totalMinutes, Map<Long, String> memoMap) {
         List<ScoredTask> highTasks = ranked.stream()
                 .filter(st -> st.task().getPriority() == TaskPriority.HIGH)
                 .filter(st -> st.task().getEstimatedTime() != null && st.task().getEstimatedTime() > 0)
@@ -106,14 +113,14 @@ public class RecommendationService {
         for (ScoredTask st : highTasks) {
             if (remaining <= 0) break;
             int allocated = (int) Math.min(st.task().getEstimatedTime(), remaining);
-            result.add(toModeTaskItem(st.task(), allocated));
+            result.add(toModeTaskItem(st.task(), allocated, memoMap));
             remaining -= allocated;
         }
 
         return result;
     }
 
-    private List<RecommendationModesResponse.ModeTaskItem> buildBalanceMode(List<ScoredTask> ranked) {
+    private List<RecommendationModesResponse.ModeTaskItem> buildBalanceMode(List<ScoredTask> ranked, Map<Long, String> memoMap) {
         ScoredTask quickTask = ranked.stream()
                 .filter(st -> st.task().getPriority() != TaskPriority.HIGH)
                 .filter(st -> st.task().getEstimatedTime() != null && st.task().getEstimatedTime() > 0)
@@ -125,12 +132,12 @@ public class RecommendationService {
         if (quickTask == null || highTask == null) return List.of();
 
         return List.of(
-                toModeTaskItem(quickTask.task(), quickTask.task().getEstimatedTime()),
-                toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime())
+                toModeTaskItem(quickTask.task(), quickTask.task().getEstimatedTime(), memoMap),
+                toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime(), memoMap)
         );
     }
 
-    private List<RecommendationModesResponse.ModeTaskItem> buildTasteMode(List<ScoredTask> ranked) {
+    private List<RecommendationModesResponse.ModeTaskItem> buildTasteMode(List<ScoredTask> ranked, Map<Long, String> memoMap) {
         ScoredTask highTask = firstByPriority(ranked, TaskPriority.HIGH);
         ScoredTask medTask  = firstByPriority(ranked, TaskPriority.MEDIUM);
         ScoredTask lowTask  = firstByPriority(ranked, TaskPriority.LOW);
@@ -139,9 +146,9 @@ public class RecommendationService {
         if (present < 2) return List.of();
 
         List<RecommendationModesResponse.ModeTaskItem> result = new ArrayList<>();
-        if (highTask != null) result.add(toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime()));
-        if (medTask != null)  result.add(toModeTaskItem(medTask.task(),  medTask.task().getEstimatedTime()));
-        if (lowTask != null)  result.add(toModeTaskItem(lowTask.task(),  lowTask.task().getEstimatedTime()));
+        if (highTask != null) result.add(toModeTaskItem(highTask.task(), highTask.task().getEstimatedTime(), memoMap));
+        if (medTask != null)  result.add(toModeTaskItem(medTask.task(),  medTask.task().getEstimatedTime(), memoMap));
+        if (lowTask != null)  result.add(toModeTaskItem(lowTask.task(),  lowTask.task().getEstimatedTime(), memoMap));
         return result;
     }
 
@@ -153,7 +160,7 @@ public class RecommendationService {
                 .orElse(null);
     }
 
-    private List<RecommendationModesResponse.ModeTaskItem> buildClearMode(List<ScoredTask> ranked, long totalMinutes) {
+    private List<RecommendationModesResponse.ModeTaskItem> buildClearMode(List<ScoredTask> ranked, long totalMinutes, Map<Long, String> memoMap) {
         if (totalMinutes <= 0) return List.of();
 
         List<ScoredTask> byEstimated = ranked.stream()
@@ -168,7 +175,7 @@ public class RecommendationService {
 
         for (ScoredTask st : byEstimated) {
             int est = st.task().getEstimatedTime();
-            result.add(toModeTaskItem(st.task(), est));
+            result.add(toModeTaskItem(st.task(), est, memoMap));
             accumulated += est;
             if (accumulated >= totalMinutes) break;
         }
@@ -176,7 +183,7 @@ public class RecommendationService {
         return result;
     }
 
-    private RecommendationModesResponse.ModeTaskItem toModeTaskItem(Task task, Integer recommendedMinutes) {
+    private RecommendationModesResponse.ModeTaskItem toModeTaskItem(Task task, Integer recommendedMinutes, Map<Long, String> memoMap) {
         return new RecommendationModesResponse.ModeTaskItem(
                 task.getId(),
                 task.getTitle(),
@@ -184,7 +191,8 @@ public class RecommendationService {
                 task.getCategory().getColor(),
                 task.getCategory().getIconKey(),
                 recommendedMinutes,
-                task.getProgressRate()
+                task.getProgressRate(),
+                memoMap.get(task.getId())
         );
     }
 
@@ -299,7 +307,7 @@ public class RecommendationService {
         }
     }
 
-    private RecommendedTaskItem toItem(ScoredTask st, int rankOrder, LocalDate today) {
+    private RecommendedTaskItem toItem(ScoredTask st, int rankOrder, LocalDate today, Map<Long, String> memoMap) {
         Task t = st.task();
         long days = ChronoUnit.DAYS.between(today, t.getDeadline());
         Integer recommendedMinutes = (t.getEstimatedTime() == null || days <= 0)
@@ -315,8 +323,13 @@ public class RecommendationService {
                 rankOrder,
                 st.score(),
                 recommendedMinutes,
-                t.getProgressRate()
+                t.getProgressRate(),
+                memoMap.get(t.getId())
         );
+    }
+
+    private Map<Long, String> getLatestMemoMap(List<Long> taskIds) {
+        return feedbackService.getLatestMemoMap(taskIds);
     }
 
     private record ScoredTask(Task task, BigDecimal score) {}
