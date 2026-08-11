@@ -1389,6 +1389,54 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data.content[0].progressRate").value((Object) null));
     }
 
+    @Test
+    void getTaskList_memoAppearsInResponse() throws Exception {
+        // 최종 제출 피드백이 있는 과업: memo 포함
+        Task taskWithMemo = saveTask(user, studyCategory, "메모 있는 과업", LocalDate.of(2026, 8, 12), null, TaskStatus.TODO);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(taskWithMemo, user, LocalDateTime.now(), LocalDateTime.now(), 600, TaskSessionStatus.DONE));
+        feedbackRepository.save(Feedback.create(session, taskWithMemo, user, 50, "피드백 메모 내용", false));
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .param("date", "2026-08-12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].memo").value("피드백 메모 내용"));
+
+        // 임시저장(isDraft=true)만 있는 과업: memo는 null
+        Task taskDraftOnly = saveTask(user, studyCategory, "임시저장만 있는 과업", LocalDate.of(2026, 8, 13), null, TaskStatus.TODO);
+        TaskSession draftSession = taskSessionRepository.save(
+                TaskSession.create(taskDraftOnly, user, LocalDateTime.now(), null, 0, TaskSessionStatus.PLAYING));
+        feedbackRepository.save(Feedback.create(draftSession, taskDraftOnly, user, 30, "임시 메모", true));
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .param("date", "2026-08-13"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].memo").value((Object) null));
+
+        // 피드백 없는 과업: memo는 null
+        saveTask(user, studyCategory, "피드백 없는 과업", LocalDate.of(2026, 8, 14), null, TaskStatus.TODO);
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .param("date", "2026-08-14"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].memo").value((Object) null));
+
+        // 최종 제출이지만 메모가 blank: null 반환
+        Task taskBlankMemo = saveTask(user, studyCategory, "빈 메모 과업", LocalDate.of(2026, 8, 15), null, TaskStatus.TODO);
+        TaskSession blankSession = taskSessionRepository.save(
+                TaskSession.create(taskBlankMemo, user, LocalDateTime.now(), LocalDateTime.now(), 300, TaskSessionStatus.DONE));
+        feedbackRepository.save(Feedback.create(blankSession, taskBlankMemo, user, 20, "  ", false));
+
+        mockMvc.perform(get("/api/tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .param("date", "2026-08-15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].memo").value((Object) null));
+    }
+
     private Task saveTask(User owner, Category category, String title, LocalDate deadline, Task similarTask, TaskStatus status) {
         Task task = taskRepository.save(Task.create(owner, category, title, deadline, similarTask));
         task.updateStatus(status);

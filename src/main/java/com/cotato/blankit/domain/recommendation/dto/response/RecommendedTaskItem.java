@@ -33,6 +33,9 @@ public record RecommendedTaskItem(
         Integer recommendedMinutes,
 
         @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
-        Integer progressRate
+        Integer progressRate,
+
+        @Schema(description = "가장 최근 최종 제출한 피드백 메모. 없거나 빈 값이면 null", nullable = true)
+        String memo
 ) {
 }

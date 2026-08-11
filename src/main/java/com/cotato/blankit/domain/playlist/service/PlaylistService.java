@@ -1,5 +1,6 @@
 package com.cotato.blankit.domain.playlist.service;
 
+import com.cotato.blankit.domain.feedback.service.FeedbackService;
 import com.cotato.blankit.domain.playlist.dto.request.PlaylistItemAddRequest;
 import com.cotato.blankit.domain.playlist.dto.request.PlaylistItemOrderUpdateRequest;
 import com.cotato.blankit.domain.playlist.dto.response.PlaylistResponse;
@@ -34,6 +35,7 @@ public class PlaylistService {
     private final PlaylistItemRepository playlistItemRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final FeedbackService feedbackService;
 
     @Transactional
     public PlaylistResponse getPlaylist(Long userId, String sourceMode) {
@@ -147,6 +149,8 @@ public class PlaylistService {
     }
 
     private PlaylistResponse toResponse(Playlist playlist, List<PlaylistItem> items, int totalCount) {
+        List<Long> taskIds = items.stream().map(item -> item.getTask().getId()).toList();
+        Map<Long, String> memoMap = feedbackService.getLatestMemoMap(taskIds);
         List<PlaylistResponse.PlaylistItemResponse> itemResponses = items.stream()
                 .map(item -> new PlaylistResponse.PlaylistItemResponse(
                         item.getPlaylistItemId(),
@@ -157,7 +161,8 @@ public class PlaylistService {
                         item.getTask().getCategory().getIconKey(),
                         item.getSortOrder(),
                         item.getSourceMode(),
-                        item.getTask().getProgressRate()
+                        item.getTask().getProgressRate(),
+                        memoMap.get(item.getTask().getId())
                 ))
                 .toList();
         return new PlaylistResponse(playlist.getPlaylistId(), totalCount, itemResponses);

@@ -41,10 +41,12 @@ public record TaskListResponse(
         @Schema(description = "생성일")
         LocalDateTime createdAt,
         @Schema(description = "수정일")
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        @Schema(description = "가장 최근 최종 제출한 피드백 메모. 없거나 빈 값이면 null", nullable = true)
+        String memo
 ) {
 
-    public static TaskListResponse from(Task task, LocalDate today) {
+    public static TaskListResponse from(Task task, LocalDate today, String memo) {
         Long similarTaskId = task.getSimilarTask() == null ? null : task.getSimilarTask().getId();
         Long sourceTaskId = task.getSourceTask() == null ? null : task.getSourceTask().getId();
         return new TaskListResponse(
@@ -62,7 +64,8 @@ public record TaskListResponse(
                 sourceTaskId,
                 task.getProgressRate(),
                 task.getCreatedAt(),
-                task.getUpdatedAt()
+                task.getUpdatedAt(),
+                memo
         );
     }
 

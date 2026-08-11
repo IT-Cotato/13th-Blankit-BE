@@ -23,6 +23,7 @@ import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.task.repository.TaskStepRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
+import com.cotato.blankit.domain.feedback.service.FeedbackService;
 import com.cotato.blankit.domain.feedback.repository.PlayIntervalRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.playlist.repository.PlaylistItemRepository;
@@ -72,6 +73,7 @@ public class TaskService {
     private final Clock clock;
     private final TaskDeadlineNotificationScheduleService taskDeadlineScheduleService;
     private final TaskStepRepository taskStepRepository;
+    private final FeedbackService feedbackService;
 
     @Transactional
     public TaskFormOptionsResponse getFormOptions(Long userId) {
@@ -142,8 +144,12 @@ public class TaskService {
                 createTaskPageable(page, size)
         );
         LocalDate today = LocalDate.now(clock);
+        List<Long> taskIds = taskPage.getContent().stream().map(Task::getId).toList();
+        Map<Long, String> memoMap = feedbackService.getLatestMemoMap(taskIds);
         return PageResponse.of(
-                taskPage.getContent().stream().map(task -> TaskListResponse.from(task, today)).toList(),
+                taskPage.getContent().stream()
+                        .map(task -> TaskListResponse.from(task, today, memoMap.get(task.getId())))
+                        .toList(),
                 taskPage.getNumber(),
                 taskPage.getSize(),
                 taskPage.getTotalElements()
