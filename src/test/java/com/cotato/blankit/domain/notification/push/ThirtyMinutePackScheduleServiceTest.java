@@ -115,10 +115,9 @@ class ThirtyMinutePackScheduleServiceTest {
         setting.update(false, true);
         settingRepository.flush();
 
-        timetableService.createTimetables(user.getId(), List.of(new TimetableCreateRequest(
-                1, LocalTime.of(10, 0), LocalTime.of(11, 0), "앞 일정", null, "#123456")));
-        timetableService.createTimetables(user.getId(), List.of(new TimetableCreateRequest(
-                1, LocalTime.of(11, 30), LocalTime.of(12, 0), "뒤 일정", null, "#123456")));
+        timetableService.createTimetables(user.getId(), List.of(
+                new TimetableCreateRequest(1, LocalTime.of(10, 0), LocalTime.of(11, 0), "앞 일정", null, "#123456"),
+                new TimetableCreateRequest(1, LocalTime.of(11, 30), LocalTime.of(12, 0), "뒤 일정", null, "#123456")));
 
         assertThat(PushJobTestQueries.findByUserAndType(
                 jobRepository, user.getId(), PushNotificationType.THIRTY_MIN_PACK))
