@@ -15,6 +15,7 @@ import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -114,10 +115,9 @@ class ThirtyMinutePackScheduleServiceTest {
         setting.update(false, true);
         settingRepository.flush();
 
-        timetableService.createTimetable(user.getId(), new TimetableCreateRequest(
-                1, LocalTime.of(10, 0), LocalTime.of(11, 0), "앞 일정", null, "#123456"));
-        timetableService.createTimetable(user.getId(), new TimetableCreateRequest(
-                1, LocalTime.of(11, 30), LocalTime.of(12, 0), "뒤 일정", null, "#123456"));
+        timetableService.createTimetables(user.getId(), List.of(
+                new TimetableCreateRequest(1, LocalTime.of(10, 0), LocalTime.of(11, 0), "앞 일정", null, "#123456"),
+                new TimetableCreateRequest(1, LocalTime.of(11, 30), LocalTime.of(12, 0), "뒤 일정", null, "#123456")));
 
         assertThat(PushJobTestQueries.findByUserAndType(
                 jobRepository, user.getId(), PushNotificationType.THIRTY_MIN_PACK))
