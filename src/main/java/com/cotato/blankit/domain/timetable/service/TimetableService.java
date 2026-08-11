@@ -100,7 +100,7 @@ public class TimetableService {
         if (!startTime.isBefore(endTime)) {
             throw new CustomException(ErrorCode.TIMETABLE_INVALID_TIME_RANGE);
         }
-        if (startTime.getMinute() % 30 != 0 || endTime.getMinute() % 30 != 0) {
+        if (startTime.getMinute() % 5 != 0 || endTime.getMinute() % 5 != 0) {
             throw new CustomException(ErrorCode.TIMETABLE_INVALID_TIME_UNIT);
         }
     }
