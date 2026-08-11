@@ -121,23 +121,25 @@ class TimetableControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
-                                  "dayOfWeek": 1,
-                                  "startTime": "09:00:00",
-                                  "endTime": "10:30:00",
-                                  "title": "알고리즘 강의",
-                                  "place": "공학관 101호",
-                                  "color": "#7B5EA7"
-                                }
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "09:00:00",
+                                    "endTime": "10:30:00",
+                                    "title": "알고리즘 강의",
+                                    "place": "공학관 101호",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.dayOfWeek").value(1))
-                .andExpect(jsonPath("$.data.startTime").value("09:00:00"))
-                .andExpect(jsonPath("$.data.endTime").value("10:30:00"))
-                .andExpect(jsonPath("$.data.title").value("알고리즘 강의"))
-                .andExpect(jsonPath("$.data.place").value("공학관 101호"))
-                .andExpect(jsonPath("$.data.color").value("#7B5EA7"))
-                .andExpect(jsonPath("$.data.timetableId").exists());
+                .andExpect(jsonPath("$.data[0].dayOfWeek").value(1))
+                .andExpect(jsonPath("$.data[0].startTime").value("09:00:00"))
+                .andExpect(jsonPath("$.data[0].endTime").value("10:30:00"))
+                .andExpect(jsonPath("$.data[0].title").value("알고리즘 강의"))
+                .andExpect(jsonPath("$.data[0].place").value("공학관 101호"))
+                .andExpect(jsonPath("$.data[0].color").value("#7B5EA7"))
+                .andExpect(jsonPath("$.data[0].timetableId").exists());
     }
 
     @Test
@@ -147,13 +149,15 @@ class TimetableControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
-                                  "dayOfWeek": 1,
-                                  "startTime": "10:00:00",
-                                  "endTime": "09:00:00",
-                                  "title": "잘못된 시간",
-                                  "color": "#7B5EA7"
-                                }
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "10:00:00",
+                                    "endTime": "09:00:00",
+                                    "title": "잘못된 시간",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("TIMETABLE_INVALID_TIME_RANGE"));
@@ -166,13 +170,15 @@ class TimetableControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
-                                  "dayOfWeek": 1,
-                                  "startTime": "09:00:00",
-                                  "endTime": "09:00:00",
-                                  "title": "동일 시간",
-                                  "color": "#7B5EA7"
-                                }
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "09:00:00",
+                                    "endTime": "09:00:00",
+                                    "title": "동일 시간",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("TIMETABLE_INVALID_TIME_RANGE"));
@@ -187,13 +193,15 @@ class TimetableControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
-                                  "dayOfWeek": 1,
-                                  "startTime": "10:00:00",
-                                  "endTime": "12:00:00",
-                                  "title": "겹치는 강의",
-                                  "color": "#5C9EFF"
-                                }
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "10:00:00",
+                                    "endTime": "12:00:00",
+                                    "title": "겹치는 강의",
+                                    "color": "#5C9EFF"
+                                  }
+                                ]
                                 """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("TIMETABLE_TIME_CONFLICT"));
@@ -208,13 +216,15 @@ class TimetableControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
-                                  "dayOfWeek": 1,
-                                  "startTime": "10:00:00",
-                                  "endTime": "11:00:00",
-                                  "title": "2교시",
-                                  "color": "#5C9EFF"
-                                }
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "10:00:00",
+                                    "endTime": "11:00:00",
+                                    "title": "2교시",
+                                    "color": "#5C9EFF"
+                                  }
+                                ]
                                 """))
                 .andExpect(status().isCreated());
     }
@@ -228,13 +238,15 @@ class TimetableControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
-                                  "dayOfWeek": 2,
-                                  "startTime": "09:00:00",
-                                  "endTime": "11:00:00",
-                                  "title": "화요일 강의",
-                                  "color": "#5C9EFF"
-                                }
+                                [
+                                  {
+                                    "dayOfWeek": 2,
+                                    "startTime": "09:00:00",
+                                    "endTime": "11:00:00",
+                                    "title": "화요일 강의",
+                                    "color": "#5C9EFF"
+                                  }
+                                ]
                                 """))
                 .andExpect(status().isCreated());
     }
@@ -246,13 +258,15 @@ class TimetableControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {
-                                  "dayOfWeek": 7,
-                                  "startTime": "09:00:00",
-                                  "endTime": "10:00:00",
-                                  "title": "잘못된 요일",
-                                  "color": "#5C9EFF"
-                                }
+                                [
+                                  {
+                                    "dayOfWeek": 7,
+                                    "startTime": "09:00:00",
+                                    "endTime": "10:00:00",
+                                    "title": "잘못된 요일",
+                                    "color": "#5C9EFF"
+                                  }
+                                ]
                                 """))
                 .andExpect(status().isBadRequest());
     }

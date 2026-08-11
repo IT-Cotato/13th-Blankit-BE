@@ -67,10 +67,10 @@ public class TimetableController {
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<TimetableResponse> createTimetable(
+    public ApiResponse<List<TimetableResponse>> createTimetables(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestBody @Valid TimetableCreateRequest request) {
-        return ApiResponse.success(timetableService.createTimetable(userDetails.getUserId(), request));
+            @RequestBody @Valid List<TimetableCreateRequest> requests) {
+        return ApiResponse.success(timetableService.createTimetables(userDetails.getUserId(), requests));
     }
 
     @Operation(summary = "시간표 수정",

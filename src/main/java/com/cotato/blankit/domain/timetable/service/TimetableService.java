@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -34,24 +35,26 @@ public class TimetableService {
     }
 
     @Transactional
-    public TimetableResponse createTimetable(Long userId, TimetableCreateRequest request) {
-        validateTimeRange(request.startTime(), request.endTime());
+    public List<TimetableResponse> createTimetables(Long userId, List<TimetableCreateRequest> requests) {
         User user = getUserForUpdate(userId);
-        checkTimeConflict(userId, request.dayOfWeek().byteValue(),
-                request.startTime(), request.endTime(), null);
-        Timetable timetable = Timetable.create(
-                user,
-                request.dayOfWeek().byteValue(),
-                request.startTime(),
-                request.endTime(),
-                request.title(),
-                request.place(),
-                request.color()
-        );
-        Timetable saved = timetableRepository.save(timetable);
+        List<Timetable> saved = new ArrayList<>();
+        for (TimetableCreateRequest request : requests) {
+            validateTimeRange(request.startTime(), request.endTime());
+            checkTimeConflict(userId, request.dayOfWeek().byteValue(),
+                    request.startTime(), request.endTime(), null);
+            saved.add(timetableRepository.save(Timetable.create(
+                    user,
+                    request.dayOfWeek().byteValue(),
+                    request.startTime(),
+                    request.endTime(),
+                    request.title(),
+                    request.place(),
+                    request.color()
+            )));
+        }
         timetableRepository.flush();
         thirtyMinutePackScheduleService.synchronize(userId);
-        return TimetableResponse.from(saved);
+        return saved.stream().map(TimetableResponse::from).toList();
     }
 
     @Transactional
