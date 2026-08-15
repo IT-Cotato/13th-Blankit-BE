@@ -7,6 +7,7 @@ import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -565,6 +566,99 @@ class TimetableControllerTest {
         org.assertj.core.api.Assertions.assertThat(
                 timetableRepository.findByTimetableIdAndUserId(otherTimetable.getTimetableId(), otherUser.getId())
         ).isPresent();
+    }
+
+    // ── 표시 범위 벗어난 블록 등록/수정 거절 ─────────────────────────────
+
+    @Test
+    @DisplayName("블록 startTime이 표시 범위 startTime보다 이르면 등록을 거절한다")
+    void createTimetableRejectsBlockOutsideDisplayRangeOnStart() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(10, 0), LocalTime.of(22, 0));
+
+        mockMvc.perform(post("/api/timetable")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "09:00:00",
+                                    "endTime": "11:00:00",
+                                    "title": "범위 밖 강의",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
+    }
+
+    @Test
+    @DisplayName("블록 endTime이 표시 범위 endTime보다 늦으면 등록을 거절한다")
+    void createTimetableRejectsBlockOutsideDisplayRangeOnEnd() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(8, 0), LocalTime.of(20, 0));
+
+        mockMvc.perform(post("/api/timetable")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "19:00:00",
+                                    "endTime": "21:00:00",
+                                    "title": "범위 밖 강의",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
+    }
+
+    @Test
+    @DisplayName("표시 범위 endTime이 자정(00:00)이면 블록 endTime 상한을 체크하지 않는다")
+    void createTimetableAllowsBlockWhenDisplayEndIsMidnight() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(8, 0), LocalTime.MIDNIGHT);
+
+        mockMvc.perform(post("/api/timetable")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "22:00:00",
+                                    "endTime": "23:30:00",
+                                    "title": "늦은 강의",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("수정 후 블록 startTime이 표시 범위를 벗어나면 수정을 거절한다")
+    void updateTimetableRejectsBlockOutsideDisplayRange() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(10, 0), LocalTime.of(22, 0));
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(11, 0), LocalTime.of(13, 0), "강의");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "09:00:00",
+                                  "endTime": "11:00:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
     }
 
     // ── helper ───────────────────────────────────────────────────

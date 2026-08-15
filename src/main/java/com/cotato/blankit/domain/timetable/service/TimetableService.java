@@ -40,6 +40,7 @@ public class TimetableService {
         List<Timetable> saved = new ArrayList<>();
         for (TimetableCreateRequest request : requests) {
             validateTimeRange(request.startTime(), request.endTime());
+            validateBlockWithinDisplayRange(user, request.startTime(), request.endTime());
             checkTimeConflict(userId, request.dayOfWeek().byteValue(),
                     request.startTime(), request.endTime(), null);
             saved.add(timetableRepository.save(Timetable.create(
@@ -59,7 +60,7 @@ public class TimetableService {
 
     @Transactional
     public TimetableResponse updateTimetable(Long userId, Long timetableId, TimetableUpdateRequest request) {
-        getUserForUpdate(userId);
+        User user = getUserForUpdate(userId);
         Timetable timetable = getTimetable(userId, timetableId);
 
         byte targetDay = request.dayOfWeek() != null ? request.dayOfWeek().byteValue() : timetable.getDayOfWeek();
@@ -67,6 +68,7 @@ public class TimetableService {
         LocalTime targetEnd = request.endTime() != null ? request.endTime() : timetable.getEndTime();
 
         validateTimeRange(targetStart, targetEnd);
+        validateBlockWithinDisplayRange(user, targetStart, targetEnd);
         checkTimeConflict(userId, targetDay, targetStart, targetEnd, timetableId);
 
         timetable.update(
@@ -94,6 +96,15 @@ public class TimetableService {
     public void deleteAllTimetables(Long userId) {
         timetableRepository.deleteByUserId(userId);
         thirtyMinutePackScheduleService.synchronize(userId);
+    }
+
+    private void validateBlockWithinDisplayRange(User user, LocalTime startTime, LocalTime endTime) {
+        boolean outsideLower = startTime.isBefore(user.getTimetableStartTime());
+        boolean outsideUpper = !user.getTimetableEndTime().equals(LocalTime.MIDNIGHT)
+                && endTime.isAfter(user.getTimetableEndTime());
+        if (outsideLower || outsideUpper) {
+            throw new CustomException(ErrorCode.TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE);
+        }
     }
 
     private void validateTimeRange(LocalTime startTime, LocalTime endTime) {
