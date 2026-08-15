@@ -82,9 +82,9 @@ public class UserService {
     @Transactional
     public TimetableSettingsResponse updateTimetableSettings(Long userId, TimetableSettingsUpdateRequest request) {
         validateTimetableSettings(request.startTime(), request.endTime());
-        validateNoTimetableOutsideRange(userId, request.startTime(), request.endTime());
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        validateNoTimetableOutsideRange(userId, request.startTime(), request.endTime());
         user.updateTimetableSettings(request.startTime(), request.endTime());
         return new TimetableSettingsResponse(user.getTimetableStartTime(), user.getTimetableEndTime());
     }
