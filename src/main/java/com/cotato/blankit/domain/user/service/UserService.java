@@ -5,6 +5,7 @@ import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
 import com.cotato.blankit.domain.notification.push.service.ThirtyMinutePackScheduleService;
 import com.cotato.blankit.domain.notification.push.service.TaskDeadlineNotificationScheduleService;
+import com.cotato.blankit.domain.timetable.repository.TimetableRepository;
 import com.cotato.blankit.domain.user.dto.request.TimetableSettingsUpdateRequest;
 import com.cotato.blankit.domain.user.dto.request.UserNotificationSettingUpdateRequest;
 import com.cotato.blankit.domain.user.dto.response.TimetableSettingsResponse;
@@ -30,6 +31,7 @@ public class UserService {
     private final UserNotificationSettingRepository userNotificationSettingRepository;
     private final ThirtyMinutePackScheduleService thirtyMinutePackScheduleService;
     private final TaskDeadlineNotificationScheduleService taskDeadlineScheduleService;
+    private final TimetableRepository timetableRepository;
 
     @Transactional(readOnly = true)
     public UserMeResponse getMe(Long userId) {
@@ -80,6 +82,7 @@ public class UserService {
     @Transactional
     public TimetableSettingsResponse updateTimetableSettings(Long userId, TimetableSettingsUpdateRequest request) {
         validateTimetableSettings(request.startTime(), request.endTime());
+        validateNoTimetableOutsideRange(userId, request.startTime(), request.endTime());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         user.updateTimetableSettings(request.startTime(), request.endTime());
@@ -89,6 +92,13 @@ public class UserService {
     private void validateTimetableSettings(LocalTime startTime, LocalTime endTime) {
         if (!endTime.equals(LocalTime.MIDNIGHT) && !startTime.isBefore(endTime)) {
             throw new CustomException(ErrorCode.INVALID_TIMETABLE_SETTINGS);
+        }
+    }
+
+    private void validateNoTimetableOutsideRange(Long userId, LocalTime startTime, LocalTime endTime) {
+        boolean checkUpperBound = !endTime.equals(LocalTime.MIDNIGHT);
+        if (timetableRepository.existsOutsideDisplayRange(userId, startTime, endTime, checkUpperBound)) {
+            throw new CustomException(ErrorCode.TIMETABLE_SETTINGS_OUT_OF_RANGE);
         }
     }
 

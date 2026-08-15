@@ -33,4 +33,15 @@ public interface TimetableRepository extends JpaRepository<Timetable, Long> {
                                @Param("startTime") LocalTime startTime,
                                @Param("endTime") LocalTime endTime,
                                @Param("excludeId") Long excludeId);
+
+    @Query("""
+            SELECT COUNT(t) > 0 FROM Timetable t
+            WHERE t.user.id = :userId
+              AND (t.startTime < :startTime
+                OR (:checkUpperBound = true AND t.endTime > :endTime))
+            """)
+    boolean existsOutsideDisplayRange(@Param("userId") Long userId,
+                                      @Param("startTime") LocalTime startTime,
+                                      @Param("endTime") LocalTime endTime,
+                                      @Param("checkUpperBound") boolean checkUpperBound);
 }

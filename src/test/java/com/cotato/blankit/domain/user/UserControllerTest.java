@@ -2,6 +2,8 @@ package com.cotato.blankit.domain.user;
 
 import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
+import com.cotato.blankit.domain.timetable.entity.Timetable;
+import com.cotato.blankit.domain.timetable.repository.TimetableRepository;
 import com.cotato.blankit.domain.user.service.UserService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
@@ -10,6 +12,7 @@ import com.cotato.blankit.global.security.JwtTokenProvider;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -69,6 +72,9 @@ class UserControllerTest {
 
     @Autowired
     private UserNotificationSettingRepository userNotificationSettingRepository;
+
+    @Autowired
+    private TimetableRepository timetableRepository;
 
     @Autowired
     private UserService userService;
@@ -225,6 +231,159 @@ class UserControllerTest {
         assertThat(unchanged.getTimetableStartTime()).isEqualTo(LocalTime.of(8, 0));
         assertThat(unchanged.getTimetableEndTime()).isEqualTo(LocalTime.of(0, 0));
     }
+
+    // ── 시간표 표시 범위 - 블록 범위 초과 검증 ──────────────────────────
+
+    @Test
+    @DisplayName("블록이 새 표시 범위 안에 완전히 포함되면 변경에 성공한다")
+    void updateTimetableSettings_blockFullyInsideRange_succeeds() throws Exception {
+        saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(17, 0), "강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "08:00:00",
+                                  "endTime": "23:00:00"
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("블록 startTime이 새 startTime과 같으면 (경계 포함) 변경에 성공한다")
+    void updateTimetableSettings_blockStartAtBoundary_succeeds() throws Exception {
+        saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(17, 0), "강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "09:00:00",
+                                  "endTime": "23:00:00"
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("블록 endTime이 새 endTime과 같으면 (경계 포함) 변경에 성공한다")
+    void updateTimetableSettings_blockEndAtBoundary_succeeds() throws Exception {
+        saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(17, 0), "강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "08:00:00",
+                                  "endTime": "17:00:00"
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("블록 startTime이 새 startTime보다 이르면 TIMETABLE_SETTINGS_OUT_OF_RANGE 에러를 반환한다")
+    void updateTimetableSettings_blockStartsBeforeNewRange_rejects() throws Exception {
+        saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(17, 0), "강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "10:00:00",
+                                  "endTime": "23:00:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TIMETABLE_SETTINGS_OUT_OF_RANGE"));
+    }
+
+    @Test
+    @DisplayName("블록 endTime이 새 endTime보다 늦으면 TIMETABLE_SETTINGS_OUT_OF_RANGE 에러를 반환한다")
+    void updateTimetableSettings_blockEndsAfterNewRange_rejects() throws Exception {
+        saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(17, 0), "강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "08:00:00",
+                                  "endTime": "16:00:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TIMETABLE_SETTINGS_OUT_OF_RANGE"));
+    }
+
+    @Test
+    @DisplayName("endTime이 자정(00:00)이면 블록 endTime이 아무리 늦어도 상한 체크를 건너뛰어 성공한다")
+    void updateTimetableSettings_midnightEndIgnoresBlockEndTime_succeeds() throws Exception {
+        saveTimetable(user, (byte) 1, LocalTime.of(9, 0), LocalTime.of(23, 0), "강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "08:00:00",
+                                  "endTime": "00:00:00"
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("endTime이 자정이더라도 블록 startTime이 새 startTime보다 이르면 거절한다")
+    void updateTimetableSettings_midnightEnd_blockStartsBefore_rejects() throws Exception {
+        saveTimetable(user, (byte) 1, LocalTime.of(7, 0), LocalTime.of(23, 0), "강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "08:00:00",
+                                  "endTime": "00:00:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TIMETABLE_SETTINGS_OUT_OF_RANGE"));
+    }
+
+    @Test
+    @DisplayName("다른 유저의 블록이 범위 밖이어도 내 표시 범위 변경에는 영향을 주지 않는다")
+    void updateTimetableSettings_otherUserBlockOutsideRange_doesNotAffect() throws Exception {
+        User otherUser = userRepository.save(User.create(
+                SocialProvider.KAKAO, "other-range-user-" + UUID.randomUUID(), "other2@example.com", "타인", null, null));
+        saveTimetable(otherUser, (byte) 1, LocalTime.of(6, 0), LocalTime.of(20, 0), "타인강의");
+
+        mockMvc.perform(patch("/api/users/me/timetable-settings")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "startTime": "09:00:00",
+                                  "endTime": "17:00:00"
+                                }
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    // ── 알림 설정 ──────────────────────────────────────────────────
 
     @Test
     void getNotificationSettingsWithoutStoredSettingReturnsDefaultOff() throws Exception {
@@ -399,6 +558,10 @@ class UserControllerTest {
 
         assertThat(userNotificationSettingRepository.findByUserId(user.getId())).isEmpty();
         assertThat(userRepository.findById(user.getId())).isEmpty();
+    }
+
+    private Timetable saveTimetable(User owner, byte dayOfWeek, LocalTime startTime, LocalTime endTime, String title) {
+        return timetableRepository.save(Timetable.create(owner, dayOfWeek, startTime, endTime, title, null, "#7B5EA7"));
     }
 
     private Future<Integer> submitNotificationSettingUpdate(
