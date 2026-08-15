@@ -661,6 +661,44 @@ class TimetableControllerTest {
                 .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
     }
 
+    @Test
+    @DisplayName("수정 후 블록 endTime이 표시 범위 endTime을 넘으면 수정을 거절한다")
+    void updateTimetableRejectsBlockEndOutsideDisplayRange() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(10, 0), LocalTime.of(22, 0));
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(11, 0), LocalTime.of(13, 0), "강의");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "endTime": "23:00:00"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
+    }
+
+    @Test
+    @DisplayName("표시 범위 endTime이 자정이면 블록 endTime을 늦게 수정해도 성공한다")
+    void updateTimetableAllowsLaterEndTimeWhenDisplayEndIsMidnight() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(8, 0), LocalTime.MIDNIGHT);
+        Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(11, 0), LocalTime.of(13, 0), "강의");
+
+        mockMvc.perform(patch("/api/timetable/{timetableId}", timetable.getTimetableId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "endTime": "23:30:00"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.endTime").value("23:30:00"));
+    }
+
     // ── helper ───────────────────────────────────────────────────
 
     private Timetable saveTimetable(User owner, byte dayOfWeek, LocalTime startTime, LocalTime endTime, String title) {
