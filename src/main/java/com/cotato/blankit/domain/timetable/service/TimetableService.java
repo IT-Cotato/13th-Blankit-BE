@@ -4,6 +4,8 @@ import com.cotato.blankit.domain.timetable.dto.request.TimetableCreateRequest;
 import com.cotato.blankit.domain.notification.push.service.ThirtyMinutePackScheduleService;
 import com.cotato.blankit.domain.timetable.dto.request.TimetableUpdateRequest;
 import com.cotato.blankit.domain.timetable.dto.response.TimetableResponse;
+import com.cotato.blankit.domain.timetable.dto.response.TimetableWithDisplayResponse;
+import com.cotato.blankit.domain.timetable.dto.response.TimetablesWithDisplayResponse;
 import com.cotato.blankit.domain.timetable.entity.Timetable;
 import com.cotato.blankit.domain.timetable.repository.TimetableRepository;
 import com.cotato.blankit.domain.user.entity.User;
@@ -35,7 +37,7 @@ public class TimetableService {
     }
 
     @Transactional
-    public List<TimetableResponse> createTimetables(Long userId, List<TimetableCreateRequest> requests) {
+    public TimetablesWithDisplayResponse createTimetables(Long userId, List<TimetableCreateRequest> requests) {
         User user = getUserForUpdate(userId);
         List<Timetable> saved = new ArrayList<>();
         for (TimetableCreateRequest request : requests) {
@@ -55,11 +57,15 @@ public class TimetableService {
         }
         timetableRepository.flush();
         thirtyMinutePackScheduleService.synchronize(userId);
-        return saved.stream().map(TimetableResponse::from).toList();
+        return new TimetablesWithDisplayResponse(
+                saved.stream().map(TimetableResponse::from).toList(),
+                user.getTimetableStartTime(),
+                user.getTimetableEndTime()
+        );
     }
 
     @Transactional
-    public TimetableResponse updateTimetable(Long userId, Long timetableId, TimetableUpdateRequest request) {
+    public TimetableWithDisplayResponse updateTimetable(Long userId, Long timetableId, TimetableUpdateRequest request) {
         User user = getUserForUpdate(userId);
         Timetable timetable = getTimetable(userId, timetableId);
 
@@ -81,7 +87,11 @@ public class TimetableService {
         );
         timetableRepository.flush();
         thirtyMinutePackScheduleService.synchronize(userId);
-        return TimetableResponse.from(timetable);
+        return new TimetableWithDisplayResponse(
+                TimetableResponse.from(timetable),
+                user.getTimetableStartTime(),
+                user.getTimetableEndTime()
+        );
     }
 
     @Transactional
