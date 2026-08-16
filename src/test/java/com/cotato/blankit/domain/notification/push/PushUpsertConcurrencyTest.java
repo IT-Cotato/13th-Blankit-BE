@@ -88,7 +88,7 @@ class PushUpsertConcurrencyTest {
         start.await();
         return subscriptionService.register(
                 userId,
-                new PushSubscriptionRequest(fid, "device", "browser")
+                new PushSubscriptionRequest(fid, "token-" + fid, "device", "browser")
         ).subscriptionId();
     }
 

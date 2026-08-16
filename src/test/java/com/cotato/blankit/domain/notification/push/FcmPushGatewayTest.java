@@ -6,8 +6,11 @@ import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.MessagingErrorCode;
+import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.SendResponse;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -19,18 +22,36 @@ import static org.mockito.Mockito.*;
 
 class FcmPushGatewayTest {
     @Test
-    void splitsMoreThanFiveHundredFids() throws Exception {
+    void putsFcmRegistrationTokenInMessageTokenTarget() throws Exception {
+        FirebaseMessaging messaging = mock(FirebaseMessaging.class);
+        BatchResponse response = successfulBatch(1);
+        when(messaging.sendEachForMulticast(any())).thenReturn(response);
+
+        new FcmPushGateway(messaging).send(List.of("fcm-token"), payload());
+
+        ArgumentCaptor<MulticastMessage> captor = ArgumentCaptor.forClass(MulticastMessage.class);
+        verify(messaging).sendEachForMulticast(captor.capture());
+        List<?> messages = ReflectionTestUtils.invokeMethod(captor.getValue(), "getMessageList");
+        assertThat(messages).hasSize(1);
+        String token = ReflectionTestUtils.invokeMethod(messages.get(0), "getToken");
+        String fid = ReflectionTestUtils.invokeMethod(messages.get(0), "getFid");
+        assertThat(token).isEqualTo("fcm-token");
+        assertThat(fid).isNull();
+    }
+
+    @Test
+    void splitsMoreThanFiveHundredFcmTokens() throws Exception {
         FirebaseMessaging messaging = mock(FirebaseMessaging.class);
         BatchResponse first = successfulBatch(500);
         BatchResponse second = successfulBatch(1);
         when(messaging.sendEachForMulticast(any())).thenReturn(first, second);
-        List<String> fids = IntStream.range(0, 501).mapToObj(i -> "fid-" + i).toList();
+        List<String> tokens = IntStream.range(0, 501).mapToObj(i -> "token-" + i).toList();
 
-        var result = new FcmPushGateway(messaging).send(fids, payload());
+        var result = new FcmPushGateway(messaging).send(tokens, payload());
 
         verify(messaging, times(2)).sendEachForMulticast(any());
         assertThat(result.items()).hasSize(501).allMatch(item -> item.success());
-        assertThat(result.items().get(500).installationId()).isEqualTo("fid-500");
+        assertThat(result.items().get(500).fcmToken()).isEqualTo("token-500");
     }
 
     @Test
@@ -45,10 +66,10 @@ class FcmPushGatewayTest {
         when(batch.getResponses()).thenReturn(List.of(ok, failed, ok));
         when(messaging.sendEachForMulticast(any())).thenReturn(batch);
 
-        var result = new FcmPushGateway(messaging).send(List.of("fid-a", "fid-b", "fid-c"), payload());
+        var result = new FcmPushGateway(messaging).send(List.of("token-a", "token-b", "token-c"), payload());
 
         assertThat(result.items().get(0).success()).isTrue();
-        assertThat(result.items().get(1).installationId()).isEqualTo("fid-b");
+        assertThat(result.items().get(1).fcmToken()).isEqualTo("token-b");
         assertThat(result.items().get(1).success()).isFalse();
         assertThat(result.items().get(2).success()).isTrue();
     }

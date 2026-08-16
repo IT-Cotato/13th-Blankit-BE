@@ -25,6 +25,7 @@ public class PushSubscriptionService {
         repository.upsert(
                 userId,
                 request.installationId(),
+                request.fcmToken(),
                 request.deviceName(),
                 request.browser(),
                 now

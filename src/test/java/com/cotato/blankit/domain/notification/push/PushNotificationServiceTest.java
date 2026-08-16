@@ -64,7 +64,7 @@ class PushNotificationServiceTest {
         PushSubscription subscription = PushSubscriptionFixture.create(user, "expired-fid");
         when(preference.isEnabled(1L, PushNotificationType.SERVICE)).thenReturn(true);
         when(repository.findByUserIdAndActiveTrueOrderByIdAsc(1L)).thenReturn(List.of(subscription));
-        when(repository.findByFirebaseInstallationIdIn(List.of("expired-fid")))
+        when(repository.findByFcmTokenIn(List.of("expired-fid")))
                 .thenReturn(List.of(subscription));
         when(gateway.send(any(), any())).thenReturn(new PushDeliveryResult(List.of(
                 PushDeliveryResult.Item.failure("expired-fid", "UNREGISTERED", PushErrorType.PERMANENT_TARGET))));
@@ -96,13 +96,13 @@ class PushNotificationServiceTest {
         when(preference.isEnabled(1L, PushNotificationType.SERVICE)).thenReturn(true);
         when(repository.findByUserIdAndActiveTrueOrderByIdAsc(1L))
                 .thenReturn(List.of(successful, retryable));
-        when(repository.findByUserIdAndActiveTrueAndFirebaseInstallationIdInOrderByIdAsc(
+        when(repository.findByUserIdAndActiveTrueAndFcmTokenInOrderByIdAsc(
                 1L, List.of("retryable-fid")))
                 .thenReturn(List.of(retryable));
-        when(repository.findByFirebaseInstallationIdIn(anyList())).thenAnswer(invocation -> {
+        when(repository.findByFcmTokenIn(anyList())).thenAnswer(invocation -> {
             List<String> requested = invocation.getArgument(0);
             return List.of(successful, retryable).stream()
-                    .filter(subscription -> requested.contains(subscription.getFirebaseInstallationId()))
+                    .filter(subscription -> requested.contains(subscription.getFcmToken()))
                     .toList();
         });
         when(gateway.send(any(), any()))

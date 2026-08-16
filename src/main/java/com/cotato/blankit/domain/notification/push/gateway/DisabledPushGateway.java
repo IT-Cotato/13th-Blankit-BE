@@ -9,9 +9,9 @@ import java.util.List;
 @ConditionalOnProperty(prefix = "blankit.firebase", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class DisabledPushGateway implements PushGateway {
     @Override
-    public PushDeliveryResult send(List<String> installationIds, PushPayload payload) {
-        return new PushDeliveryResult(installationIds.stream()
-                .map(fid -> PushDeliveryResult.Item.failure(fid, "FIREBASE_DISABLED", PushErrorType.CONFIGURATION))
+    public PushDeliveryResult send(List<String> fcmTokens, PushPayload payload) {
+        return new PushDeliveryResult(fcmTokens.stream()
+                .map(token -> PushDeliveryResult.Item.failure(token, "FIREBASE_DISABLED", PushErrorType.CONFIGURATION))
                 .toList());
     }
 }

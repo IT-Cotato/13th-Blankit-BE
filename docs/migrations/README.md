@@ -5,13 +5,18 @@
 
 ## Web Push 테이블 추가
 
-Firebase FID 구독 및 예약 작업을 위해 애플리케이션 배포 전에 아래 파일을 실행합니다.
+FID와 FCM token 구독 및 예약 작업을 위해 애플리케이션 배포 전에 아래 파일을 실행합니다.
 
 ```text
 20260729_add_web_push.sql
 20260730_add_push_delivery_recovery.sql
 20260804_add_push_job_failure_type.sql
+20260817_add_fcm_token.sql
 ```
+
+마지막 마이그레이션은 기존 FID 컬럼을 유지하면서 실제 발송에 사용할 FCM token 컬럼을 추가합니다.
+기존 구독은 token이 없으므로 비활성화되며, 배포 후 클라이언트가 FID와 Firebase Messaging
+`getToken()` 결과를 함께 다시 등록해야 합니다.
 
 ## `category.icon_key` 추가
 

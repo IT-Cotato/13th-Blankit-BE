@@ -1,11 +1,11 @@
-# Firebase FID Web Push
+# Firebase Cloud Messaging Web Push
 
 ## 발송 흐름
 
-프론트엔드는 Firebase Web SDK에서 얻은 Firebase Installation ID(FID)를 인증 후 등록합니다.
+프론트엔드는 Firebase Messaging SDK의 `getToken()`으로 얻은 FCM registration token을 인증 후 등록합니다.
 서버는 예약 작업을 짧은 비관적 락 트랜잭션에서 `PROCESSING`으로 선점하고 커밋한 뒤,
 사용자 알림 설정과 활성 구독을 조회합니다. 실제 FCM 호출 직전에 설정을 한 번 더 확인하고
-`notification`과 문자열 `data`가 함께 든 메시지를 최대 500 FID씩 전송합니다.
+`notification`과 문자열 `data`가 함께 든 메시지를 최대 500개 FCM token씩 전송합니다.
 `PROCESSING` 작업은 기본 5분 lease를 가지며, 서버 종료 등으로 완료되지 못한 작업은 lease 만료 후
 다시 선점됩니다. lease는 `PUSH_PROCESSING_LEASE_MILLIS`로 조정할 수 있습니다.
 
@@ -26,6 +26,7 @@ Content-Type: application/json
 
 {
   "installationId": "firebase-installation-id",
+  "fcmToken": "fcm-registration-token",
   "deviceName": "MacBook Air",
   "browser": "Chrome"
 }
@@ -35,8 +36,9 @@ Content-Type: application/json
 {"code":"SUCCESS","message":"요청이 성공했습니다.","data":{"subscriptionId":1,"active":true}}
 ```
 
-동일 FID는 새 행을 만들지 않고 현재 인증 사용자에게 재연결합니다. `installationId`는 필수이며
-최대 255자, 기기명과 브라우저는 각각 최대 100자입니다.
+동일 FID는 새 행을 만들지 않고 현재 인증 사용자에게 재연결하며 최신 FCM token으로 갱신합니다.
+`installationId`에는 최대 255자의 Firebase Installation ID를, `fcmToken`에는 최대 512자의
+Firebase Messaging `getToken()` 결과를 전달합니다. 기기명과 브라우저는 각각 최대 100자입니다.
 
 ### 해제
 
@@ -47,9 +49,9 @@ curl -X DELETE 'http://localhost:8080/api/v1/push-subscriptions/1' \
 
 현재 사용자 소유 구독만 `active=false`가 됩니다.
 
-## FID 및 payload 계약
+## FCM token 및 payload 계약
 
-`installationId`에는 registration token이 아니라 Firebase Installations SDK의 FID를 전달합니다.
+`installationId`는 설치 식별과 token 갱신에 사용하고, 실제 발송 대상에는 `fcmToken`을 사용합니다.
 서버 data payload는 모두 문자열이며 기본 키는 `type`, `referenceId`, `clickUrl`,
 예약 작업의 `referenceType`입니다. 현재 유형과 설정 매핑은 다음과 같습니다.
 
@@ -85,8 +87,8 @@ test 프로필은 이 값과 scheduler를 기본 비활성화합니다.
 | 일시 오류 | `UNAVAILABLE`, `INTERNAL`, `QUOTA_EXCEEDED` | 1분, 5분, 15분, 1시간 뒤 재시도 후 `FAILED` |
 | 설정 오류 | `INVALID_ARGUMENT`, sender/project/auth/permission 계열 | 구독 유지, 구조화 로그, 작업 재시도 후보 |
 
-FID 원문은 로그에 기록하지 않고 구독 ID와 오류 분류만 기록합니다. 부분 성공은 응답 인덱스를 입력
-FID 인덱스에 대응시켜 개별 반영하고, 다음 시도에는 실패한 FID만 포함하여 이미 성공한 브라우저의
+FCM token 원문은 로그에 기록하지 않고 구독 ID와 오류 분류만 기록합니다. 부분 성공은 응답 인덱스를 입력
+token 인덱스에 대응시켜 개별 반영하고, 다음 시도에는 실패한 token만 포함하여 이미 성공한 브라우저의
 중복 수신을 방지합니다.
 
 ## 예약 API(내부 서비스)
@@ -116,7 +118,7 @@ Authorization: Bearer {JWT}
 과업은 제외합니다.
 
 브라우저 알림 권한 팝업은 프론트엔드 책임입니다. 시간표 등록 UI 완료 후 권한을 요청하고,
-권한이 `granted`인 경우에만 FID 등록 및 30분 Pack 설정 ON 요청을 보냅니다. 브라우저 권한이
+권한이 `granted`인 경우에만 FCM token 등록 및 30분 Pack 설정 ON 요청을 보냅니다. 브라우저 권한이
 `denied`이면 토글을 OFF로 유지하고 브라우저 설정 변경을 안내해야 합니다.
 
 ## 과업 마감 캘린더 알림

@@ -31,15 +31,18 @@ class PushSubscriptionServiceTest {
     void sameFidIsUpsertedAndReconnectedToCurrentUser() {
         User first = user("first");
         User second = user("second");
-        var request = new PushSubscriptionRequest("fid-1", "Mac", "Chrome");
+        var request = new PushSubscriptionRequest("fid-1", "token-1", "Mac", "Chrome");
 
         var initial = service.register(first.getId(), request);
-        var updated = service.register(second.getId(), new PushSubscriptionRequest("fid-1", "PC", "Edge"));
+        var updated = service.register(second.getId(),
+                new PushSubscriptionRequest("fid-1", "token-2", "PC", "Edge"));
 
         assertThat(updated.subscriptionId()).isEqualTo(initial.subscriptionId());
         assertThat(repository.count()).isEqualTo(1);
         PushSubscription saved = repository.findById(initial.subscriptionId()).orElseThrow();
         assertThat(saved.getUser().getId()).isEqualTo(second.getId());
+        assertThat(saved.getFirebaseInstallationId()).isEqualTo("fid-1");
+        assertThat(saved.getFcmToken()).isEqualTo("token-2");
         assertThat(saved.getDeviceName()).isEqualTo("PC");
         assertThat(saved.getFailureCount()).isZero();
         assertThat(saved.isActive()).isTrue();
@@ -50,7 +53,7 @@ class PushSubscriptionServiceTest {
         User owner = user("owner");
         User attacker = user("attacker");
         Long id = service.register(owner.getId(),
-                new PushSubscriptionRequest("fid-owner", null, null)).subscriptionId();
+                new PushSubscriptionRequest("fid-owner", "token-owner", null, null)).subscriptionId();
 
         assertThatThrownBy(() -> service.deactivate(attacker.getId(), id))
                 .isInstanceOf(CustomException.class);

@@ -15,7 +15,8 @@ final class PushSubscriptionFixture {
     static PushSubscription create(User user, String fid) {
         PushSubscription subscription = BeanUtils.instantiateClass(PushSubscription.class);
         ReflectionTestUtils.setField(subscription, "user", user);
-        ReflectionTestUtils.setField(subscription, "firebaseInstallationId", fid);
+        ReflectionTestUtils.setField(subscription, "firebaseInstallationId", "installation-" + fid);
+        ReflectionTestUtils.setField(subscription, "fcmToken", fid);
         ReflectionTestUtils.setField(subscription, "active", true);
         ReflectionTestUtils.setField(subscription, "lastRegisteredAt", LocalDateTime.now());
         ReflectionTestUtils.setField(subscription, "failureCount", 0);

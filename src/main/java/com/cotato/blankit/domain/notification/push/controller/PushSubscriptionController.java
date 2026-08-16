@@ -14,14 +14,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "웹 푸시 구독", description = "Firebase Installation ID 기반 브라우저 설치 등록 API")
+@Tag(name = "웹 푸시 구독", description = "Firebase Installation ID와 FCM registration token 기반 브라우저 푸시 등록 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/push-subscriptions")
 public class PushSubscriptionController {
     private final PushSubscriptionService service;
 
-    @Operation(summary = "FID 등록 또는 갱신", description = "동일 FID는 현재 인증 사용자 소유로 멱등 갱신합니다.",
+    @Operation(summary = "푸시 구독 등록 또는 갱신", description = "installationId와 fcmToken을 함께 받아 멱등 갱신합니다.",
             security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "등록/갱신 성공"),

@@ -45,11 +45,11 @@ public class PushNotificationService {
             return PushSendResult.of(PushSendOutcome.SKIPPED_PREFERENCE);
         }
         PushDeliveryResult result = gateway.send(
-                subscriptions.stream().map(PushSubscription::getFirebaseInstallationId).toList(), payload);
+                subscriptions.stream().map(PushSubscription::getFcmToken).toList(), payload);
         transactionTemplate.executeWithoutResult(ignored -> applyResults(result));
         List<String> retryTargets = result.items().stream()
                 .filter(item -> !item.success() && item.errorType() != PushErrorType.PERMANENT_TARGET)
-                .map(PushDeliveryResult.Item::installationId)
+                .map(PushDeliveryResult.Item::fcmToken)
                 .distinct()
                 .toList();
         boolean anySuccess = result.items().stream().anyMatch(PushDeliveryResult.Item::success);
@@ -79,7 +79,7 @@ public class PushNotificationService {
     private List<PushSubscription> findActive(Long userId, List<String> retryInstallationIds) {
         if (retryInstallationIds != null && !retryInstallationIds.isEmpty()) {
             return repository
-                    .findByUserIdAndActiveTrueAndFirebaseInstallationIdInOrderByIdAsc(
+                    .findByUserIdAndActiveTrueAndFcmTokenInOrderByIdAsc(
                             userId,
                             retryInstallationIds
                     );
@@ -88,16 +88,16 @@ public class PushNotificationService {
     }
 
     private void applyResults(PushDeliveryResult result) {
-        List<String> installationIds = result.items().stream()
-                .map(PushDeliveryResult.Item::installationId)
+        List<String> fcmTokens = result.items().stream()
+                .map(PushDeliveryResult.Item::fcmToken)
                 .distinct()
                 .toList();
         Map<String, PushSubscription> byFid =
-                repository.findByFirebaseInstallationIdIn(installationIds).stream()
-                .collect(Collectors.toMap(PushSubscription::getFirebaseInstallationId, Function.identity()));
+                repository.findByFcmTokenIn(fcmTokens).stream()
+                .collect(Collectors.toMap(PushSubscription::getFcmToken, Function.identity()));
         LocalDateTime now = LocalDateTime.now(clock);
         for (PushDeliveryResult.Item item : result.items()) {
-            PushSubscription subscription = byFid.get(item.installationId());
+            PushSubscription subscription = byFid.get(item.fcmToken());
             if (subscription == null) continue;
             if (item.success()) {
                 subscription.markSuccess(now);
@@ -128,8 +128,8 @@ public class PushNotificationService {
             return new PushSendResult(outcome, List.of(), null);
         }
 
-        public static PushSendResult retryAll(List<String> installationIds) {
-            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, installationIds, PushErrorType.UNKNOWN);
+        public static PushSendResult retryAll(List<String> fcmTokens) {
+            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, fcmTokens, PushErrorType.UNKNOWN);
         }
 
         public static PushSendResult failed(PushErrorType failureType) {

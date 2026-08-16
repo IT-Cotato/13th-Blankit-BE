@@ -16,12 +16,12 @@ public class FcmPushGateway implements PushGateway {
     private final FirebaseMessaging firebaseMessaging;
 
     @Override
-    public PushDeliveryResult send(List<String> installationIds, PushPayload payload) {
-        List<PushDeliveryResult.Item> results = new ArrayList<>(installationIds.size());
-        for (int start = 0; start < installationIds.size(); start += BATCH_SIZE) {
-            List<String> batch = installationIds.subList(start, Math.min(start + BATCH_SIZE, installationIds.size()));
+    public PushDeliveryResult send(List<String> fcmTokens, PushPayload payload) {
+        List<PushDeliveryResult.Item> results = new ArrayList<>(fcmTokens.size());
+        for (int start = 0; start < fcmTokens.size(); start += BATCH_SIZE) {
+            List<String> batch = fcmTokens.subList(start, Math.min(start + BATCH_SIZE, fcmTokens.size()));
             MulticastMessage message = MulticastMessage.builder()
-                    .addAllFids(batch)
+                    .addAllTokens(batch)
                     .setNotification(Notification.builder().setTitle(payload.title()).setBody(payload.body()).build())
                     .putAllData(payload.data())
                     .build();
@@ -34,13 +34,13 @@ public class FcmPushGateway implements PushGateway {
                             : failure(batch.get(i), item.getException()));
                 }
             } catch (FirebaseMessagingException exception) {
-                for (String fid : batch) results.add(failure(fid, exception));
+                for (String fcmToken : batch) results.add(failure(fcmToken, exception));
             }
         }
         return new PushDeliveryResult(results);
     }
 
-    private PushDeliveryResult.Item failure(String fid, FirebaseMessagingException exception) {
+    private PushDeliveryResult.Item failure(String fcmToken, FirebaseMessagingException exception) {
         MessagingErrorCode errorCode = exception.getMessagingErrorCode();
         String code = errorCode != null ? errorCode.name()
                 : exception.getErrorCode() != null ? exception.getErrorCode().name() : "UNKNOWN";
@@ -51,6 +51,6 @@ public class FcmPushGateway implements PushGateway {
                     "PERMISSION_DENIED" -> PushErrorType.CONFIGURATION;
             default -> PushErrorType.UNKNOWN;
         };
-        return PushDeliveryResult.Item.failure(fid, code, type);
+        return PushDeliveryResult.Item.failure(fcmToken, code, type);
     }
 }
