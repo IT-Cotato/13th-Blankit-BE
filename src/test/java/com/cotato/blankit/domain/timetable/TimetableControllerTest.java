@@ -9,6 +9,8 @@ import com.cotato.blankit.global.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -571,8 +573,8 @@ class TimetableControllerTest {
     // ── 표시 범위 벗어난 블록 등록/수정 거절 ─────────────────────────────
 
     @Test
-    @DisplayName("블록 startTime이 표시 범위 startTime보다 이르면 등록을 거절한다")
-    void createTimetableRejectsBlockOutsideDisplayRangeOnStart() throws Exception {
+    @DisplayName("블록 startTime이 표시 범위보다 이르면 displayStart를 올림한 정각으로 당겨 확장한다")
+    void createTimetableExpandsDisplayStartWhenBlockStartsBeforeRange() throws Exception {
         user.updateTimetableSettings(LocalTime.of(10, 0), LocalTime.of(22, 0));
 
         mockMvc.perform(post("/api/timetable")
@@ -590,13 +592,16 @@ class TimetableControllerTest {
                                   }
                                 ]
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
+                .andExpect(status().isCreated());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(9, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(22, 0), updated.getTimetableEndTime());
     }
 
     @Test
-    @DisplayName("블록 endTime이 표시 범위 endTime보다 늦으면 등록을 거절한다")
-    void createTimetableRejectsBlockOutsideDisplayRangeOnEnd() throws Exception {
+    @DisplayName("블록 endTime이 표시 범위보다 늦으면 displayEnd를 올림한 정각으로 확장한다")
+    void createTimetableExpandsDisplayEndWhenBlockExceedsRange() throws Exception {
         user.updateTimetableSettings(LocalTime.of(8, 0), LocalTime.of(20, 0));
 
         mockMvc.perform(post("/api/timetable")
@@ -614,8 +619,11 @@ class TimetableControllerTest {
                                   }
                                 ]
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
+                .andExpect(status().isCreated());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(8, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(21, 0), updated.getTimetableEndTime());
     }
 
     @Test
@@ -642,8 +650,8 @@ class TimetableControllerTest {
     }
 
     @Test
-    @DisplayName("수정 후 블록 startTime이 표시 범위를 벗어나면 수정을 거절한다")
-    void updateTimetableRejectsBlockOutsideDisplayRange() throws Exception {
+    @DisplayName("수정 후 블록 startTime이 표시 범위보다 이르면 displayStart를 올림한 정각으로 당겨 확장한다")
+    void updateTimetableExpandsDisplayStartWhenBlockStartsBeforeRange() throws Exception {
         user.updateTimetableSettings(LocalTime.of(10, 0), LocalTime.of(22, 0));
         Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(11, 0), LocalTime.of(13, 0), "강의");
 
@@ -657,13 +665,16 @@ class TimetableControllerTest {
                                   "endTime": "11:00:00"
                                 }
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
+                .andExpect(status().isOk());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(9, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(22, 0), updated.getTimetableEndTime());
     }
 
     @Test
-    @DisplayName("수정 후 블록 endTime이 표시 범위 endTime을 넘으면 수정을 거절한다")
-    void updateTimetableRejectsBlockEndOutsideDisplayRange() throws Exception {
+    @DisplayName("수정 후 블록 endTime이 표시 범위를 넘으면 displayEnd를 올림한 정각으로 확장한다")
+    void updateTimetableExpandsDisplayEndWhenBlockExceedsRange() throws Exception {
         user.updateTimetableSettings(LocalTime.of(10, 0), LocalTime.of(22, 0));
         Timetable timetable = saveTimetable(user, (byte) 1, LocalTime.of(11, 0), LocalTime.of(13, 0), "강의");
 
@@ -676,8 +687,11 @@ class TimetableControllerTest {
                                   "endTime": "23:00:00"
                                 }
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE"));
+                .andExpect(status().isOk());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(10, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(23, 0), updated.getTimetableEndTime());
     }
 
     @Test
@@ -697,6 +711,116 @@ class TimetableControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.endTime").value("23:30:00"));
+    }
+
+    // ── 표시 범위 확장 올림/내림 검증 ──────────────────────────────────
+
+    @Test
+    @DisplayName("블록 startTime이 비정각이면 내림하여 displayStart를 확장한다 (07:30 → 07:00)")
+    void expandDisplayStartFloorsToHourWhenBlockStartHasMinutes() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(8, 0), LocalTime.of(20, 0));
+
+        mockMvc.perform(post("/api/timetable")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "07:30:00",
+                                    "endTime": "09:00:00",
+                                    "title": "이른 강의",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
+                                """))
+                .andExpect(status().isCreated());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(7, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(20, 0), updated.getTimetableEndTime());
+    }
+
+    @Test
+    @DisplayName("블록 startTime이 정각이면 그 시각 그대로 displayStart를 확장한다 (07:00 → 07:00)")
+    void expandDisplayStartKeepsExactHourWhenBlockStartIsOnHour() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(9, 0), LocalTime.of(20, 0));
+
+        mockMvc.perform(post("/api/timetable")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "07:00:00",
+                                    "endTime": "09:00:00",
+                                    "title": "이른 강의",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
+                                """))
+                .andExpect(status().isCreated());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(7, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(20, 0), updated.getTimetableEndTime());
+    }
+
+    @Test
+    @DisplayName("블록 endTime이 비정각이면 올림하여 displayEnd를 확장한다 (19:50 → 20:00)")
+    void expandDisplayEndCeilsToNextHourWhenBlockEndHasMinutes() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(8, 0), LocalTime.of(17, 0));
+
+        mockMvc.perform(post("/api/timetable")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "16:00:00",
+                                    "endTime": "19:50:00",
+                                    "title": "늦은 강의",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
+                                """))
+                .andExpect(status().isCreated());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(8, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(20, 0), updated.getTimetableEndTime());
+    }
+
+    @Test
+    @DisplayName("블록 endTime이 정각이면 그 시각 그대로 displayEnd를 확장한다 (20:00 → 20:00)")
+    void expandDisplayEndKeepsExactHourWhenBlockEndIsOnHour() throws Exception {
+        user.updateTimetableSettings(LocalTime.of(8, 0), LocalTime.of(18, 0));
+
+        mockMvc.perform(post("/api/timetable")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {
+                                    "dayOfWeek": 1,
+                                    "startTime": "16:00:00",
+                                    "endTime": "20:00:00",
+                                    "title": "늦은 강의",
+                                    "color": "#7B5EA7"
+                                  }
+                                ]
+                                """))
+                .andExpect(status().isCreated());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertEquals(LocalTime.of(8, 0), updated.getTimetableStartTime());
+        assertEquals(LocalTime.of(20, 0), updated.getTimetableEndTime());
     }
 
     // ── helper ───────────────────────────────────────────────────
