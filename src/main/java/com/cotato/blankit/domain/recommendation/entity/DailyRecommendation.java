@@ -10,7 +10,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "daily_recommendation")
+@Table(
+        name = "daily_recommendation",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_daily_rec_user_date_mode",
+                columnNames = {"user_id", "recommended_date", "mode"}
+        )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DailyRecommendation extends BaseEntity {

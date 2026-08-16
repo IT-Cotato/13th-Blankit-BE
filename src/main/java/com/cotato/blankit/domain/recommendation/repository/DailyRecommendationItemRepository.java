@@ -9,4 +9,6 @@ import java.util.List;
 public interface DailyRecommendationItemRepository extends JpaRepository<DailyRecommendationItem, Long> {
 
     List<DailyRecommendationItem> findAllByDailyRecommendationOrderByRankOrder(DailyRecommendation dailyRecommendation);
+
+    void deleteAllByDailyRecommendationIn(List<DailyRecommendation> dailyRecommendations);
 }

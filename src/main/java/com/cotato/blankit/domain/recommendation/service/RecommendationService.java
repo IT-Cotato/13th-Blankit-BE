@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +47,15 @@ public class RecommendationService {
 
     public TodayRecommendationResponse getTodayRecommendation(Long userId) {
         LocalDate today = LocalDate.now(clock);
+
+        Optional<DailyRecommendation> cached = dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY");
+        if (cached.isPresent()) {
+            return buildTodayFromCache(cached.get());
+        }
+
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         return dailyRecommendationRepository
                 .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY")
@@ -84,8 +94,10 @@ public class RecommendationService {
 
     private TodayRecommendationResponse calculateAndSaveToday(Long userId, LocalDate today) {
         List<ScoredTask> ranked = buildRanked(userId, today);
+        User user = userRepository.getReferenceById(userId);
 
         if (ranked.isEmpty()) {
+            dailyRecommendationRepository.save(DailyRecommendation.ofToday(user, today, 0));
             return new TodayRecommendationResponse(today, 0L, List.of());
         }
 
@@ -98,7 +110,6 @@ public class RecommendationService {
             topTasks.add(toItem(top.get(i), i + 1, today, memoMap));
         }
 
-        User user = userRepository.getReferenceById(userId);
         DailyRecommendation dailyRecommendation = DailyRecommendation.ofToday(user, today, (int) totalMinutes);
         dailyRecommendationRepository.save(dailyRecommendation);
 
@@ -131,11 +142,25 @@ public class RecommendationService {
         return new AllRecommendationResponse(today, allTasks);
     }
 
+    private static final List<String> ALL_MODES = List.of("FIRE", "BALANCE", "TASTE", "CLEAR");
+
     public RecommendationModesResponse getRecommendationModes(Long userId) {
         LocalDate today = LocalDate.now(clock);
 
-        if (dailyRecommendationRepository.existsByUser_IdAndRecommendedDateAndMode(userId, today, "FIRE")) {
+        if (dailyRecommendationRepository.countByUser_IdAndRecommendedDateAndModeIn(userId, today, ALL_MODES) == 4) {
             return buildModesFromCache(userId, today);
+        }
+
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        long count = dailyRecommendationRepository.countByUser_IdAndRecommendedDateAndModeIn(userId, today, ALL_MODES);
+        if (count == 4) {
+            return buildModesFromCache(userId, today);
+        }
+
+        if (count > 0) {
+            deletePartialModes(userId, today);
         }
 
         List<ScoredTask> ranked = buildRanked(userId, today);
@@ -164,6 +189,13 @@ public class RecommendationService {
                 buildModeItem("TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합", tasteTasks),
                 buildModeItem("CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합", clearTasks)
         ));
+    }
+
+    private void deletePartialModes(Long userId, LocalDate today) {
+        List<DailyRecommendation> partial = dailyRecommendationRepository
+                .findAllByUser_IdAndRecommendedDateAndModeIn(userId, today, ALL_MODES);
+        dailyRecommendationItemRepository.deleteAllByDailyRecommendationIn(partial);
+        dailyRecommendationRepository.deleteAll(partial);
     }
 
     private void saveModeItems(User user, LocalDate today, String mode,
