@@ -898,16 +898,37 @@ class RecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("getTodayRecommendation — 활성 과업이 없으면 DailyRecommendation이 저장되지 않는다")
-    void getTodayRecommendation_noTasks_doesNotSaveCache() {
+    @DisplayName("getTodayRecommendation — 활성 과업이 없으면 빈 결과로 DailyRecommendation 헤더가 저장된다")
+    void getTodayRecommendation_noTasks_savesEmptyCache() {
         // when
         recommendationService.getTodayRecommendation(user.getId());
         entityManager.flush();
 
-        // then
+        // then — 과업이 없어도 헤더는 캐시됨
         assertThat(dailyRecommendationRepository
                 .existsByUser_IdAndRecommendedDateAndMode(user.getId(), TODAY, "TODAY"))
-                .isFalse();
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("getTodayRecommendation — 빈 캐시 저장 후 과업이 추가되어도 당일에는 빈 결과가 유지된다")
+    void getTodayRecommendation_noTasks_emptyCacheHonored() {
+        // given — 과업 없는 상태로 첫 호출 → 빈 캐시 저장
+        recommendationService.getTodayRecommendation(user.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        // 이후 과업 추가
+        task("HIGH", TODAY.plusDays(1), 60, 0, false);
+        entityManager.flush();
+        entityManager.clear();
+
+        // when — 당일 두 번째 호출
+        TodayRecommendationResponse second = recommendationService.getTodayRecommendation(user.getId());
+
+        // then — 캐시된 빈 결과 반환 (재계산 없음)
+        assertThat(second.topTasks()).isEmpty();
+        assertThat(second.totalRecommendedMinutes()).isZero();
     }
 
     // ─── 캐싱 동작 — getRecommendationModes ──────────────────────────────────
