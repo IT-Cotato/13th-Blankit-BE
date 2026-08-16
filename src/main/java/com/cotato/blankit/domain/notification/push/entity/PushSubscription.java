@@ -46,6 +46,4 @@ public class PushSubscription extends BaseEntity {
     private int failureCount;
 
     public void deactivate() { this.active = false; }
-    public void markSuccess(LocalDateTime now) { this.lastSuccessAt = now; this.failureCount = 0; }
-    public void markFailure(boolean permanent) { this.failureCount++; if (permanent) this.active = false; }
 }

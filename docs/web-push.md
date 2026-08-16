@@ -39,6 +39,9 @@ Content-Type: application/json
 동일 FID는 새 행을 만들지 않고 현재 인증 사용자에게 재연결하며 최신 FCM token으로 갱신합니다.
 `installationId`에는 최대 255자의 Firebase Installation ID를, `fcmToken`에는 최대 512자의
 Firebase Messaging `getToken()` 결과를 전달합니다. 기기명과 브라우저는 각각 최대 100자입니다.
+두 식별자는 모두 필수이며, 누락하거나 빈 문자열을 전달하면 `INVALID_INPUT`으로 거절합니다.
+동일 `installationId`를 다시 등록하면 최신 token으로 갱신하고 구독을 `active=true`로 재활성화합니다.
+다른 설치가 이미 사용 중인 `fcmToken`은 `PUSH_SUBSCRIPTION_CONFLICT`로 거절합니다.
 
 ### 해제
 
@@ -89,7 +92,8 @@ test 프로필은 이 값과 scheduler를 기본 비활성화합니다.
 
 FCM token 원문은 로그에 기록하지 않고 구독 ID와 오류 분류만 기록합니다. 부분 성공은 응답 인덱스를 입력
 token 인덱스에 대응시켜 개별 반영하고, 다음 시도에는 실패한 token만 포함하여 이미 성공한 브라우저의
-중복 수신을 방지합니다.
+중복 수신을 방지합니다. 실패 결과는 발송 당시 구독 ID와 FCM token이 모두 일치할 때만 반영하므로,
+동시에 새 token이 등록된 경우 이전 token의 실패로 최신 구독을 비활성화하지 않습니다.
 
 ## 예약 API(내부 서비스)
 

@@ -18,6 +18,15 @@ FID와 FCM token 구독 및 예약 작업을 위해 애플리케이션 배포 �
 기존 구독은 token이 없으므로 비활성화되며, 배포 후 클라이언트가 FID와 Firebase Messaging
 `getToken()` 결과를 함께 다시 등록해야 합니다.
 
+마이그레이션 실행 후 아래 쿼리 결과가 `0`인지 확인한 다음 애플리케이션을 배포하고 클라이언트 재등록을 진행합니다.
+
+```sql
+SELECT COUNT(*)
+FROM push_subscription
+WHERE active = TRUE
+  AND fcm_token IS NULL;
+```
+
 ## `category.icon_key` 추가
 
 애플리케이션 배포 전에 아래 파일을 MySQL에서 실행합니다.

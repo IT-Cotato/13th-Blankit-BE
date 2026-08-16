@@ -31,15 +31,14 @@ public interface PushSubscriptionRepository extends JpaRepository<PushSubscripti
                 :now, NULL, 0, :now, :now
             )
             ON DUPLICATE KEY UPDATE
-                user_id = :userId,
-                firebase_installation_id = :installationId,
-                fcm_token = :fcmToken,
-                device_name = :deviceName,
-                browser = :browser,
-                active = TRUE,
-                last_registered_at = :now,
-                failure_count = 0,
-                updated_at = :now
+                user_id = CASE WHEN firebase_installation_id = :installationId THEN :userId ELSE user_id END,
+                fcm_token = CASE WHEN firebase_installation_id = :installationId THEN :fcmToken ELSE fcm_token END,
+                device_name = CASE WHEN firebase_installation_id = :installationId THEN :deviceName ELSE device_name END,
+                browser = CASE WHEN firebase_installation_id = :installationId THEN :browser ELSE browser END,
+                active = CASE WHEN firebase_installation_id = :installationId THEN TRUE ELSE active END,
+                last_registered_at = CASE WHEN firebase_installation_id = :installationId THEN :now ELSE last_registered_at END,
+                failure_count = CASE WHEN firebase_installation_id = :installationId THEN 0 ELSE failure_count END,
+                updated_at = CASE WHEN firebase_installation_id = :installationId THEN :now ELSE updated_at END
             """, nativeQuery = true)
     int upsert(
             @Param("userId") Long userId,
@@ -47,6 +46,50 @@ public interface PushSubscriptionRepository extends JpaRepository<PushSubscripti
             @Param("fcmToken") String fcmToken,
             @Param("deviceName") String deviceName,
             @Param("browser") String browser,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying
+    @Query("""
+            update PushSubscription subscription
+            set subscription.lastSuccessAt = :now,
+                subscription.failureCount = 0,
+                subscription.updatedAt = :now
+            where subscription.id = :subscriptionId
+              and subscription.fcmToken = :fcmToken
+            """)
+    int markSuccessIfTokenMatches(
+            @Param("subscriptionId") Long subscriptionId,
+            @Param("fcmToken") String fcmToken,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying
+    @Query("""
+            update PushSubscription subscription
+            set subscription.failureCount = subscription.failureCount + 1,
+                subscription.updatedAt = :now
+            where subscription.id = :subscriptionId
+              and subscription.fcmToken = :fcmToken
+            """)
+    int markFailureIfTokenMatches(
+            @Param("subscriptionId") Long subscriptionId,
+            @Param("fcmToken") String fcmToken,
+            @Param("now") LocalDateTime now
+    );
+
+    @Modifying
+    @Query("""
+            update PushSubscription subscription
+            set subscription.failureCount = subscription.failureCount + 1,
+                subscription.active = false,
+                subscription.updatedAt = :now
+            where subscription.id = :subscriptionId
+              and subscription.fcmToken = :fcmToken
+            """)
+    int deactivateAfterFailureIfTokenMatches(
+            @Param("subscriptionId") Long subscriptionId,
+            @Param("fcmToken") String fcmToken,
             @Param("now") LocalDateTime now
     );
 }

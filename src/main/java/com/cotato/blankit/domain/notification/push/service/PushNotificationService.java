@@ -92,17 +92,20 @@ public class PushNotificationService {
                 .map(PushDeliveryResult.Item::fcmToken)
                 .distinct()
                 .toList();
-        Map<String, PushSubscription> byFid =
+        Map<String, PushSubscription> byToken =
                 repository.findByFcmTokenIn(fcmTokens).stream()
                 .collect(Collectors.toMap(PushSubscription::getFcmToken, Function.identity()));
         LocalDateTime now = LocalDateTime.now(clock);
         for (PushDeliveryResult.Item item : result.items()) {
-            PushSubscription subscription = byFid.get(item.fcmToken());
+            PushSubscription subscription = byToken.get(item.fcmToken());
             if (subscription == null) continue;
             if (item.success()) {
-                subscription.markSuccess(now);
+                repository.markSuccessIfTokenMatches(subscription.getId(), item.fcmToken(), now);
             } else {
-                subscription.markFailure(item.errorType() == PushErrorType.PERMANENT_TARGET);
+                int affected = item.errorType() == PushErrorType.PERMANENT_TARGET
+                        ? repository.deactivateAfterFailureIfTokenMatches(subscription.getId(), item.fcmToken(), now)
+                        : repository.markFailureIfTokenMatches(subscription.getId(), item.fcmToken(), now);
+                if (affected == 0) continue;
                 log.warn("FCM delivery failed: subscriptionId={}, code={}, category={}",
                         subscription.getId(), item.errorCode(), item.errorType());
             }

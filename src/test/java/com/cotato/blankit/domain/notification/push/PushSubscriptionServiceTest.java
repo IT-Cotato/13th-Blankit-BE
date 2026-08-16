@@ -34,6 +34,7 @@ class PushSubscriptionServiceTest {
         var request = new PushSubscriptionRequest("fid-1", "token-1", "Mac", "Chrome");
 
         var initial = service.register(first.getId(), request);
+        service.deactivate(first.getId(), initial.subscriptionId());
         var updated = service.register(second.getId(),
                 new PushSubscriptionRequest("fid-1", "token-2", "PC", "Edge"));
 
@@ -46,6 +47,44 @@ class PushSubscriptionServiceTest {
         assertThat(saved.getDeviceName()).isEqualTo("PC");
         assertThat(saved.getFailureCount()).isZero();
         assertThat(saved.isActive()).isTrue();
+    }
+
+    @Test
+    void tokenOwnedByAnotherInstallationDoesNotTransferSubscription() {
+        User owner = user("token-owner");
+        User requester = user("token-requester");
+        var initial = service.register(owner.getId(),
+                new PushSubscriptionRequest("owner-fid", "shared-token", "owner-device", "Chrome"));
+
+        assertThatThrownBy(() -> service.register(requester.getId(),
+                new PushSubscriptionRequest("requester-fid", "shared-token", "requester-device", "Edge")))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(com.cotato.blankit.global.exception.ErrorCode.PUSH_SUBSCRIPTION_CONFLICT);
+
+        assertThat(repository.count()).isEqualTo(1);
+        PushSubscription saved = repository.findById(initial.subscriptionId()).orElseThrow();
+        assertThat(saved.getUser().getId()).isEqualTo(owner.getId());
+        assertThat(saved.getFirebaseInstallationId()).isEqualTo("owner-fid");
+        assertThat(saved.getFcmToken()).isEqualTo("shared-token");
+    }
+
+    @Test
+    void staleFailureDoesNotDeactivateSubscriptionAfterTokenRefresh() {
+        User owner = user("refresh-owner");
+        var initial = service.register(owner.getId(),
+                new PushSubscriptionRequest("refresh-fid", "old-token", null, null));
+        service.register(owner.getId(),
+                new PushSubscriptionRequest("refresh-fid", "new-token", null, null));
+
+        int affected = repository.deactivateAfterFailureIfTokenMatches(
+                initial.subscriptionId(), "old-token", java.time.LocalDateTime.now());
+
+        assertThat(affected).isZero();
+        PushSubscription saved = repository.findById(initial.subscriptionId()).orElseThrow();
+        assertThat(saved.getFcmToken()).isEqualTo("new-token");
+        assertThat(saved.isActive()).isTrue();
+        assertThat(saved.getFailureCount()).isZero();
     }
 
     @Test

@@ -66,6 +66,8 @@ class PushNotificationServiceTest {
         when(repository.findByUserIdAndActiveTrueOrderByIdAsc(1L)).thenReturn(List.of(subscription));
         when(repository.findByFcmTokenIn(List.of("expired-fid")))
                 .thenReturn(List.of(subscription));
+        when(repository.deactivateAfterFailureIfTokenMatches(any(), eq("expired-fid"), any()))
+                .thenReturn(1);
         when(gateway.send(any(), any())).thenReturn(new PushDeliveryResult(List.of(
                 PushDeliveryResult.Item.failure("expired-fid", "UNREGISTERED", PushErrorType.PERMANENT_TARGET))));
         doAnswer(invocation -> {
@@ -78,8 +80,8 @@ class PushNotificationServiceTest {
 
         service.send(1L, PushNotificationType.SERVICE, payload(), List.of());
 
-        assertThat(subscription.isActive()).isFalse();
-        assertThat(subscription.getFailureCount()).isEqualTo(1);
+        verify(repository).deactivateAfterFailureIfTokenMatches(
+                eq(subscription.getId()), eq("expired-fid"), any(LocalDateTime.class));
     }
 
     @Test
@@ -105,6 +107,8 @@ class PushNotificationServiceTest {
                     .filter(subscription -> requested.contains(subscription.getFcmToken()))
                     .toList();
         });
+        when(repository.markSuccessIfTokenMatches(any(), anyString(), any())).thenReturn(1);
+        when(repository.markFailureIfTokenMatches(any(), anyString(), any())).thenReturn(1);
         when(gateway.send(any(), any()))
                 .thenReturn(
                         new PushDeliveryResult(List.of(
