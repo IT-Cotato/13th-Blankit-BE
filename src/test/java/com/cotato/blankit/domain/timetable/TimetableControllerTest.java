@@ -136,13 +136,13 @@ class TimetableControllerTest {
                                 ]
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data[0].dayOfWeek").value(1))
-                .andExpect(jsonPath("$.data[0].startTime").value("09:00:00"))
-                .andExpect(jsonPath("$.data[0].endTime").value("10:30:00"))
-                .andExpect(jsonPath("$.data[0].title").value("알고리즘 강의"))
-                .andExpect(jsonPath("$.data[0].place").value("공학관 101호"))
-                .andExpect(jsonPath("$.data[0].color").value("#7B5EA7"))
-                .andExpect(jsonPath("$.data[0].timetableId").exists());
+                .andExpect(jsonPath("$.data.timetables[0].dayOfWeek").value(1))
+                .andExpect(jsonPath("$.data.timetables[0].startTime").value("09:00:00"))
+                .andExpect(jsonPath("$.data.timetables[0].endTime").value("10:30:00"))
+                .andExpect(jsonPath("$.data.timetables[0].title").value("알고리즘 강의"))
+                .andExpect(jsonPath("$.data.timetables[0].place").value("공학관 101호"))
+                .andExpect(jsonPath("$.data.timetables[0].color").value("#7B5EA7"))
+                .andExpect(jsonPath("$.data.timetables[0].timetableId").exists());
     }
 
     @Test
@@ -172,15 +172,15 @@ class TimetableControllerTest {
                                 ]
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].title").value("알고리즘 강의"))
-                .andExpect(jsonPath("$.data[0].startTime").value("09:00:00"))
-                .andExpect(jsonPath("$.data[0].endTime").value("10:30:00"))
-                .andExpect(jsonPath("$.data[0].timetableId").exists())
-                .andExpect(jsonPath("$.data[1].title").value("자료구조 강의"))
-                .andExpect(jsonPath("$.data[1].startTime").value("11:00:00"))
-                .andExpect(jsonPath("$.data[1].endTime").value("12:30:00"))
-                .andExpect(jsonPath("$.data[1].timetableId").exists());
+                .andExpect(jsonPath("$.data.timetables.length()").value(2))
+                .andExpect(jsonPath("$.data.timetables[0].title").value("알고리즘 강의"))
+                .andExpect(jsonPath("$.data.timetables[0].startTime").value("09:00:00"))
+                .andExpect(jsonPath("$.data.timetables[0].endTime").value("10:30:00"))
+                .andExpect(jsonPath("$.data.timetables[0].timetableId").exists())
+                .andExpect(jsonPath("$.data.timetables[1].title").value("자료구조 강의"))
+                .andExpect(jsonPath("$.data.timetables[1].startTime").value("11:00:00"))
+                .andExpect(jsonPath("$.data.timetables[1].endTime").value("12:30:00"))
+                .andExpect(jsonPath("$.data.timetables[1].timetableId").exists());
     }
 
     @Test
@@ -329,10 +329,10 @@ class TimetableControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.title").value("수정된 제목"))
-                .andExpect(jsonPath("$.data.place").value("수정된 장소"))
-                .andExpect(jsonPath("$.data.dayOfWeek").value(1))
-                .andExpect(jsonPath("$.data.startTime").value("09:00:00"));
+                .andExpect(jsonPath("$.data.timetable.title").value("수정된 제목"))
+                .andExpect(jsonPath("$.data.timetable.place").value("수정된 장소"))
+                .andExpect(jsonPath("$.data.timetable.dayOfWeek").value(1))
+                .andExpect(jsonPath("$.data.timetable.startTime").value("09:00:00"));
     }
 
     @Test
@@ -350,8 +350,8 @@ class TimetableControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.startTime").value("09:30:00"))
-                .andExpect(jsonPath("$.data.endTime").value("11:00:00"));
+                .andExpect(jsonPath("$.data.timetable.startTime").value("09:30:00"))
+                .andExpect(jsonPath("$.data.timetable.endTime").value("11:00:00"));
     }
 
     @Test
@@ -710,7 +710,7 @@ class TimetableControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.endTime").value("23:30:00"));
+                .andExpect(jsonPath("$.data.timetable.endTime").value("23:30:00"));
     }
 
     // ── 표시 범위 확장 올림/내림 검증 ──────────────────────────────────
