@@ -56,12 +56,12 @@ public class UserController {
     }
 
     @Operation(summary = "시간표 표시 범위 수정",
-            description = "홈 화면·시간표 화면에서 표시할 시작/종료 시간을 수정합니다. 기본값: 08:00 ~ 00:00.",
+            description = "홈 화면·시간표 화면에서 표시할 시작/종료 시간을 수정합니다. 기본값: 08:00 ~ 00:00. 새 표시 범위가 기존 시간표 블록을 포함하지 않으면 400을 반환합니다.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효성 오류"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효성 오류 또는 표시 범위가 기존 시간표 블록을 포함하지 않음"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
     })
     @PatchMapping("/me/timetable-settings")
