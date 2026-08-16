@@ -33,4 +33,22 @@ public class DailyRecommendation extends BaseEntity {
 
     @Column(nullable = false)
     private int totalRecommendedMinutes;
+
+    public static DailyRecommendation ofToday(User user, LocalDate date, int totalRecommendedMinutes) {
+        DailyRecommendation dr = new DailyRecommendation();
+        dr.user = user;
+        dr.recommendedDate = date;
+        dr.mode = "TODAY";
+        dr.totalRecommendedMinutes = totalRecommendedMinutes;
+        return dr;
+    }
+
+    public static DailyRecommendation ofMode(User user, LocalDate date, String mode) {
+        DailyRecommendation dr = new DailyRecommendation();
+        dr.user = user;
+        dr.recommendedDate = date;
+        dr.mode = mode;
+        dr.totalRecommendedMinutes = 0;
+        return dr;
+    }
 }
