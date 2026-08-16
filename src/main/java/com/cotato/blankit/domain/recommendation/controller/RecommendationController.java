@@ -34,7 +34,9 @@ public class RecommendationController {
 
     @Operation(summary = "오늘의 추천 조회",
             description = "오늘의 권장 시간(logic-spec 5번)과 우선순위 상위 3개 과업(logic-spec 1번)을 반환합니다. " +
-                    "홈 화면 '오늘의 권장 시간' 및 '우선순위 과목 추천' 영역에 사용됩니다.")
+                    "홈 화면 '오늘의 권장 시간' 및 '우선순위 과목 추천' 영역에 사용됩니다.\n\n" +
+                    "**[갱신 시점]** 결과는 당일 첫 호출 시 계산되어 하루 동안 고정됩니다. " +
+                    "자정이 지나면 다음 첫 호출 시 최신 과업 상태를 기반으로 재계산됩니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
