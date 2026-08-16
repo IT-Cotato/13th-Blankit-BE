@@ -78,8 +78,8 @@ public class RecommendationController {
     @Operation(summary = "과업 조합 추천 목록 조회",
             description = "FIRE(불끄기)·BALANCE(밸런스)·TASTE(찍먹)·CLEAR(해치우기) 모드별 과업 조합을 반환합니다. " +
                     "홈 화면 '과업 조합 추천' 영역에 사용됩니다. 각 모드의 추천 로직은 logic-spec 4번 참고.\n\n" +
-                    "**[갱신 시점]** 결과는 매 요청마다 현재 과업 상태를 기반으로 실시간 계산됩니다. " +
-                    "과업 완료·추가, 진행률 변경(피드백 제출), 예상 시간 변경 후 이 API를 재호출하면 최신 조합이 반환됩니다.")
+                    "**[갱신 시점]** 결과는 당일 첫 호출 시 계산되어 하루 동안 고정됩니다. " +
+                    "자정이 지나면 다음 첫 호출 시 최신 과업 상태를 기반으로 재계산됩니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
