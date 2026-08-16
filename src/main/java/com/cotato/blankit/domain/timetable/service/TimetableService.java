@@ -40,7 +40,7 @@ public class TimetableService {
         List<Timetable> saved = new ArrayList<>();
         for (TimetableCreateRequest request : requests) {
             validateTimeRange(request.startTime(), request.endTime());
-            validateBlockWithinDisplayRange(user, request.startTime(), request.endTime());
+            expandDisplayRangeIfNeeded(user, request.startTime(), request.endTime());
             checkTimeConflict(userId, request.dayOfWeek().byteValue(),
                     request.startTime(), request.endTime(), null);
             saved.add(timetableRepository.save(Timetable.create(
@@ -68,7 +68,7 @@ public class TimetableService {
         LocalTime targetEnd = request.endTime() != null ? request.endTime() : timetable.getEndTime();
 
         validateTimeRange(targetStart, targetEnd);
-        validateBlockWithinDisplayRange(user, targetStart, targetEnd);
+        expandDisplayRangeIfNeeded(user, targetStart, targetEnd);
         checkTimeConflict(userId, targetDay, targetStart, targetEnd, timetableId);
 
         timetable.update(
@@ -98,13 +98,35 @@ public class TimetableService {
         thirtyMinutePackScheduleService.synchronize(userId);
     }
 
-    private void validateBlockWithinDisplayRange(User user, LocalTime startTime, LocalTime endTime) {
-        boolean outsideLower = startTime.isBefore(user.getTimetableStartTime());
-        boolean outsideUpper = !user.getTimetableEndTime().equals(LocalTime.MIDNIGHT)
-                && endTime.isAfter(user.getTimetableEndTime());
-        if (outsideLower || outsideUpper) {
-            throw new CustomException(ErrorCode.TIMETABLE_BLOCK_OUTSIDE_DISPLAY_RANGE);
+    private void expandDisplayRangeIfNeeded(User user, LocalTime blockStart, LocalTime blockEnd) {
+        LocalTime currentStart = user.getTimetableStartTime();
+        LocalTime currentEnd = user.getTimetableEndTime();
+
+        LocalTime newStart = currentStart;
+        LocalTime newEnd = currentEnd;
+
+        if (blockStart.isBefore(currentStart)) {
+            newStart = floorToHour(blockStart);
         }
+
+        if (!currentEnd.equals(LocalTime.MIDNIGHT) && blockEnd.isAfter(currentEnd)) {
+            newEnd = ceilToHour(blockEnd);
+        }
+
+        if (!newStart.equals(currentStart) || !newEnd.equals(currentEnd)) {
+            user.updateTimetableSettings(newStart, newEnd);
+        }
+    }
+
+    private LocalTime floorToHour(LocalTime time) {
+        return time.withMinute(0).withSecond(0).withNano(0);
+    }
+
+    private LocalTime ceilToHour(LocalTime time) {
+        if (time.getMinute() == 0 && time.getSecond() == 0) {
+            return time;
+        }
+        return time.withMinute(0).withSecond(0).withNano(0).plusHours(1);
     }
 
     private void validateTimeRange(LocalTime startTime, LocalTime endTime) {
