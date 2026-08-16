@@ -4,6 +4,8 @@ import com.cotato.blankit.domain.timetable.dto.request.EverytimeImportRequest;
 import com.cotato.blankit.domain.timetable.dto.request.TimetableCreateRequest;
 import com.cotato.blankit.domain.timetable.dto.request.TimetableUpdateRequest;
 import com.cotato.blankit.domain.timetable.dto.response.TimetableResponse;
+import com.cotato.blankit.domain.timetable.dto.response.TimetableWithDisplayResponse;
+import com.cotato.blankit.domain.timetable.dto.response.TimetablesWithDisplayResponse;
 import com.cotato.blankit.domain.timetable.service.EverytimeParseService;
 import com.cotato.blankit.domain.timetable.service.TimetableService;
 import com.cotato.blankit.global.response.ApiResponse;
@@ -67,7 +69,7 @@ public class TimetableController {
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<List<TimetableResponse>> createTimetables(
+    public ApiResponse<TimetablesWithDisplayResponse> createTimetables(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody @Valid List<TimetableCreateRequest> requests) {
         return ApiResponse.success(timetableService.createTimetables(userDetails.getUserId(), requests));
@@ -83,7 +85,7 @@ public class TimetableController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "시간 겹침")
     })
     @PatchMapping("/{timetableId}")
-    public ApiResponse<TimetableResponse> updateTimetable(
+    public ApiResponse<TimetableWithDisplayResponse> updateTimetable(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long timetableId,
             @RequestBody @Valid TimetableUpdateRequest request) {
