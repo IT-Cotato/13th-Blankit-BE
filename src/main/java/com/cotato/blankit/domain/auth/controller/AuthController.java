@@ -40,14 +40,14 @@ public class AuthController {
 
     @Operation(
             summary = "소셜 로그인",
-            description = "소셜 토큰을 검증한 뒤 socialProvider + socialId로 가입 사용자를 조회하고 JWT Access Token과 Refresh Token을 발급합니다. 유효한 소셜 계정이지만 미가입 상태라면 SOCIAL_ACCOUNT_NOT_FOUND를 반환합니다."
+            description = "소셜 토큰을 검증한 뒤 JWT를 발급합니다. 같은 installationId의 재로그인은 허용하며, 유효한 세션이 있는 다른 installationId의 로그인은 거부합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요청값 유효성 오류"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS - 소셜 토큰 또는 소셜 ID 불일치"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SOCIAL_ACCOUNT_NOT_FOUND - 인증된 소셜 계정의 가입 정보 없음"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "REFRESH_TOKEN_CONFLICT - Refresh Token 저장 또는 갱신 충돌")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "ANOTHER_DEVICE_ALREADY_LOGGED_IN - 다른 기기에서 로그인 중 / REFRESH_TOKEN_CONFLICT - Refresh Token 처리 충돌")
     })
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {

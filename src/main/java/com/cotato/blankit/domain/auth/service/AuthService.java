@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.OptimisticLockException;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -63,7 +65,7 @@ public class AuthService {
         notificationService.createDefaultSetting(savedUser);
 
         try {
-            AuthTokens authTokens = issueAuthTokens(savedUser);
+            AuthTokens authTokens = issueAuthTokens(savedUser, request.installationId());
             return SignupResponse.of(authTokens.accessToken(), authTokens.refreshToken(), savedUser);
         } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException | OptimisticLockException e) {
             throw new CustomException(ErrorCode.REFRESH_TOKEN_CONFLICT, e);
@@ -74,11 +76,13 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         socialTokenVerifier.verify(request.socialProvider(), request.socialToken(), request.socialId());
 
-        User user = userRepository.findBySocialProviderAndSocialId(request.socialProvider(), request.socialId())
+        User foundUser = userRepository.findBySocialProviderAndSocialId(request.socialProvider(), request.socialId())
                 .orElseThrow(() -> new CustomException(ErrorCode.SOCIAL_ACCOUNT_NOT_FOUND));
+        User user = userRepository.findByIdForUpdate(foundUser.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         try {
-            AuthTokens authTokens = issueAuthTokens(user);
+            AuthTokens authTokens = issueAuthTokens(user, request.installationId());
             return LoginResponse.of(authTokens.accessToken(), authTokens.refreshToken(), UserSummaryResponse.from(user));
         } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException | OptimisticLockException e) {
             throw new CustomException(ErrorCode.REFRESH_TOKEN_CONFLICT, e);
@@ -101,7 +105,11 @@ public class AuthService {
         try {
             String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
             String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-            storedRefreshToken.rotate(newRefreshToken, jwtTokenProvider.getRefreshTokenExpiresAt());
+            storedRefreshToken.rotate(
+                    newRefreshToken,
+                    jwtTokenProvider.getRefreshTokenExpiresAt(),
+                    storedRefreshToken.getInstallationId()
+            );
             refreshTokenRepository.flush();
 
             return TokenReissueResponse.of(newAccessToken, newRefreshToken);
@@ -115,21 +123,28 @@ public class AuthService {
         refreshTokenRepository.deleteByUserId(userId);
     }
 
-    private AuthTokens issueAuthTokens(User user) {
+    private AuthTokens issueAuthTokens(User user, String installationId) {
         String accessToken = jwtTokenProvider.createAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-        saveOrRotateRefreshToken(user, refreshToken);
+        saveOrRotateRefreshToken(user, refreshToken, installationId);
         return new AuthTokens(accessToken, refreshToken);
     }
 
-    private void saveOrRotateRefreshToken(User user, String refreshToken) {
+    private void saveOrRotateRefreshToken(User user, String refreshToken, String installationId) {
+        LocalDateTime now = LocalDateTime.now();
         refreshTokenRepository.findByUserId(user.getId())
                 .ifPresentOrElse(
-                        token -> token.rotate(refreshToken, jwtTokenProvider.getRefreshTokenExpiresAt()),
+                        token -> {
+                            if (token.blocks(installationId, now)) {
+                                throw new CustomException(ErrorCode.ANOTHER_DEVICE_ALREADY_LOGGED_IN);
+                            }
+                            token.rotate(refreshToken, jwtTokenProvider.getRefreshTokenExpiresAt(), installationId);
+                        },
                         () -> refreshTokenRepository.save(RefreshToken.create(
                                 user,
                                 refreshToken,
-                                jwtTokenProvider.getRefreshTokenExpiresAt()
+                                jwtTokenProvider.getRefreshTokenExpiresAt(),
+                                installationId
                         ))
                 );
         refreshTokenRepository.flush();

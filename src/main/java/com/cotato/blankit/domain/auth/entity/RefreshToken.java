@@ -42,16 +42,27 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
-    public static RefreshToken create(User user, String token, LocalDateTime expiresAt) {
+    @Column(name = "installation_id", length = 255)
+    private String installationId;
+
+    public static RefreshToken create(User user, String token, LocalDateTime expiresAt, String installationId) {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.user = user;
         refreshToken.token = token;
         refreshToken.expiresAt = expiresAt;
+        refreshToken.installationId = installationId;
         return refreshToken;
     }
 
-    public void rotate(String token, LocalDateTime expiresAt) {
+    public void rotate(String token, LocalDateTime expiresAt, String installationId) {
         this.token = token;
         this.expiresAt = expiresAt;
+        this.installationId = installationId;
+    }
+
+    public boolean blocks(String requestedInstallationId, LocalDateTime now) {
+        return expiresAt.isAfter(now)
+                && installationId != null
+                && !installationId.equals(requestedInstallationId);
     }
 }

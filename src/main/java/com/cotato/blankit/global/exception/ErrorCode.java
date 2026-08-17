@@ -20,6 +20,7 @@ public enum ErrorCode {
     SOCIAL_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "SOCIAL_ACCOUNT_NOT_FOUND", "가입되지 않은 소셜 계정입니다."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "유효하지 않은 리프레시 토큰입니다."),
     REFRESH_TOKEN_CONFLICT(HttpStatus.CONFLICT, "REFRESH_TOKEN_CONFLICT", "리프레시 토큰 처리 중 충돌이 발생했습니다. 다시 시도해주세요."),
+    ANOTHER_DEVICE_ALREADY_LOGGED_IN(HttpStatus.CONFLICT, "ANOTHER_DEVICE_ALREADY_LOGGED_IN", "다른 기기에서 이미 로그인 중입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "사용자를 찾을 수 없습니다."),
     INVALID_TIMETABLE_SETTINGS(HttpStatus.BAD_REQUEST, "INVALID_TIMETABLE_SETTINGS", "시작 시간은 종료 시간보다 빨라야 합니다."),
     TIMETABLE_SETTINGS_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "TIMETABLE_SETTINGS_OUT_OF_RANGE", "표시 범위가 기존 시간표 블록을 포함하지 않습니다."),

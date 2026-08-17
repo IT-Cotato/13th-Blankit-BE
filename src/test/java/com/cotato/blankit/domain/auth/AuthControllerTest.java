@@ -82,6 +82,7 @@ class AuthControllerTest {
                                   "socialProvider": "KAKAO",
                                   "socialId": "signup-1",
                                   "socialToken": "verified:KAKAO:signup-1",
+                                  "installationId": "signup-device",
                                   "email": "user@example.com",
                                   "nickname": "서윤",
                                   "profileImageUrl": "https://example.com/profile.png",
@@ -129,6 +130,7 @@ class AuthControllerTest {
                                   "socialProvider": "KAKAO",
                                   "socialId": "duplicate-1",
                                   "socialToken": "verified:KAKAO:duplicate-1",
+                                  "installationId": "duplicate-device",
                                   "email": "other@example.com",
                                   "nickname": "다른사용자"
                                 }
@@ -147,6 +149,7 @@ class AuthControllerTest {
                                   "socialProvider": "KAKAO",
                                   "socialId": "signup-invalid-token",
                                   "socialToken": "invalid-token",
+                                  "installationId": "invalid-token-device",
                                   "email": "user@example.com",
                                   "nickname": "서윤"
                                 }
@@ -169,6 +172,7 @@ class AuthControllerTest {
                                   "socialProvider": "KAKAO",
                                   "socialId": "signup-mismatch",
                                   "socialToken": "verified:KAKAO:different-social-id",
+                                  "installationId": "mismatch-device",
                                   "email": "user@example.com",
                                   "nickname": "서윤"
                                 }
@@ -191,6 +195,7 @@ class AuthControllerTest {
                                   "socialProvider": "NAVER",
                                   "socialId": "unsupported-1",
                                   "socialToken": "verified:NAVER:unsupported-1",
+                                  "installationId": "unsupported-device",
                                   "email": "user@example.com",
                                   "nickname": "서윤"
                                 }
@@ -210,7 +215,8 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "login-1",
-                                  "socialToken": "verified:KAKAO:login-1"
+                                  "socialToken": "verified:KAKAO:login-1",
+                                  "installationId": "login-device"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -218,6 +224,68 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.refreshToken", not(blankOrNullString())))
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.user.recommendedDailyTime").value(90));
+    }
+
+    @Test
+    void socialLoginFromAnotherDeviceIsRejectedWhileSessionIsActive() throws Exception {
+        userRepository.save(User.create(SocialProvider.KAKAO, "single-device", "user@example.com", "서윤", null, 90));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("single-device", "device-a")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("single-device", "device-b")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ANOTHER_DEVICE_ALREADY_LOGGED_IN"));
+
+        org.assertj.core.api.Assertions.assertThat(refreshTokenRepository.findByUserId(
+                        userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "single-device")
+                                .orElseThrow()
+                                .getId()))
+                .isPresent()
+                .get()
+                .extracting(com.cotato.blankit.domain.auth.entity.RefreshToken::getInstallationId)
+                .isEqualTo("device-a");
+    }
+
+    @Test
+    void socialLoginFromSameDeviceIsAllowed() throws Exception {
+        userRepository.save(User.create(SocialProvider.KAKAO, "same-device", "user@example.com", "서윤", null, 90));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("same-device", "device-a")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("same-device", "device-a")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void socialLoginRequiresInstallationId() throws Exception {
+        userRepository.save(User.create(SocialProvider.KAKAO, "missing-device", "user@example.com", "서윤", null, 90));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "socialProvider": "KAKAO",
+                                  "socialId": "missing-device",
+                                  "socialToken": "verified:KAKAO:missing-device"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
     }
 
     @Test
@@ -231,7 +299,8 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "reissue-1",
-                                  "socialToken": "verified:KAKAO:reissue-1"
+                                  "socialToken": "verified:KAKAO:reissue-1",
+                                  "installationId": "reissue-device"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -292,7 +361,8 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "invalid-token-1",
-                                  "socialToken": "invalid-token"
+                                  "socialToken": "invalid-token",
+                                  "installationId": "invalid-login-device"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
@@ -308,7 +378,8 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "claimed-id",
-                                  "socialToken": "verified:KAKAO:actual-id"
+                                  "socialToken": "verified:KAKAO:actual-id",
+                                  "installationId": "mismatched-login-device"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
@@ -326,7 +397,8 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "unknown",
-                                  "socialToken": "verified:KAKAO:unknown"
+                                  "socialToken": "verified:KAKAO:unknown",
+                                  "installationId": "unknown-device"
                                 }
                                 """))
                 .andExpect(status().isNotFound())
@@ -378,7 +450,8 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "withdraw-1",
-                                  "socialToken": "verified:KAKAO:withdraw-1"
+                                  "socialToken": "verified:KAKAO:withdraw-1",
+                                  "installationId": "withdraw-device"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -411,7 +484,8 @@ class AuthControllerTest {
                                 {
                                   "socialProvider": "KAKAO",
                                   "socialId": "logout-1",
-                                  "socialToken": "verified:KAKAO:logout-1"
+                                  "socialToken": "verified:KAKAO:logout-1",
+                                  "installationId": "logout-device"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -438,5 +512,16 @@ class AuthControllerTest {
                                 """.formatted(refreshToken)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+    }
+
+    private String loginJson(String socialId, String installationId) {
+        return """
+                {
+                  "socialProvider": "KAKAO",
+                  "socialId": "%s",
+                  "socialToken": "verified:KAKAO:%s",
+                  "installationId": "%s"
+                }
+                """.formatted(socialId, socialId, installationId);
     }
 }
