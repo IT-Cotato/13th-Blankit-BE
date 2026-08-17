@@ -64,6 +64,8 @@ public class TaskSessionService {
 
     @Transactional
     public TaskSessionResponse updateSessionStatus(Long userId, Long sessionId, SessionStatusUpdateRequest request) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         TaskSession session = taskSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
         if (!session.getUser().getId().equals(userId)) {
