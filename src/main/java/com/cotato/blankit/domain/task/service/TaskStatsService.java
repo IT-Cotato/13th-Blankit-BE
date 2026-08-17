@@ -4,6 +4,7 @@ import com.cotato.blankit.domain.feedback.entity.DailyElapsedTime;
 import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
+import com.cotato.blankit.domain.recommendation.repository.DailyRecommendationRepository;
 import com.cotato.blankit.domain.task.dto.response.TaskCalendarResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDailyStatsResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskMonthlyStatsResponse;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,6 +32,7 @@ public class TaskStatsService {
     private final TaskRepository taskRepository;
     private final DailyElapsedTimeRepository dailyElapsedTimeRepository;
     private final FeedbackRepository feedbackRepository;
+    private final DailyRecommendationRepository dailyRecommendationRepository;
     private final Clock clock;
 
     public List<TaskCalendarResponse> getMonthlyCalendar(Long userId, int year, int month) {
@@ -66,8 +69,11 @@ public class TaskStatsService {
             totalElapsedSeconds = (int) dailyElapsedTimeRepository.sumElapsedSecondsByUserIdAndDate(userId, date);
         }
 
-        int totalRecommendedMinutes = calcRecommendedMinutes(
-                taskRepository.findNonDoneTasksWithEstimatedTime(userId, date), date);
+        int totalRecommendedMinutes = dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, date, "TODAY")
+                .map(dr -> dr.getTotalRecommendedMinutes())
+                .orElseGet(() -> calcRecommendedMinutes(
+                        taskRepository.findNonDoneTasksWithEstimatedTime(userId, date), date));
 
         List<TaskDailyStatsResponse.FeedbackTaskItem> feedbackTasks = List.of();
         if (!date.isAfter(today)) {
@@ -76,6 +82,17 @@ public class TaskStatsService {
             feedbackTasks = feedbackRepository
                     .findSubmittedByUserIdAndDateRange(userId, startOfDay, endOfDay)
                     .stream()
+                    .collect(Collectors.toMap(
+                            f -> f.getTask().getId(),
+                            f -> f,
+                            (a, b) -> {
+                                int cmp = a.getSubmittedAt().compareTo(b.getSubmittedAt());
+                                return cmp != 0 ? (cmp > 0 ? a : b) : (a.getFeedbackId() > b.getFeedbackId() ? a : b);
+                            }
+                    ))
+                    .values()
+                    .stream()
+                    .sorted(Comparator.comparing(Feedback::getSubmittedAt))
                     .map(this::toFeedbackTaskItem)
                     .toList();
         }
@@ -132,7 +149,8 @@ public class TaskStatsService {
                 f.getTask().getCategory().getColor(),
                 f.getTask().getCategory().getIconKey(),
                 f.getProgressRate() == null ? 0 : f.getProgressRate(),
-                f.isCompleted()
+                f.isCompleted(),
+                f.getMemo()
         );
     }
 }
