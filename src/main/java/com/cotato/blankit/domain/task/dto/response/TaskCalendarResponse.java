@@ -31,7 +31,10 @@ public record TaskCalendarResponse(
             String categoryIconKey,
 
             @Schema(description = "과업 상태", example = "TODO")
-            String status
+            String status,
+
+            @Schema(description = "추정 소요 시간(분). 피드백 제출 후에는 남은 추정 시간을 의미하며, 값이 없으면 null", example = "60", nullable = true)
+            Integer estimatedTime
     ) {
     }
 }
