@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.OptimisticLockException;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -103,14 +104,18 @@ public class AuthService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         try {
-            String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
             String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+            String sessionId = storedRefreshToken.getSessionId() != null
+                    ? storedRefreshToken.getSessionId()
+                    : UUID.randomUUID().toString();
             storedRefreshToken.rotate(
                     newRefreshToken,
                     jwtTokenProvider.getRefreshTokenExpiresAt(),
-                    storedRefreshToken.getInstallationId()
+                    storedRefreshToken.getInstallationId(),
+                    sessionId
             );
             refreshTokenRepository.flush();
+            String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), sessionId);
 
             return TokenReissueResponse.of(newAccessToken, newRefreshToken);
         } catch (ObjectOptimisticLockingFailureException | OptimisticLockException e) {
@@ -124,27 +129,39 @@ public class AuthService {
     }
 
     private AuthTokens issueAuthTokens(User user, String installationId) {
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-        saveOrRotateRefreshToken(user, refreshToken, installationId);
+        String sessionId = UUID.randomUUID().toString();
+        saveOrRotateRefreshToken(user, refreshToken, installationId, sessionId);
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), sessionId);
         return new AuthTokens(accessToken, refreshToken);
     }
 
-    private void saveOrRotateRefreshToken(User user, String refreshToken, String installationId) {
+    private void saveOrRotateRefreshToken(
+            User user,
+            String refreshToken,
+            String installationId,
+            String sessionId
+    ) {
         LocalDateTime now = LocalDateTime.now();
-        refreshTokenRepository.findByUserId(user.getId())
+        refreshTokenRepository.findByUserIdForUpdate(user.getId())
                 .ifPresentOrElse(
                         token -> {
                             if (token.blocks(installationId, now)) {
                                 throw new CustomException(ErrorCode.ANOTHER_DEVICE_ALREADY_LOGGED_IN);
                             }
-                            token.rotate(refreshToken, jwtTokenProvider.getRefreshTokenExpiresAt(), installationId);
+                            token.rotate(
+                                    refreshToken,
+                                    jwtTokenProvider.getRefreshTokenExpiresAt(),
+                                    installationId,
+                                    sessionId
+                            );
                         },
                         () -> refreshTokenRepository.save(RefreshToken.create(
                                 user,
                                 refreshToken,
                                 jwtTokenProvider.getRefreshTokenExpiresAt(),
-                                installationId
+                                installationId,
+                                sessionId
                         ))
                 );
         refreshTokenRepository.flush();

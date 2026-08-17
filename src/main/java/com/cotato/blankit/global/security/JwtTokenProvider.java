@@ -22,6 +22,7 @@ public class JwtTokenProvider {
 
     private static final String USER_ID_CLAIM = "userId";
     private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String SESSION_ID_CLAIM = "sessionId";
     private static final String ACCESS_TOKEN_TYPE = "ACCESS";
     private static final String REFRESH_TOKEN_TYPE = "REFRESH";
 
@@ -43,12 +44,30 @@ public class JwtTokenProvider {
         return createToken(userId, ACCESS_TOKEN_TYPE, accessTokenExpirationMillis);
     }
 
+    public String createAccessToken(Long userId, String sessionId) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(String.valueOf(userId))
+                .id(UUID.randomUUID().toString())
+                .claim(USER_ID_CLAIM, userId)
+                .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
+                .claim(SESSION_ID_CLAIM, sessionId)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusMillis(accessTokenExpirationMillis)))
+                .signWith(secretKey)
+                .compact();
+    }
+
     public String createRefreshToken(Long userId) {
         return createToken(userId, REFRESH_TOKEN_TYPE, refreshTokenExpirationMillis);
     }
 
     public Long getUserIdFromAccessToken(String token) {
         return getUserId(token, ACCESS_TOKEN_TYPE);
+    }
+
+    public String getSessionIdFromAccessToken(String token) {
+        return getClaims(token, ACCESS_TOKEN_TYPE).get(SESSION_ID_CLAIM, String.class);
     }
 
     public Long getUserIdFromRefreshToken(String token) {
@@ -73,6 +92,10 @@ public class JwtTokenProvider {
     }
 
     private Long getUserId(String token, String expectedTokenType) {
+        return Long.valueOf(getClaims(token, expectedTokenType).getSubject());
+    }
+
+    private Claims getClaims(String token, String expectedTokenType) {
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(secretKey)
@@ -82,7 +105,7 @@ public class JwtTokenProvider {
             if (!expectedTokenType.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
                 throw new CustomException(ErrorCode.INVALID_TOKEN);
             }
-            return Long.valueOf(claims.getSubject());
+            return claims;
         } catch (JwtException | IllegalArgumentException e) {
             throw new CustomException(ErrorCode.INVALID_TOKEN, e);
         }
