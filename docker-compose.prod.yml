@@ -33,6 +33,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
+      TZ: Asia/Seoul
     volumes:
       - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:

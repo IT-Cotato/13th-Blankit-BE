@@ -110,7 +110,7 @@ public class TaskStatsService {
         List<DailyElapsedTime> dailyRecords = dailyElapsedTimeRepository.findByUser_IdAndDateBetween(userId, startDate, endDate);
 
         Map<LocalDate, Long> elapsedByDate = dailyRecords.stream()
-                .collect(Collectors.toMap(DailyElapsedTime::getDate, r -> (long) r.getElapsedSeconds()));
+                .collect(Collectors.toMap(DailyElapsedTime::getDate, r -> (long) r.getElapsedSeconds(), Long::sum));
 
         List<Task> nonDoneTasks = taskRepository.findNonDoneTasksWithEstimatedTime(userId, startDate);
 

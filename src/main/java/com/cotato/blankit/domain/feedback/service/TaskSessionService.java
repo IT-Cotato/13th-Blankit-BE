@@ -22,7 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -62,6 +64,8 @@ public class TaskSessionService {
 
     @Transactional
     public TaskSessionResponse updateSessionStatus(Long userId, Long sessionId, SessionStatusUpdateRequest request) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         TaskSession session = taskSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SESSION_NOT_FOUND));
         if (!session.getUser().getId().equals(userId)) {
@@ -70,26 +74,20 @@ public class TaskSessionService {
         if (session.getStatus() == TaskSessionStatus.DONE) {
             throw new CustomException(ErrorCode.SESSION_ALREADY_DONE);
         }
-        if (request.status() == TaskSessionStatus.PLAYING) {
-            if (session.getStatus() == TaskSessionStatus.PLAYING
-                    || taskSessionRepository.existsByUser_IdAndStatusAndTaskSessionIdNot(userId, TaskSessionStatus.PLAYING, sessionId)) {
-                throw new CustomException(ErrorCode.SESSION_ALREADY_PLAYING);
-            }
+        if (request.status() == TaskSessionStatus.PLAYING && session.getStatus() == TaskSessionStatus.PLAYING) {
+            throw new CustomException(ErrorCode.SESSION_ALREADY_PLAYING);
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
 
         if (request.status() == TaskSessionStatus.PLAYING) {
-            PlayInterval interval = PlayInterval.start(session, now);
-            playIntervalRepository.save(interval);
+            taskSessionRepository.findByUser_IdAndStatusAndTaskSessionIdNot(userId, TaskSessionStatus.PLAYING, sessionId)
+                    .forEach(other -> pauseSession(other, now));
+            playIntervalRepository.save(PlayInterval.start(session, now));
         } else {
-            // PAUSED or DONE: close open interval if exists
             playIntervalRepository.findByTaskSession_TaskSessionIdAndEndedAtIsNull(sessionId)
                     .ifPresent(interval -> interval.end(now));
-
-            if (request.status() == TaskSessionStatus.DONE) {
-                reflectDailyElapsedTime(session, now);
-            }
+            reflectDailyElapsedTime(session, now);
         }
 
         session.updateElapsedTime(request.elapsedTime());
@@ -109,27 +107,35 @@ public class TaskSessionService {
         reflectDailyElapsedTime(session, now);
     }
 
+    private void pauseSession(TaskSession session, LocalDateTime now) {
+        playIntervalRepository.findByTaskSession_TaskSessionIdAndEndedAtIsNull(session.getTaskSessionId())
+                .ifPresent(interval -> interval.end(now));
+        reflectDailyElapsedTime(session, now);
+        session.updateStatus(TaskSessionStatus.PAUSED, clock);
+    }
+
     private void reflectDailyElapsedTime(TaskSession session, LocalDateTime now) {
         List<PlayInterval> intervals = playIntervalRepository.findByTaskSession_TaskSessionId(session.getTaskSessionId());
-        User user = session.getUser();
 
+        Map<LocalDate, Integer> secondsByDate = new HashMap<>();
         intervals.stream()
                 .filter(i -> i.getEndedAt() != null)
                 .forEach(interval -> {
                     LocalDate date = interval.getStartedAt().toLocalDate();
                     LocalDate endDate = interval.getEndedAt().toLocalDate();
                     while (!date.isAfter(endDate)) {
-                        int seconds = (int) interval.elapsedSecondsOn(date);
-                        if (seconds > 0) {
-                            LocalDate finalDate = date;
-                            dailyElapsedTimeRepository.findByUser_IdAndDate(user.getId(), date)
-                                    .ifPresentOrElse(
-                                            record -> record.addElapsedSeconds(seconds),
-                                            () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(user, finalDate, seconds))
-                                    );
-                        }
+                        int s = (int) interval.elapsedSecondsOn(date);
+                        if (s > 0) secondsByDate.merge(date, s, Integer::sum);
                         date = date.plusDays(1);
                     }
                 });
+
+        secondsByDate.forEach((date, seconds) ->
+                dailyElapsedTimeRepository.findByTaskSession_TaskSessionIdAndDate(session.getTaskSessionId(), date)
+                        .ifPresentOrElse(
+                                record -> record.setElapsedSeconds(seconds),
+                                () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(session, date, seconds))
+                        )
+        );
     }
 }

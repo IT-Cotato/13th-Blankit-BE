@@ -11,7 +11,7 @@ import java.util.Optional;
 
 public interface DailyElapsedTimeRepository extends JpaRepository<DailyElapsedTime, Long> {
 
-    Optional<DailyElapsedTime> findByUser_IdAndDate(Long userId, LocalDate date);
+    Optional<DailyElapsedTime> findByTaskSession_TaskSessionIdAndDate(Long taskSessionId, LocalDate date);
 
     @Query("select coalesce(sum(d.elapsedSeconds), 0) from DailyElapsedTime d where d.user.id = :userId and d.date = :date")
     long sumElapsedSecondsByUserIdAndDate(@Param("userId") Long userId, @Param("date") LocalDate date);
