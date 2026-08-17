@@ -135,9 +135,12 @@ class TaskSessionConcurrencyTest {
 
         ready.await();
         start.countDown();
-        f1.get(10, TimeUnit.SECONDS);
-        f2.get(10, TimeUnit.SECONDS);
-        executor.shutdown();
+        try {
+            f1.get(10, TimeUnit.SECONDS);
+            f2.get(10, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
 
         long playingCount = transactionTemplate.execute(status ->
                 taskSessionRepository.findAll().stream()
