@@ -48,60 +48,9 @@ public class RecommendationService {
     public TodayRecommendationResponse getTodayRecommendation(Long userId) {
         LocalDate today = LocalDate.now(clock);
 
-        Optional<DailyRecommendation> cached = dailyRecommendationRepository
-                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY");
-        if (cached.isPresent()) {
-            return buildTodayFromCache(cached.get());
-        }
-
-        userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        return dailyRecommendationRepository
-                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY")
-                .map(this::buildTodayFromCache)
-                .orElseGet(() -> calculateAndSaveToday(userId, today));
-    }
-
-    private TodayRecommendationResponse buildTodayFromCache(DailyRecommendation cached) {
-        List<DailyRecommendationItem> items = dailyRecommendationItemRepository
-                .findAllByDailyRecommendationOrderByRankOrder(cached);
-
-        List<Long> taskIds = items.stream().map(item -> item.getTask().getId()).toList();
-        Map<Long, String> memoMap = getLatestMemoMap(taskIds);
-
-        List<RecommendedTaskItem> topTasks = items.stream()
-                .map(item -> {
-                    Task task = item.getTask();
-                    return new RecommendedTaskItem(
-                            task.getId(),
-                            task.getTitle(),
-                            task.getPriority(),
-                            task.getCategory().getColor(),
-                            task.getCategory().getIconKey(),
-                            item.getRankOrder(),
-                            item.getScore(),
-                            item.getRecommendedMinutes(),
-                            task.getProgressRate(),
-                            memoMap.get(task.getId())
-                    );
-                })
-                .toList();
-
-        return new TodayRecommendationResponse(
-                cached.getRecommendedDate(), cached.getTotalRecommendedMinutes(), topTasks);
-    }
-
-    private TodayRecommendationResponse calculateAndSaveToday(Long userId, LocalDate today) {
         List<ScoredTask> ranked = buildRanked(userId, today);
-        User user = userRepository.getReferenceById(userId);
+        long totalMinutes = resolveTotalMinutes(userId, today, ranked);
 
-        if (ranked.isEmpty()) {
-            dailyRecommendationRepository.save(DailyRecommendation.ofToday(user, today, 0));
-            return new TodayRecommendationResponse(today, 0L, List.of());
-        }
-
-        long totalMinutes = calculateTotalMinutes(ranked, today);
         List<ScoredTask> top = ranked.subList(0, Math.min(3, ranked.size()));
         Map<Long, String> memoMap = getLatestMemoMap(top.stream().map(st -> st.task().getId()).toList());
 
@@ -110,19 +59,29 @@ public class RecommendationService {
             topTasks.add(toItem(top.get(i), i + 1, today, memoMap));
         }
 
-        DailyRecommendation dailyRecommendation = DailyRecommendation.ofToday(user, today, (int) totalMinutes);
-        dailyRecommendationRepository.save(dailyRecommendation);
-
-        for (int i = 0; i < top.size(); i++) {
-            dailyRecommendationItemRepository.save(
-                    DailyRecommendationItem.of(
-                            dailyRecommendation, top.get(i).task(),
-                            i + 1, top.get(i).score(), topTasks.get(i).recommendedMinutes()
-                    )
-            );
-        }
-
         return new TodayRecommendationResponse(today, totalMinutes, topTasks);
+    }
+
+    private long resolveTotalMinutes(Long userId, LocalDate today, List<ScoredTask> ranked) {
+        return dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY")
+                .map(dr -> (long) dr.getTotalRecommendedMinutes())
+                .orElseGet(() -> saveAndReturnTotalMinutes(userId, today, ranked));
+    }
+
+    private long saveAndReturnTotalMinutes(Long userId, LocalDate today, List<ScoredTask> ranked) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY")
+                .map(dr -> (long) dr.getTotalRecommendedMinutes())
+                .orElseGet(() -> {
+                    long totalMinutes = ranked.isEmpty() ? 0L : calculateTotalMinutes(ranked, today);
+                    User user = userRepository.getReferenceById(userId);
+                    dailyRecommendationRepository.save(DailyRecommendation.ofToday(user, today, (int) totalMinutes));
+                    return totalMinutes;
+                });
     }
 
     public AllRecommendationResponse getAllRecommendation(Long userId) {
