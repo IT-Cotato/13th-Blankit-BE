@@ -54,7 +54,8 @@ public class TaskStatsService {
                                         t.getTitle(),
                                         t.getCategory().getColor(),
                                         t.getCategory().getIconKey(),
-                                        t.getStatus().name()
+                                        t.getStatus().name(),
+                                        t.getEstimatedTime()
                                 ))
                                 .toList()
                 ))
