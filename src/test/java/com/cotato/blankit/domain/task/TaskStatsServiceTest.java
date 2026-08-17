@@ -309,6 +309,27 @@ class TaskStatsServiceTest {
         }
 
         @Test
+        @DisplayName("submittedAt이 같으면 feedbackId가 더 큰 피드백이 선택된다")
+        void getDailyStats_sameSubmittedAt_higherFeedbackIdSelected() {
+            // given
+            Task taskA = task("A", TODAY.plusDays(3), 60);
+            TaskSession s1 = session(taskA, TODAY, 900);
+            TaskSession s2 = session(taskA, TODAY, 900);
+            LocalDateTime sameTime = TODAY.atTime(9, 0);
+            Feedback first  = feedbackRepository.save(Feedback.create(s1, taskA, user, 30, "먼저 저장", false));
+            Feedback second = feedbackRepository.save(Feedback.create(s2, taskA, user, 80, "나중 저장", false));
+            ReflectionTestUtils.setField(first,  "submittedAt", sameTime);
+            ReflectionTestUtils.setField(second, "submittedAt", sameTime);
+            entityManager.flush();
+            // when
+            TaskDailyStatsResponse result = taskStatsService.getDailyStats(user.getId(), TODAY);
+            // then: feedbackId가 더 큰 second가 선택됨
+            assertThat(result.feedbackTasks()).hasSize(1);
+            assertThat(result.feedbackTasks().get(0).progressRate()).isEqualTo(80);
+            assertThat(result.feedbackTasks().get(0).memo()).isEqualTo("나중 저장");
+        }
+
+        @Test
         @DisplayName("DailyRecommendation 캐시가 있으면 실시간 계산 대신 캐시된 권장 시간을 반환한다")
         void getDailyStats_cachedDailyRecommendation_returnsCachedMinutes() {
             // given: 실시간 계산 시 12분이지만 캐시에는 999분

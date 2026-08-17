@@ -85,7 +85,10 @@ public class TaskStatsService {
                     .collect(Collectors.toMap(
                             f -> f.getTask().getId(),
                             f -> f,
-                            (a, b) -> a.getSubmittedAt().isAfter(b.getSubmittedAt()) ? a : b
+                            (a, b) -> {
+                                int cmp = a.getSubmittedAt().compareTo(b.getSubmittedAt());
+                                return cmp != 0 ? (cmp > 0 ? a : b) : (a.getFeedbackId() > b.getFeedbackId() ? a : b);
+                            }
                     ))
                     .values()
                     .stream()
