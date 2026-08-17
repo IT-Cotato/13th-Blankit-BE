@@ -5,10 +5,16 @@ import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModes
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.ThirtyMinutePackRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.entity.DailyRecommendation;
+import com.cotato.blankit.domain.recommendation.entity.DailyRecommendationItem;
+import com.cotato.blankit.domain.recommendation.repository.DailyRecommendationItemRepository;
+import com.cotato.blankit.domain.recommendation.repository.DailyRecommendationRepository;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.feedback.service.FeedbackService;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
+import com.cotato.blankit.domain.user.entity.User;
+import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +31,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -34,12 +41,63 @@ public class RecommendationService {
     private final TaskRepository taskRepository;
     private final FeedbackService feedbackService;
     private final Clock clock;
+    private final DailyRecommendationRepository dailyRecommendationRepository;
+    private final DailyRecommendationItemRepository dailyRecommendationItemRepository;
+    private final UserRepository userRepository;
 
     public TodayRecommendationResponse getTodayRecommendation(Long userId) {
         LocalDate today = LocalDate.now(clock);
+
+        Optional<DailyRecommendation> cached = dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY");
+        if (cached.isPresent()) {
+            return buildTodayFromCache(cached.get());
+        }
+
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY")
+                .map(this::buildTodayFromCache)
+                .orElseGet(() -> calculateAndSaveToday(userId, today));
+    }
+
+    private TodayRecommendationResponse buildTodayFromCache(DailyRecommendation cached) {
+        List<DailyRecommendationItem> items = dailyRecommendationItemRepository
+                .findAllByDailyRecommendationOrderByRankOrder(cached);
+
+        List<Long> taskIds = items.stream().map(item -> item.getTask().getId()).toList();
+        Map<Long, String> memoMap = getLatestMemoMap(taskIds);
+
+        List<RecommendedTaskItem> topTasks = items.stream()
+                .map(item -> {
+                    Task task = item.getTask();
+                    return new RecommendedTaskItem(
+                            task.getId(),
+                            task.getTitle(),
+                            task.getPriority(),
+                            task.getCategory().getColor(),
+                            task.getCategory().getIconKey(),
+                            item.getRankOrder(),
+                            item.getScore(),
+                            item.getRecommendedMinutes(),
+                            task.getProgressRate(),
+                            memoMap.get(task.getId())
+                    );
+                })
+                .toList();
+
+        return new TodayRecommendationResponse(
+                cached.getRecommendedDate(), cached.getTotalRecommendedMinutes(), topTasks);
+    }
+
+    private TodayRecommendationResponse calculateAndSaveToday(Long userId, LocalDate today) {
         List<ScoredTask> ranked = buildRanked(userId, today);
+        User user = userRepository.getReferenceById(userId);
 
         if (ranked.isEmpty()) {
+            dailyRecommendationRepository.save(DailyRecommendation.ofToday(user, today, 0));
             return new TodayRecommendationResponse(today, 0L, List.of());
         }
 
@@ -50,6 +108,18 @@ public class RecommendationService {
         List<RecommendedTaskItem> topTasks = new ArrayList<>();
         for (int i = 0; i < top.size(); i++) {
             topTasks.add(toItem(top.get(i), i + 1, today, memoMap));
+        }
+
+        DailyRecommendation dailyRecommendation = DailyRecommendation.ofToday(user, today, (int) totalMinutes);
+        dailyRecommendationRepository.save(dailyRecommendation);
+
+        for (int i = 0; i < top.size(); i++) {
+            dailyRecommendationItemRepository.save(
+                    DailyRecommendationItem.of(
+                            dailyRecommendation, top.get(i).task(),
+                            i + 1, top.get(i).score(), topTasks.get(i).recommendedMinutes()
+                    )
+            );
         }
 
         return new TodayRecommendationResponse(today, totalMinutes, topTasks);
@@ -72,8 +142,27 @@ public class RecommendationService {
         return new AllRecommendationResponse(today, allTasks);
     }
 
+    private static final List<String> ALL_MODES = List.of("FIRE", "BALANCE", "TASTE", "CLEAR");
+
     public RecommendationModesResponse getRecommendationModes(Long userId) {
         LocalDate today = LocalDate.now(clock);
+
+        if (dailyRecommendationRepository.countByUser_IdAndRecommendedDateAndModeIn(userId, today, ALL_MODES) == 4) {
+            return buildModesFromCache(userId, today);
+        }
+
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        long count = dailyRecommendationRepository.countByUser_IdAndRecommendedDateAndModeIn(userId, today, ALL_MODES);
+        if (count == 4) {
+            return buildModesFromCache(userId, today);
+        }
+
+        if (count > 0) {
+            deletePartialModes(userId, today);
+        }
+
         List<ScoredTask> ranked = buildRanked(userId, today);
         long totalMinutes = calculateTotalMinutes(ranked, today);
 
@@ -83,16 +172,84 @@ public class RecommendationService {
 
         Map<Long, String> memoMap = getLatestMemoMap(modeRanked.stream().map(st -> st.task().getId()).toList());
 
+        List<RecommendationModesResponse.ModeTaskItem> fireTasks = buildFireMode(modeRanked, totalMinutes, memoMap);
+        List<RecommendationModesResponse.ModeTaskItem> balanceTasks = buildBalanceMode(modeRanked, memoMap);
+        List<RecommendationModesResponse.ModeTaskItem> tasteTasks = buildTasteMode(modeRanked, memoMap);
+        List<RecommendationModesResponse.ModeTaskItem> clearTasks = buildClearMode(modeRanked, totalMinutes, memoMap);
+
+        User user = userRepository.getReferenceById(userId);
+        saveModeItems(user, today, "FIRE", fireTasks);
+        saveModeItems(user, today, "BALANCE", balanceTasks);
+        saveModeItems(user, today, "TASTE", tasteTasks);
+        saveModeItems(user, today, "CLEAR", clearTasks);
+
         return new RecommendationModesResponse(List.of(
-                buildModeItem("FIRE", "불끄기", "오늘 최소 시간을 빨간색(상) 과업에 올인하는 조합",
-                        buildFireMode(modeRanked, totalMinutes, memoMap)),
-                buildModeItem("BALANCE", "밸런스", "빨리 끝나는 과업으로 성취감을 먼저 얻고 빨간색 과업 진입",
-                        buildBalanceMode(modeRanked, memoMap)),
-                buildModeItem("TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합",
-                        buildTasteMode(modeRanked, memoMap)),
-                buildModeItem("CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합",
-                        buildClearMode(modeRanked, totalMinutes, memoMap))
+                buildModeItem("FIRE", "불끄기", "오늘 최소 시간을 빨간색(상) 과업에 올인하는 조합", fireTasks),
+                buildModeItem("BALANCE", "밸런스", "빨리 끝나는 과업으로 성취감을 먼저 얻고 빨간색 과업 진입", balanceTasks),
+                buildModeItem("TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합", tasteTasks),
+                buildModeItem("CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합", clearTasks)
         ));
+    }
+
+    private void deletePartialModes(Long userId, LocalDate today) {
+        List<DailyRecommendation> partial = dailyRecommendationRepository
+                .findAllByUser_IdAndRecommendedDateAndModeIn(userId, today, ALL_MODES);
+        dailyRecommendationItemRepository.deleteAllByDailyRecommendationIn(partial);
+        dailyRecommendationRepository.deleteAll(partial);
+    }
+
+    private void saveModeItems(User user, LocalDate today, String mode,
+            List<RecommendationModesResponse.ModeTaskItem> tasks) {
+        DailyRecommendation dailyRecommendation = DailyRecommendation.ofMode(user, today, mode);
+        dailyRecommendationRepository.save(dailyRecommendation);
+
+        for (int i = 0; i < tasks.size(); i++) {
+            RecommendationModesResponse.ModeTaskItem modeTask = tasks.get(i);
+            Task task = taskRepository.getReferenceById(modeTask.taskId());
+            dailyRecommendationItemRepository.save(
+                    DailyRecommendationItem.of(dailyRecommendation, task, i + 1, null, modeTask.recommendedMinutes())
+            );
+        }
+    }
+
+    private RecommendationModesResponse buildModesFromCache(Long userId, LocalDate today) {
+        return new RecommendationModesResponse(List.of(
+                loadModeFromCache(userId, today, "FIRE", "불끄기", "오늘 최소 시간을 빨간색(상) 과업에 올인하는 조합"),
+                loadModeFromCache(userId, today, "BALANCE", "밸런스", "빨리 끝나는 과업으로 성취감을 먼저 얻고 빨간색 과업 진입"),
+                loadModeFromCache(userId, today, "TASTE", "찍먹", "각 우선순위 1등 과업을 하나씩 맛보는 조합"),
+                loadModeFromCache(userId, today, "CLEAR", "해치우기", "마감이 가장 급한 과업부터 빠르게 끝내는 조합")
+        ));
+    }
+
+    private RecommendationModesResponse.RecommendationModeItem loadModeFromCache(
+            Long userId, LocalDate today, String mode, String modeName, String description) {
+        DailyRecommendation cached = dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, today, mode)
+                .orElseThrow();
+
+        List<DailyRecommendationItem> items = dailyRecommendationItemRepository
+                .findAllByDailyRecommendationOrderByRankOrder(cached);
+
+        List<Long> taskIds = items.stream().map(item -> item.getTask().getId()).toList();
+        Map<Long, String> memoMap = getLatestMemoMap(taskIds);
+
+        List<RecommendationModesResponse.ModeTaskItem> tasks = items.stream()
+                .map(item -> {
+                    Task task = item.getTask();
+                    return new RecommendationModesResponse.ModeTaskItem(
+                            task.getId(),
+                            task.getTitle(),
+                            task.getPriority(),
+                            task.getCategory().getColor(),
+                            task.getCategory().getIconKey(),
+                            item.getRecommendedMinutes(),
+                            task.getProgressRate(),
+                            memoMap.get(task.getId())
+                    );
+                })
+                .toList();
+
+        return buildModeItem(mode, modeName, description, tasks);
     }
 
     private RecommendationModesResponse.RecommendationModeItem buildModeItem(

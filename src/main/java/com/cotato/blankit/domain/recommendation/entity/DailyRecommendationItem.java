@@ -34,4 +34,16 @@ public class DailyRecommendationItem extends BaseEntity {
     private BigDecimal score;
 
     private Integer recommendedMinutes;
+
+    public static DailyRecommendationItem of(
+            DailyRecommendation dailyRecommendation, Task task,
+            int rankOrder, BigDecimal score, Integer recommendedMinutes) {
+        DailyRecommendationItem item = new DailyRecommendationItem();
+        item.dailyRecommendation = dailyRecommendation;
+        item.task = task;
+        item.rankOrder = rankOrder;
+        item.score = score;
+        item.recommendedMinutes = recommendedMinutes;
+        return item;
+    }
 }

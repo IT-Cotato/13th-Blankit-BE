@@ -6,6 +6,10 @@ import com.cotato.blankit.domain.recommendation.dto.response.AllRecommendationRe
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendationModesResponse;
 import com.cotato.blankit.domain.recommendation.dto.response.RecommendedTaskItem;
 import com.cotato.blankit.domain.recommendation.dto.response.TodayRecommendationResponse;
+import com.cotato.blankit.domain.recommendation.entity.DailyRecommendation;
+import com.cotato.blankit.domain.recommendation.entity.DailyRecommendationItem;
+import com.cotato.blankit.domain.recommendation.repository.DailyRecommendationItemRepository;
+import com.cotato.blankit.domain.recommendation.repository.DailyRecommendationRepository;
 import com.cotato.blankit.domain.recommendation.service.RecommendationService;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskPriority;
@@ -30,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.util.List;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -66,6 +71,8 @@ class RecommendationServiceTest {
     @Autowired private UserRepository userRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private TaskRepository taskRepository;
+    @Autowired private DailyRecommendationRepository dailyRecommendationRepository;
+    @Autowired private DailyRecommendationItemRepository dailyRecommendationItemRepository;
     @PersistenceContext private EntityManager entityManager;
 
     private User user;
@@ -813,6 +820,186 @@ class RecommendationServiceTest {
         assertThat(clear.tasks().get(0).taskId()).isEqualTo(medTask.getId());
         assertThat(clear.tasks().get(0).recommendedMinutes()).isEqualTo(60);
     }
+
+    // ─── 캐싱 동작 — getTodayRecommendation ──────────────────────────────────
+
+    @Test
+    @DisplayName("getTodayRecommendation — 첫 호출 시 DailyRecommendation과 DailyRecommendationItem이 저장된다")
+    void getTodayRecommendation_firstCall_savesCache() {
+        // given
+        task("1순위", TODAY.plusDays(1), 60,  0, false);
+        task("2순위", TODAY.plusDays(2), 60, 20, false);
+        task("3순위", TODAY.plusDays(3), 60, 40, false);
+
+        // when
+        recommendationService.getTodayRecommendation(user.getId());
+        entityManager.flush();
+
+        // then — 헤더 레코드 1개 존재
+        assertThat(dailyRecommendationRepository
+                .existsByUser_IdAndRecommendedDateAndMode(user.getId(), TODAY, "TODAY"))
+                .isTrue();
+        // then — 아이템 레코드 3개 존재
+        DailyRecommendation dr = dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(user.getId(), TODAY, "TODAY")
+                .orElseThrow();
+        assertThat(dailyRecommendationItemRepository
+                .findAllByDailyRecommendationOrderByRankOrder(dr)).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("getTodayRecommendation — 두 번째 호출 시 새 과업이 추가되어도 캐시된 top3가 반환된다")
+    void getTodayRecommendation_secondCall_newTaskNotReflected() {
+        // given
+        task("1순위", TODAY.plusDays(1), 60,  0, false);
+        task("2순위", TODAY.plusDays(2), 60, 20, false);
+        task("3순위", TODAY.plusDays(3), 60, 40, false);
+
+        TodayRecommendationResponse first = recommendationService.getTodayRecommendation(user.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        // 재계산 시 1순위가 될 과업 추가
+        task("신규최우선", TODAY.plusDays(1), 30, 0, false);
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        TodayRecommendationResponse second = recommendationService.getTodayRecommendation(user.getId());
+
+        // then — 캐시 히트이므로 첫 호출과 동일한 taskId 목록
+        assertThat(second.topTasks())
+                .extracting(RecommendedTaskItem::taskId)
+                .containsExactlyElementsOf(
+                        first.topTasks().stream().map(RecommendedTaskItem::taskId).toList()
+                );
+    }
+
+    @Test
+    @DisplayName("getTodayRecommendation — 두 번째 호출 시 과업이 추가되어도 totalRecommendedMinutes가 고정된다")
+    void getTodayRecommendation_secondCall_totalMinutesFixed() {
+        // given — 60분짜리 과업 1개, 2일 후 마감 → totalMinutes = round(60/2) = 30
+        task("과업A", TODAY.plusDays(2), 60, 0, false);
+
+        TodayRecommendationResponse first = recommendationService.getTodayRecommendation(user.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        // 권장 시간에 영향을 줄 과업 추가 (재계산 시 총합 증가)
+        task("과업B", TODAY.plusDays(1), 120, 0, false);
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        TodayRecommendationResponse second = recommendationService.getTodayRecommendation(user.getId());
+
+        // then — 첫 호출 시 계산된 권장 시간 그대로 유지
+        assertThat(second.totalRecommendedMinutes()).isEqualTo(first.totalRecommendedMinutes());
+    }
+
+    @Test
+    @DisplayName("getTodayRecommendation — 활성 과업이 없으면 빈 결과로 DailyRecommendation 헤더가 저장된다")
+    void getTodayRecommendation_noTasks_savesEmptyCache() {
+        // when
+        recommendationService.getTodayRecommendation(user.getId());
+        entityManager.flush();
+
+        // then — 과업이 없어도 헤더는 캐시됨
+        assertThat(dailyRecommendationRepository
+                .existsByUser_IdAndRecommendedDateAndMode(user.getId(), TODAY, "TODAY"))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("getTodayRecommendation — 빈 캐시 저장 후 과업이 추가되어도 당일에는 빈 결과가 유지된다")
+    void getTodayRecommendation_noTasks_emptyCacheHonored() {
+        // given — 과업 없는 상태로 첫 호출 → 빈 캐시 저장
+        recommendationService.getTodayRecommendation(user.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        // 이후 과업 추가
+        task("HIGH", TODAY.plusDays(1), 60, 0, false);
+        entityManager.flush();
+        entityManager.clear();
+
+        // when — 당일 두 번째 호출
+        TodayRecommendationResponse second = recommendationService.getTodayRecommendation(user.getId());
+
+        // then — 캐시된 빈 결과 반환 (재계산 없음)
+        assertThat(second.topTasks()).isEmpty();
+        assertThat(second.totalRecommendedMinutes()).isZero();
+    }
+
+    // ─── 캐싱 동작 — getRecommendationModes ──────────────────────────────────
+
+    @Test
+    @DisplayName("getRecommendationModes — 첫 호출 시 FIRE·BALANCE·TASTE·CLEAR 4개의 DailyRecommendation이 모두 저장된다")
+    void getRecommendationModes_firstCall_savesAllFourModes() {
+        // given
+        task("HIGH", TODAY.plusDays(1), 60,  0, false);
+        task("MED",  TODAY.plusDays(2), 90, 20, false);
+        task("LOW",  TODAY.plusDays(3), 30, 40, false);
+
+        // when
+        recommendationService.getRecommendationModes(user.getId());
+        entityManager.flush();
+
+        // then — 4개 모드 레코드 전부 존재
+        for (String mode : List.of("FIRE", "BALANCE", "TASTE", "CLEAR")) {
+            assertThat(dailyRecommendationRepository
+                    .existsByUser_IdAndRecommendedDateAndMode(user.getId(), TODAY, mode))
+                    .as("mode=%s 캐시가 존재해야 한다", mode)
+                    .isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("getRecommendationModes — 결과가 빈 모드도 DailyRecommendation 레코드가 저장되어 캐시로 동작한다")
+    void getRecommendationModes_emptyMode_savedAsEmptyRecord() {
+        // given — 오늘 마감 과업만 존재 → modeRanked 필터에 걸려 모든 모드가 빈 결과
+        task("오늘마감A", TODAY, 60, 0, false);
+        task("오늘마감B", TODAY, 30, 0, false);
+
+        // when
+        recommendationService.getRecommendationModes(user.getId());
+        entityManager.flush();
+
+        // then — FIRE 레코드는 존재하지만 연결된 아이템은 0개
+        DailyRecommendation fireRecord = dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(user.getId(), TODAY, "FIRE")
+                .orElseThrow();
+        assertThat(dailyRecommendationItemRepository
+                .findAllByDailyRecommendationOrderByRankOrder(fireRecord)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("getRecommendationModes — 두 번째 호출 시 새 HIGH 과업이 추가되어도 FIRE 캐시 결과가 반환된다")
+    void getRecommendationModes_secondCall_newTaskNotReflected() {
+        // given — 오늘 마감 과업만 있어 FIRE가 빈 채로 캐시됨
+        task("오늘마감", TODAY, 60, 0, false);
+
+        RecommendationModesResponse first = recommendationService.getRecommendationModes(user.getId());
+        entityManager.flush();
+        entityManager.clear();
+
+        // 재계산 시 FIRE에 포함될 HIGH 우선순위 과업 추가
+        task("새HIGH", TODAY.plusDays(1), 60, 0, false);
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        RecommendationModesResponse second = recommendationService.getRecommendationModes(user.getId());
+
+        // then — FIRE 캐시 히트 → 새 과업 미반영, 첫 호출과 동일한 결과
+        List<Long> firstFireIds = first.modes().get(0).tasks().stream()
+                .map(RecommendationModesResponse.ModeTaskItem::taskId).toList();
+        List<Long> secondFireIds = second.modes().get(0).tasks().stream()
+                .map(RecommendationModesResponse.ModeTaskItem::taskId).toList();
+        assertThat(secondFireIds).containsExactlyElementsOf(firstFireIds);
+    }
+
+    // ─── 모드 조합 ──────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("모드 조합 — 당일 마감 과업은 모든 모드의 조합에서 제외된다")
