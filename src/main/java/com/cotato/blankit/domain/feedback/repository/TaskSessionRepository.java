@@ -25,6 +25,8 @@ public interface TaskSessionRepository extends JpaRepository<TaskSession, Long> 
 
     boolean existsByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long sessionId);
 
+    List<TaskSession> findByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long taskSessionId);
+
     @Query("select coalesce(sum(ts.elapsedTime), 0) from TaskSession ts " +
            "where ts.user.id = :userId and ts.startedAt >= :startOfDay and ts.startedAt < :endOfDay")
     long sumElapsedTimeByUserIdAndDateRange(

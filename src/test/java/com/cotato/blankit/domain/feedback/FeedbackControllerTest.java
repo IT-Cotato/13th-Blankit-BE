@@ -185,9 +185,9 @@ class FeedbackControllerTest {
     }
 
     @Test
-    void updateStatus_toPlaying_otherTaskAlreadyPlaying_returns409() throws Exception {
-        // 다른 과업(taskA)의 세션이 PLAYING 중일 때 taskB 세션 PLAYING 요청 → 409
-        taskSessionRepository.save(
+    void updateStatus_toPlaying_otherTaskAlreadyPlaying_autoPausesOther() throws Exception {
+        // 다른 과업(taskA)의 세션이 PLAYING 중일 때 taskB 세션 PLAYING 요청 → 기존 세션 자동 PAUSED, 새 세션 PLAYING
+        TaskSession sessionA = taskSessionRepository.save(
                 TaskSession.create(taskA, user, LocalDateTime.now(), null, 300, TaskSessionStatus.PLAYING));
         TaskSession sessionB = taskSessionRepository.save(
                 TaskSession.create(taskB, user, LocalDateTime.now(), null, 0, TaskSessionStatus.PAUSED));
@@ -199,8 +199,13 @@ class FeedbackControllerTest {
                         .content("""
                                 { "status": "PLAYING", "elapsedTime": 0 }
                                 """))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("SESSION_ALREADY_PLAYING"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PLAYING"));
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(taskSessionRepository.findById(sessionA.getTaskSessionId())
+                .get().getStatus()).isEqualTo(TaskSessionStatus.PAUSED);
     }
 
     @Test
