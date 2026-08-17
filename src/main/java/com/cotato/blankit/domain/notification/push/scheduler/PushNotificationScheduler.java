@@ -35,11 +35,11 @@ public class PushNotificationScheduler {
                         job.userId(),
                         job.type(),
                         payload,
-                        job.retryInstallationIds()
+                        job.retryFcmTokens()
                 );
             } catch (RuntimeException exception) {
                 log.error("Push job execution failed: jobId={}, attempt={}", job.id(), job.attempts(), exception);
-                outcome = PushNotificationService.PushSendResult.retryAll(job.retryInstallationIds());
+                outcome = PushNotificationService.PushSendResult.retryAll(job.retryFcmTokens());
             }
             jobService.complete(job.id(), outcome);
         }

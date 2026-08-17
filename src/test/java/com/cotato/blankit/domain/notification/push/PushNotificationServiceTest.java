@@ -61,13 +61,17 @@ class PushNotificationServiceTest {
         PushGateway gateway = mock(PushGateway.class);
         TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
         User user = User.create(SocialProvider.KAKAO, "social", "a@example.com", "name", null, 60);
-        PushSubscription subscription = PushSubscriptionFixture.create(user, "expired-fid");
+        PushSubscription subscription = PushSubscriptionFixture.create(
+                user, 10L, "expired-fid", "expired-token");
         when(preference.isEnabled(1L, PushNotificationType.SERVICE)).thenReturn(true);
         when(repository.findByUserIdAndActiveTrueOrderByIdAsc(1L)).thenReturn(List.of(subscription));
-        when(repository.findByFirebaseInstallationIdIn(List.of("expired-fid")))
-                .thenReturn(List.of(subscription));
+        when(repository.deactivateAfterFailureIfTokenMatches(any(), eq("expired-token"), any()))
+                .thenReturn(1);
         when(gateway.send(any(), any())).thenReturn(new PushDeliveryResult(List.of(
-                PushDeliveryResult.Item.failure("expired-fid", "UNREGISTERED", PushErrorType.PERMANENT_TARGET))));
+                PushDeliveryResult.Item.failure(
+                        new PushDeliveryTarget(10L, "expired-token"),
+                        "UNREGISTERED",
+                        PushErrorType.PERMANENT_TARGET))));
         doAnswer(invocation -> {
             Consumer<Object> callback = invocation.getArgument(0);
             callback.accept(null);
@@ -78,8 +82,8 @@ class PushNotificationServiceTest {
 
         service.send(1L, PushNotificationType.SERVICE, payload(), List.of());
 
-        assertThat(subscription.isActive()).isFalse();
-        assertThat(subscription.getFailureCount()).isEqualTo(1);
+        verify(repository).deactivateAfterFailureIfTokenMatches(
+                eq(subscription.getId()), eq("expired-token"), any(LocalDateTime.class));
     }
 
     @Test
@@ -91,28 +95,30 @@ class PushNotificationServiceTest {
         TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
         User user = User.create(SocialProvider.KAKAO, "partial-social",
                 "partial@example.com", "name", null, 60);
-        PushSubscription successful = PushSubscriptionFixture.create(user, "successful-fid");
-        PushSubscription retryable = PushSubscriptionFixture.create(user, "retryable-fid");
+        PushSubscription successful = PushSubscriptionFixture.create(
+                user, 11L, "successful-fid", "successful-token");
+        PushSubscription retryable = PushSubscriptionFixture.create(
+                user, 12L, "retryable-fid", "retryable-token");
         when(preference.isEnabled(1L, PushNotificationType.SERVICE)).thenReturn(true);
         when(repository.findByUserIdAndActiveTrueOrderByIdAsc(1L))
                 .thenReturn(List.of(successful, retryable));
-        when(repository.findByUserIdAndActiveTrueAndFirebaseInstallationIdInOrderByIdAsc(
-                1L, List.of("retryable-fid")))
+        when(repository.findByUserIdAndActiveTrueAndFcmTokenInOrderByIdAsc(
+                1L, List.of("retryable-token")))
                 .thenReturn(List.of(retryable));
-        when(repository.findByFirebaseInstallationIdIn(anyList())).thenAnswer(invocation -> {
-            List<String> requested = invocation.getArgument(0);
-            return List.of(successful, retryable).stream()
-                    .filter(subscription -> requested.contains(subscription.getFirebaseInstallationId()))
-                    .toList();
-        });
+        when(repository.markSuccessIfTokenMatches(any(), anyString(), any())).thenReturn(1);
+        when(repository.markFailureIfTokenMatches(any(), anyString(), any())).thenReturn(1);
         when(gateway.send(any(), any()))
                 .thenReturn(
                         new PushDeliveryResult(List.of(
-                                PushDeliveryResult.Item.success("successful-fid"),
+                                PushDeliveryResult.Item.success(
+                                        new PushDeliveryTarget(11L, "successful-token")),
                                 PushDeliveryResult.Item.failure(
-                                        "retryable-fid", "UNAVAILABLE", PushErrorType.RETRYABLE))),
+                                        new PushDeliveryTarget(12L, "retryable-token"),
+                                        "UNAVAILABLE",
+                                        PushErrorType.RETRYABLE))),
                         new PushDeliveryResult(List.of(
-                                PushDeliveryResult.Item.success("retryable-fid")))
+                                PushDeliveryResult.Item.success(
+                                        new PushDeliveryTarget(12L, "retryable-token"))))
                 );
         doAnswer(invocation -> {
             Consumer<Object> callback = invocation.getArgument(0);
@@ -127,16 +133,22 @@ class PushNotificationServiceTest {
                 1L,
                 PushNotificationType.SERVICE,
                 payload(),
-                first.retryInstallationIds()
+                first.retryFcmTokens()
         );
 
         assertThat(first.outcome()).isEqualTo(PushNotificationService.PushSendOutcome.RETRYABLE_FAILURE);
-        assertThat(first.retryInstallationIds()).containsExactly("retryable-fid");
+        assertThat(first.retryFcmTokens()).containsExactly("retryable-token");
         assertThat(first.failureType()).isEqualTo(PushErrorType.RETRYABLE);
         assertThat(second.outcome()).isEqualTo(PushNotificationService.PushSendOutcome.SENT);
-        org.mockito.ArgumentCaptor<List<String>> targets = org.mockito.ArgumentCaptor.forClass(List.class);
+        org.mockito.ArgumentCaptor<List<PushDeliveryTarget>> targets =
+                org.mockito.ArgumentCaptor.forClass(List.class);
         verify(gateway, times(2)).send(targets.capture(), any());
-        assertThat(targets.getAllValues().get(1)).containsExactly("retryable-fid");
+        assertThat(targets.getAllValues().get(0))
+                .extracting(PushDeliveryTarget::fcmToken)
+                .containsExactly("successful-token", "retryable-token");
+        assertThat(targets.getAllValues().get(1))
+                .extracting(PushDeliveryTarget::fcmToken)
+                .containsExactly("retryable-token");
     }
 
     private PushPayload payload() {

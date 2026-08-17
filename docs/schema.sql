@@ -332,12 +332,13 @@ CREATE TABLE refresh_token (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- ------------------------------------------------------------
--- Firebase FID Web Push
+-- Firebase Cloud Messaging Web Push
 -- ------------------------------------------------------------
 CREATE TABLE push_subscription (
     push_subscription_id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     firebase_installation_id VARCHAR(255) NOT NULL,
+    fcm_token VARCHAR(512) NULL,
     device_name VARCHAR(100) NULL,
     browser VARCHAR(100) NULL,
     active TINYINT(1) NOT NULL DEFAULT 1,
@@ -348,6 +349,7 @@ CREATE TABLE push_subscription (
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (push_subscription_id),
     UNIQUE KEY uk_push_subscription_fid (firebase_installation_id),
+    UNIQUE KEY uk_push_subscription_fcm_token (fcm_token),
     KEY idx_push_subscription_user_active (user_id, active),
     CONSTRAINT fk_push_subscription_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;

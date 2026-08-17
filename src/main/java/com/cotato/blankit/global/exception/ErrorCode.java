@@ -24,6 +24,7 @@ public enum ErrorCode {
     INVALID_TIMETABLE_SETTINGS(HttpStatus.BAD_REQUEST, "INVALID_TIMETABLE_SETTINGS", "시작 시간은 종료 시간보다 빨라야 합니다."),
     TIMETABLE_SETTINGS_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "TIMETABLE_SETTINGS_OUT_OF_RANGE", "표시 범위가 기존 시간표 블록을 포함하지 않습니다."),
     PUSH_SUBSCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "PUSH_SUBSCRIPTION_NOT_FOUND", "푸시 구독을 찾을 수 없습니다."),
+    PUSH_SUBSCRIPTION_CONFLICT(HttpStatus.CONFLICT, "PUSH_SUBSCRIPTION_CONFLICT", "다른 설치에서 사용 중인 푸시 토큰입니다."),
     PUSH_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "PUSH_JOB_NOT_FOUND", "푸시 예약 작업을 찾을 수 없습니다."),
 
     // Task
