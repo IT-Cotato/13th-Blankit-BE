@@ -97,12 +97,16 @@ class TaskStatsServiceTest {
         TaskSession saved = taskSessionRepository.save(
                 TaskSession.create(task, user, startedAt, startedAt.plusSeconds(elapsedSeconds), elapsedSeconds, TaskSessionStatus.DONE)
         );
-        dailyElapsedTimeRepository.findByTaskSession_TaskSessionIdAndDate(saved.getTaskSessionId(), date)
+        upsertElapsedTime(saved, date, elapsedSeconds);
+        return saved;
+    }
+
+    private void upsertElapsedTime(TaskSession session, LocalDate date, int elapsedSeconds) {
+        dailyElapsedTimeRepository.findByTaskSession_TaskSessionIdAndDate(session.getTaskSessionId(), date)
                 .ifPresentOrElse(
                         record -> record.setElapsedSeconds(elapsedSeconds),
-                        () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(saved, date, elapsedSeconds))
+                        () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(session, date, elapsedSeconds))
                 );
-        return saved;
     }
 
     private Feedback submittedFeedback(TaskSession session, Task task, int progressRate) {
@@ -388,6 +392,21 @@ class TaskStatsServiceTest {
             TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             // then: index 0 = 이번 달 1일
             assertThat(result.dailyStats().get(0).date()).isEqualTo(pastDay);
+            assertThat(result.dailyStats().get(0).actualMinutes()).isEqualTo(90);
+        }
+
+        @Test
+        @DisplayName("같은 세션·날짜를 두 번 upsert하면 두 번째 값이 첫 번째 값을 덮어쓴다 (ifPresent 분기)")
+        void getMonthlyStats_sameSessionUpsertedTwice_secondValueOverwritesFirst() {
+            // given: PAUSED 후 DONE 시나리오 — 같은 세션에 대해 시간이 두 번 기록됨
+            Task taskA = task("A", TODAY.plusDays(10), 60);
+            LocalDate pastDay = TODAY.withDayOfMonth(1);
+            TaskSession sess = session(taskA, pastDay, 3600); // orElse 분기: 3600초 신규 저장
+            // when: 같은 세션·날짜를 5400초로 다시 upsert (ifPresent 분기: 덮어쓰기)
+            upsertElapsedTime(sess, pastDay, 5400);
+            entityManager.flush();
+            // then: 3600 + 5400 = 9000이 아니라 5400만 반영 → 90분
+            TaskMonthlyStatsResponse result = taskStatsService.getMonthlyStats(user.getId(), TODAY.getYear(), TODAY.getMonthValue());
             assertThat(result.dailyStats().get(0).actualMinutes()).isEqualTo(90);
         }
 
