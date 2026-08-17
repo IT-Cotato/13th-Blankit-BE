@@ -1,6 +1,7 @@
 package com.cotato.blankit.domain.notification.push;
 
 import com.cotato.blankit.domain.notification.push.gateway.FcmPushGateway;
+import com.cotato.blankit.domain.notification.push.gateway.PushDeliveryTarget;
 import com.cotato.blankit.domain.notification.push.gateway.PushPayload;
 import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -27,7 +28,7 @@ class FcmPushGatewayTest {
         BatchResponse response = successfulBatch(1);
         when(messaging.sendEachForMulticast(any())).thenReturn(response);
 
-        new FcmPushGateway(messaging).send(List.of("fcm-token"), payload());
+        new FcmPushGateway(messaging).send(targets("fcm-token"), payload());
 
         ArgumentCaptor<MulticastMessage> captor = ArgumentCaptor.forClass(MulticastMessage.class);
         verify(messaging).sendEachForMulticast(captor.capture());
@@ -45,9 +46,11 @@ class FcmPushGatewayTest {
         BatchResponse first = successfulBatch(500);
         BatchResponse second = successfulBatch(1);
         when(messaging.sendEachForMulticast(any())).thenReturn(first, second);
-        List<String> tokens = IntStream.range(0, 501).mapToObj(i -> "token-" + i).toList();
+        List<PushDeliveryTarget> targets = IntStream.range(0, 501)
+                .mapToObj(i -> new PushDeliveryTarget((long) i, "token-" + i))
+                .toList();
 
-        var result = new FcmPushGateway(messaging).send(tokens, payload());
+        var result = new FcmPushGateway(messaging).send(targets, payload());
 
         verify(messaging, times(2)).sendEachForMulticast(any());
         assertThat(result.items()).hasSize(501).allMatch(item -> item.success());
@@ -66,7 +69,8 @@ class FcmPushGatewayTest {
         when(batch.getResponses()).thenReturn(List.of(ok, failed, ok));
         when(messaging.sendEachForMulticast(any())).thenReturn(batch);
 
-        var result = new FcmPushGateway(messaging).send(List.of("token-a", "token-b", "token-c"), payload());
+        var result = new FcmPushGateway(messaging).send(
+                targets("token-a", "token-b", "token-c"), payload());
 
         assertThat(result.items().get(0).success()).isTrue();
         assertThat(result.items().get(1).fcmToken()).isEqualTo("token-b");
@@ -86,7 +90,7 @@ class FcmPushGatewayTest {
         when(batch.getResponses()).thenReturn(List.of(failed));
         when(messaging.sendEachForMulticast(any())).thenReturn(batch);
 
-        var result = new FcmPushGateway(messaging).send(List.of("expired-fid"), payload());
+        var result = new FcmPushGateway(messaging).send(targets("expired-token"), payload());
 
         assertThat(result.items().get(0).errorType())
                 .isEqualTo(com.cotato.blankit.domain.notification.push.gateway.PushErrorType.PERMANENT_TARGET);
@@ -104,7 +108,7 @@ class FcmPushGatewayTest {
         when(batch.getResponses()).thenReturn(List.of(failed));
         when(messaging.sendEachForMulticast(any())).thenReturn(batch);
 
-        var result = new FcmPushGateway(messaging).send(List.of("valid-fid"), payload());
+        var result = new FcmPushGateway(messaging).send(targets("valid-token"), payload());
 
         assertThat(result.items().get(0).errorType())
                 .isEqualTo(com.cotato.blankit.domain.notification.push.gateway.PushErrorType.CONFIGURATION);
@@ -120,5 +124,11 @@ class FcmPushGatewayTest {
 
     private PushPayload payload() {
         return new PushPayload("SERVICE", "title", "body", "1", "/tasks/1", Map.of());
+    }
+
+    private List<PushDeliveryTarget> targets(String... fcmTokens) {
+        return IntStream.range(0, fcmTokens.length)
+                .mapToObj(index -> new PushDeliveryTarget((long) index, fcmTokens[index]))
+                .toList();
     }
 }

@@ -37,6 +37,9 @@ public class PushSubscriptionService {
         }
         PushSubscription subscription = repository.findByFirebaseInstallationId(request.installationId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PUSH_SUBSCRIPTION_CONFLICT));
+        if (!request.fcmToken().equals(subscription.getFcmToken())) {
+            throw new CustomException(ErrorCode.PUSH_SUBSCRIPTION_CONFLICT);
+        }
         return PushSubscriptionResponse.from(subscription);
     }
 

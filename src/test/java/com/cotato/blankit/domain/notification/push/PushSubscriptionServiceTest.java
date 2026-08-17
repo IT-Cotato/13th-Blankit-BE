@@ -70,6 +70,29 @@ class PushSubscriptionServiceTest {
     }
 
     @Test
+    void simultaneousFidAndTokenConflictDoesNotChangeEitherSubscription() {
+        User fidOwner = user("fid-owner");
+        User tokenOwner = user("token-owner");
+        var fidSubscription = service.register(fidOwner.getId(),
+                new PushSubscriptionRequest("fid-a", "token-a", "device-a", "Chrome"));
+        var tokenSubscription = service.register(tokenOwner.getId(),
+                new PushSubscriptionRequest("fid-b", "token-b", "device-b", "Edge"));
+
+        assertThatThrownBy(() -> service.register(fidOwner.getId(),
+                new PushSubscriptionRequest("fid-a", "token-b", "changed-device", "Safari")))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(com.cotato.blankit.global.exception.ErrorCode.PUSH_SUBSCRIPTION_CONFLICT);
+
+        PushSubscription unchangedFid = repository.findById(fidSubscription.subscriptionId()).orElseThrow();
+        PushSubscription unchangedToken = repository.findById(tokenSubscription.subscriptionId()).orElseThrow();
+        assertThat(unchangedFid.getFcmToken()).isEqualTo("token-a");
+        assertThat(unchangedFid.getDeviceName()).isEqualTo("device-a");
+        assertThat(unchangedToken.getFirebaseInstallationId()).isEqualTo("fid-b");
+        assertThat(unchangedToken.getFcmToken()).isEqualTo("token-b");
+    }
+
+    @Test
     void staleFailureDoesNotDeactivateSubscriptionAfterTokenRefresh() {
         User owner = user("refresh-owner");
         var initial = service.register(owner.getId(),

@@ -85,14 +85,14 @@ public class PushNotificationJobService {
         switch (result.outcome()) {
             case SENT, SKIPPED_NO_SUBSCRIPTION -> job.markSent(LocalDateTime.now(clock));
             case SKIPPED_PREFERENCE -> job.cancelAfterClaim();
-            case RETRYABLE_FAILURE -> retryOrFail(job, result.retryInstallationIds(), result.failureType());
+            case RETRYABLE_FAILURE -> retryOrFail(job, result.retryFcmTokens(), result.failureType());
             case FAILED -> job.fail(result.failureType());
         }
     }
 
     private void retryOrFail(
             PushNotificationJob job,
-            List<String> retryInstallationIds,
+            List<String> retryFcmTokens,
             PushErrorType failureType
     ) {
         int retryIndex = job.getAttempts() - 1;
@@ -101,7 +101,7 @@ public class PushNotificationJobService {
         } else {
             job.retryAt(
                     LocalDateTime.now(clock).plus(schedulerProperties.retryDelays().get(retryIndex)),
-                    FidListCodec.encode(retryInstallationIds),
+                    FidListCodec.encode(retryFcmTokens),
                     failureType
             );
         }
@@ -109,7 +109,7 @@ public class PushNotificationJobService {
 
     public record ClaimedPushJob(Long id, Long userId, PushNotificationType type, String referenceType,
                                  String referenceId, String title, String body, String clickUrl, int attempts,
-                                 List<String> retryInstallationIds) {
+                                 List<String> retryFcmTokens) {
         static ClaimedPushJob from(PushNotificationJob job) {
             return new ClaimedPushJob(job.getId(), job.getUser().getId(), job.getType(), job.getReferenceType(),
                     job.getReferenceId(), job.getTitle(), job.getBody(), job.getClickUrl(), job.getAttempts(),

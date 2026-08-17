@@ -12,9 +12,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -30,12 +27,12 @@ public class PushNotificationService {
             Long userId,
             PushNotificationType type,
             PushPayload payload,
-            List<String> retryInstallationIds
+            List<String> retryFcmTokens
     ) {
         if (!preferenceService.isEnabled(userId, type)) {
             return PushSendResult.of(PushSendOutcome.SKIPPED_PREFERENCE);
         }
-        List<PushSubscription> subscriptions = findActive(userId, retryInstallationIds);
+        List<PushSubscription> subscriptions = findActive(userId, retryFcmTokens);
         if (subscriptions.isEmpty()) {
             return PushSendResult.of(PushSendOutcome.SKIPPED_NO_SUBSCRIPTION);
         }
@@ -45,7 +42,12 @@ public class PushNotificationService {
             return PushSendResult.of(PushSendOutcome.SKIPPED_PREFERENCE);
         }
         PushDeliveryResult result = gateway.send(
-                subscriptions.stream().map(PushSubscription::getFcmToken).toList(), payload);
+                subscriptions.stream()
+                        .map(subscription -> new PushDeliveryTarget(
+                                subscription.getId(), subscription.getFcmToken()))
+                        .toList(),
+                payload
+        );
         transactionTemplate.executeWithoutResult(ignored -> applyResults(result));
         List<String> retryTargets = result.items().stream()
                 .filter(item -> !item.success() && item.errorType() != PushErrorType.PERMANENT_TARGET)
@@ -76,38 +78,30 @@ public class PushNotificationService {
         return PushErrorType.PERMANENT_TARGET;
     }
 
-    private List<PushSubscription> findActive(Long userId, List<String> retryInstallationIds) {
-        if (retryInstallationIds != null && !retryInstallationIds.isEmpty()) {
+    private List<PushSubscription> findActive(Long userId, List<String> retryFcmTokens) {
+        if (retryFcmTokens != null && !retryFcmTokens.isEmpty()) {
             return repository
                     .findByUserIdAndActiveTrueAndFcmTokenInOrderByIdAsc(
                             userId,
-                            retryInstallationIds
+                            retryFcmTokens
                     );
         }
         return repository.findByUserIdAndActiveTrueOrderByIdAsc(userId);
     }
 
     private void applyResults(PushDeliveryResult result) {
-        List<String> fcmTokens = result.items().stream()
-                .map(PushDeliveryResult.Item::fcmToken)
-                .distinct()
-                .toList();
-        Map<String, PushSubscription> byToken =
-                repository.findByFcmTokenIn(fcmTokens).stream()
-                .collect(Collectors.toMap(PushSubscription::getFcmToken, Function.identity()));
         LocalDateTime now = LocalDateTime.now(clock);
         for (PushDeliveryResult.Item item : result.items()) {
-            PushSubscription subscription = byToken.get(item.fcmToken());
-            if (subscription == null) continue;
             if (item.success()) {
-                repository.markSuccessIfTokenMatches(subscription.getId(), item.fcmToken(), now);
+                repository.markSuccessIfTokenMatches(item.subscriptionId(), item.fcmToken(), now);
             } else {
                 int affected = item.errorType() == PushErrorType.PERMANENT_TARGET
-                        ? repository.deactivateAfterFailureIfTokenMatches(subscription.getId(), item.fcmToken(), now)
-                        : repository.markFailureIfTokenMatches(subscription.getId(), item.fcmToken(), now);
+                        ? repository.deactivateAfterFailureIfTokenMatches(
+                                item.subscriptionId(), item.fcmToken(), now)
+                        : repository.markFailureIfTokenMatches(item.subscriptionId(), item.fcmToken(), now);
                 if (affected == 0) continue;
                 log.warn("FCM delivery failed: subscriptionId={}, code={}, category={}",
-                        subscription.getId(), item.errorCode(), item.errorType());
+                        item.subscriptionId(), item.errorCode(), item.errorType());
             }
         }
     }
@@ -118,21 +112,21 @@ public class PushNotificationService {
 
     public record PushSendResult(
             PushSendOutcome outcome,
-            List<String> retryInstallationIds,
+            List<String> retryFcmTokens,
             PushErrorType failureType
     ) {
         public PushSendResult {
-            retryInstallationIds = retryInstallationIds == null
+            retryFcmTokens = retryFcmTokens == null
                     ? List.of()
-                    : List.copyOf(retryInstallationIds);
+                    : List.copyOf(retryFcmTokens);
         }
 
         public static PushSendResult of(PushSendOutcome outcome) {
             return new PushSendResult(outcome, List.of(), null);
         }
 
-        public static PushSendResult retryAll(List<String> fcmTokens) {
-            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, fcmTokens, PushErrorType.UNKNOWN);
+        public static PushSendResult retryAll(List<String> retryFcmTokens) {
+            return new PushSendResult(PushSendOutcome.RETRYABLE_FAILURE, retryFcmTokens, PushErrorType.UNKNOWN);
         }
 
         public static PushSendResult failed(PushErrorType failureType) {

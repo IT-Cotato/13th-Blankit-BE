@@ -13,7 +13,6 @@ import java.util.Optional;
 public interface PushSubscriptionRepository extends JpaRepository<PushSubscription, Long> {
     Optional<PushSubscription> findByFirebaseInstallationId(String firebaseInstallationId);
     Optional<PushSubscription> findByFcmToken(String fcmToken);
-    List<PushSubscription> findByFcmTokenIn(List<String> fcmTokens);
     Optional<PushSubscription> findByIdAndUserId(Long id, Long userId);
     List<PushSubscription> findByUserIdAndActiveTrueOrderByIdAsc(Long userId);
     List<PushSubscription> findByUserIdAndActiveTrueAndFcmTokenInOrderByIdAsc(
