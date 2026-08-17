@@ -10,6 +10,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_USER_PASSWORD}
+      TZ: Asia/Seoul
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
