@@ -152,15 +152,40 @@ class TaskSessionElapsedTimeTest {
         }
 
         @Test
-        @DisplayName("DONE 전 PAUSED 상태에서는 DailyElapsedTime이 기록되지 않는다")
-        void paused_notReflectedUntilDone() {
-            // given: PLAYING 후 PAUSED 상태에서 조회
+        @DisplayName("PAUSED 상태에서도 DailyElapsedTime이 즉시 반영된다")
+        void paused_reflectedImmediately() {
             Long sessionId = newSession(DAY.atTime(9, 0));
             play(sessionId, DAY.atTime(9, 0));
-            // when
             pause(sessionId, DAY.atTime(9, 30), 1800);
-            // then: DONE 아직 안 됐으므로 미반영
-            assertThat(elapsedOn(DAY)).isEqualTo(0);
+            assertThat(elapsedOn(DAY)).isEqualTo(1800);
+        }
+
+        @Test
+        @DisplayName("PAUSED 후 재개해 DONE하면 전체 구간 합산이 최종값으로 덮어써진다")
+        void paused_thenDone_overwritesWithFinalSum() {
+            // PAUSE 시점: 1800s 반영, DONE 시점: 5400s로 덮어씀
+            Long sessionId = newSession(DAY.atTime(9, 0));
+            play(sessionId, DAY.atTime(9, 0));
+            pause(sessionId, DAY.atTime(9, 30), 1800);
+            assertThat(elapsedOn(DAY)).isEqualTo(1800);
+            play(sessionId, DAY.atTime(10, 0));
+            done(sessionId, DAY.atTime(11, 0), 5400);
+            assertThat(elapsedOn(DAY)).isEqualTo(5400);
+        }
+
+        @Test
+        @DisplayName("다른 세션 PLAYING 중 새 세션 시작 시 기존 세션이 자동 PAUSED되고 시간이 즉시 반영된다")
+        void autoPaused_whenOtherSessionStartsPlaying() {
+            Task task2 = taskRepository.save(Task.create(user, categoryRepository.findAll().get(0), "다른 과업", DAY.plusDays(30), null, 60));
+            // session1 PLAYING 09:00~09:30
+            Long session1 = newSession(DAY.atTime(9, 0));
+            play(session1, DAY.atTime(9, 0));
+            // session2 PLAYING 시작 → session1 자동 PAUSED
+            setTime(DAY.atTime(9, 30));
+            Long session2 = taskSessionService.startSession(user.getId(), task2.getId()).taskSessionId();
+            play(session2, DAY.atTime(9, 30));
+            // session1의 1800s가 즉시 반영되어야 함
+            assertThat(elapsedOn(DAY)).isEqualTo(1800);
         }
     }
 

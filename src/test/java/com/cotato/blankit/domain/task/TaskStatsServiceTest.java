@@ -97,10 +97,10 @@ class TaskStatsServiceTest {
         TaskSession saved = taskSessionRepository.save(
                 TaskSession.create(task, user, startedAt, startedAt.plusSeconds(elapsedSeconds), elapsedSeconds, TaskSessionStatus.DONE)
         );
-        dailyElapsedTimeRepository.findByUser_IdAndDate(user.getId(), date)
+        dailyElapsedTimeRepository.findByTaskSession_TaskSessionIdAndDate(saved.getTaskSessionId(), date)
                 .ifPresentOrElse(
-                        record -> record.addElapsedSeconds(elapsedSeconds),
-                        () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(user, date, elapsedSeconds))
+                        record -> record.setElapsedSeconds(elapsedSeconds),
+                        () -> dailyElapsedTimeRepository.save(DailyElapsedTime.create(saved, date, elapsedSeconds))
                 );
         return saved;
     }
