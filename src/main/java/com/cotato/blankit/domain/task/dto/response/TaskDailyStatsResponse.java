@@ -43,7 +43,10 @@ public record TaskDailyStatsResponse(
             int progressRate,
 
             @Schema(description = "100% 완료 여부", example = "false")
-            boolean isCompleted
+            boolean isCompleted,
+
+            @Schema(description = "피드백 메모", example = "오늘 집중이 잘 됐다")
+            String memo
     ) {
     }
 }
