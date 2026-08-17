@@ -11,8 +11,10 @@ import java.time.LocalDate;
 @Entity
 @Table(
         name = "daily_elapsed_time",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"task_session_id", "date"}),
-        indexes = @Index(name = "idx_daily_elapsed_session_date", columnList = "task_session_id, date")
+        uniqueConstraints = @UniqueConstraint(
+                name = "idx_daily_elapsed_session_date",
+                columnNames = {"task_session_id", "date"}
+        )
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -23,7 +25,8 @@ public class DailyElapsedTime {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_session_id", nullable = false)
+    @JoinColumn(name = "task_session_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_daily_elapsed_session"))
     private TaskSession taskSession;
 
     @ManyToOne(fetch = FetchType.LAZY)
