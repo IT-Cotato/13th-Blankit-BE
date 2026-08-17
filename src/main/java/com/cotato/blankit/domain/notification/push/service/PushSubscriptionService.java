@@ -7,6 +7,7 @@ import com.cotato.blankit.domain.notification.push.repository.PushSubscriptionRe
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +23,23 @@ public class PushSubscriptionService {
     @Transactional
     public PushSubscriptionResponse register(Long userId, PushSubscriptionRequest request) {
         LocalDateTime now = LocalDateTime.now(clock);
-        repository.upsert(
-                userId,
-                request.installationId(),
-                request.deviceName(),
-                request.browser(),
-                now
-        );
+        try {
+            repository.upsert(
+                    userId,
+                    request.installationId(),
+                    request.fcmToken(),
+                    request.deviceName(),
+                    request.browser(),
+                    now
+            );
+        } catch (DataIntegrityViolationException exception) {
+            throw new CustomException(ErrorCode.PUSH_SUBSCRIPTION_CONFLICT, exception);
+        }
         PushSubscription subscription = repository.findByFirebaseInstallationId(request.installationId())
-                .orElseThrow(() -> new CustomException(ErrorCode.PUSH_SUBSCRIPTION_NOT_FOUND));
+                .orElseThrow(() -> new CustomException(ErrorCode.PUSH_SUBSCRIPTION_CONFLICT));
+        if (!request.fcmToken().equals(subscription.getFcmToken())) {
+            throw new CustomException(ErrorCode.PUSH_SUBSCRIPTION_CONFLICT);
+        }
         return PushSubscriptionResponse.from(subscription);
     }
 

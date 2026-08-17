@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
 @Getter
 @Table(name = "push_subscription",
         indexes = @Index(name = "idx_push_subscription_user_active", columnList = "user_id,active"),
-        uniqueConstraints = @UniqueConstraint(name = "uk_push_subscription_fid", columnNames = "firebase_installation_id"))
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_push_subscription_fid", columnNames = "firebase_installation_id"),
+                @UniqueConstraint(name = "uk_push_subscription_fcm_token", columnNames = "fcm_token")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PushSubscription extends BaseEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,6 +29,9 @@ public class PushSubscription extends BaseEntity {
 
     @Column(name = "firebase_installation_id", nullable = false, length = 255)
     private String firebaseInstallationId;
+
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
     @Column(name = "device_name", length = 100)
     private String deviceName;
     @Column(length = 100)
@@ -40,6 +46,4 @@ public class PushSubscription extends BaseEntity {
     private int failureCount;
 
     public void deactivate() { this.active = false; }
-    public void markSuccess(LocalDateTime now) { this.lastSuccessAt = now; this.failureCount = 0; }
-    public void markFailure(boolean permanent) { this.failureCount++; if (permanent) this.active = false; }
 }
