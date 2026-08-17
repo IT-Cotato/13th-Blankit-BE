@@ -9,6 +9,8 @@ import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
+import com.cotato.blankit.domain.recommendation.entity.DailyRecommendation;
+import com.cotato.blankit.domain.recommendation.repository.DailyRecommendationRepository;
 import com.cotato.blankit.domain.task.dto.response.TaskCalendarResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDailyStatsResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskMonthlyStatsResponse;
@@ -29,6 +31,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -71,6 +74,7 @@ class TaskStatsServiceTest {
     @Autowired private TaskSessionRepository taskSessionRepository;
     @Autowired private DailyElapsedTimeRepository dailyElapsedTimeRepository;
     @Autowired private FeedbackRepository feedbackRepository;
+    @Autowired private DailyRecommendationRepository dailyRecommendationRepository;
     @PersistenceContext private EntityManager entityManager;
 
     private User user;
@@ -264,6 +268,57 @@ class TaskStatsServiceTest {
             assertThat(item.title()).isEqualTo("기말고사 준비");
             assertThat(item.progressRate()).isEqualTo(40);
             assertThat(item.isCompleted()).isFalse();
+        }
+
+        @Test
+        @DisplayName("같은 과업에 피드백이 여러 개면 submittedAt 기준 가장 최신 피드백 1건만 포함된다")
+        void getDailyStats_multipleFeedbacksForSameTask_onlyLatestIncluded() {
+            // given
+            Task taskA = task("A", TODAY.plusDays(3), 60);
+            TaskSession s1 = session(taskA, TODAY, 900);
+            TaskSession s2 = session(taskA, TODAY, 900);
+            Feedback older = feedbackRepository.save(Feedback.create(s1, taskA, user, 30, null, false));
+            Feedback newer = feedbackRepository.save(Feedback.create(s2, taskA, user, 70, null, false));
+            ReflectionTestUtils.setField(older, "submittedAt", TODAY.atTime(9, 0));
+            ReflectionTestUtils.setField(newer, "submittedAt", TODAY.atTime(10, 0));
+            entityManager.flush();
+            // when
+            TaskDailyStatsResponse result = taskStatsService.getDailyStats(user.getId(), TODAY);
+            // then
+            assertThat(result.feedbackTasks()).hasSize(1);
+            assertThat(result.feedbackTasks().get(0).progressRate()).isEqualTo(70);
+        }
+
+        @Test
+        @DisplayName("같은 과업의 여러 피드백 중 가장 최신 피드백의 메모가 반환된다")
+        void getDailyStats_multipleFeedbacksForSameTask_latestMemoReturned() {
+            // given
+            Task taskA = task("A", TODAY.plusDays(3), 60);
+            TaskSession s1 = session(taskA, TODAY, 900);
+            TaskSession s2 = session(taskA, TODAY, 900);
+            Feedback older = feedbackRepository.save(Feedback.create(s1, taskA, user, 30, "이전 메모", false));
+            Feedback newer = feedbackRepository.save(Feedback.create(s2, taskA, user, 70, "최신 메모", false));
+            ReflectionTestUtils.setField(older, "submittedAt", TODAY.atTime(9, 0));
+            ReflectionTestUtils.setField(newer, "submittedAt", TODAY.atTime(10, 0));
+            entityManager.flush();
+            // when
+            TaskDailyStatsResponse result = taskStatsService.getDailyStats(user.getId(), TODAY);
+            // then
+            assertThat(result.feedbackTasks()).hasSize(1);
+            assertThat(result.feedbackTasks().get(0).memo()).isEqualTo("최신 메모");
+        }
+
+        @Test
+        @DisplayName("DailyRecommendation 캐시가 있으면 실시간 계산 대신 캐시된 권장 시간을 반환한다")
+        void getDailyStats_cachedDailyRecommendation_returnsCachedMinutes() {
+            // given: 실시간 계산 시 12분이지만 캐시에는 999분
+            task("A", TODAY.plusDays(5), 60);
+            dailyRecommendationRepository.save(DailyRecommendation.ofToday(user, TODAY, 999));
+            entityManager.flush();
+            // when
+            TaskDailyStatsResponse result = taskStatsService.getDailyStats(user.getId(), TODAY);
+            // then
+            assertThat(result.totalRecommendedMinutes()).isEqualTo(999);
         }
     }
 
