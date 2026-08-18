@@ -77,10 +77,9 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         socialTokenVerifier.verify(request.socialProvider(), request.socialToken(), request.socialId());
 
-        User foundUser = userRepository.findBySocialProviderAndSocialId(request.socialProvider(), request.socialId())
+        User user = userRepository.findBySocialProviderAndSocialIdForUpdate(
+                        request.socialProvider(), request.socialId())
                 .orElseThrow(() -> new CustomException(ErrorCode.SOCIAL_ACCOUNT_NOT_FOUND));
-        User user = userRepository.findByIdForUpdate(foundUser.getId())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         try {
             AuthTokens authTokens = issueAuthTokens(user, request.installationId());
