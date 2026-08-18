@@ -22,6 +22,7 @@ import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.task.repository.TaskStepRepository;
+import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.service.FeedbackService;
@@ -216,6 +217,9 @@ public class TaskService {
     @Transactional
     public void deleteTask(Long userId, Long taskId) {
         Task task = getTaskByUser(taskId, userId);
+        if (taskSessionRepository.existsByTask_IdAndStatus(taskId, TaskSessionStatus.PLAYING)) {
+            throw new CustomException(ErrorCode.TASK_SESSION_ACTIVE);
+        }
         List<Long> removedOccurrenceIds = deleteFutureOccurrences(task);
         taskDeadlineScheduleService.cancelTask(taskId);
         removedOccurrenceIds.forEach(taskDeadlineScheduleService::cancelTask);

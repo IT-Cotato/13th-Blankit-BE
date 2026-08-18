@@ -26,6 +26,8 @@ public interface TaskSessionRepository extends JpaRepository<TaskSession, Long> 
     @Query("DELETE FROM TaskSession ts WHERE ts.task.id = :taskId")
     void deleteByTaskId(@Param("taskId") Long taskId);
 
+    boolean existsByTask_IdAndStatus(Long taskId, TaskSessionStatus status);
+
     boolean existsByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long sessionId);
 
     List<TaskSession> findByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long taskSessionId);

@@ -1334,6 +1334,36 @@ class TaskControllerTest {
     }
 
     @Test
+    void deleteTask_withPausedSession_succeeds() throws Exception {
+        Task task = saveTask(user, studyCategory, "일시정지 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(task, user, LocalDateTime.now(), null, 300, TaskSessionStatus.PAUSED));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(taskRepository.findById(task.getId())).isEmpty();
+        assertThat(taskSessionRepository.findById(session.getTaskSessionId())).isEmpty();
+    }
+
+    @Test
+    void deleteTask_withPlayingSession_isRejected() throws Exception {
+        Task task = saveTask(user, studyCategory, "재생 중 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
+        taskSessionRepository.save(
+                TaskSession.create(task, user, LocalDateTime.now(), null, 0, TaskSessionStatus.PLAYING));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TASK_SESSION_ACTIVE"));
+
+        assertThat(taskRepository.findById(task.getId())).isPresent();
+    }
+
+    @Test
     void updateStarred_activatesStarAndPersists() throws Exception {
         Task task = saveTask(user, studyCategory, "별표 설정 대상", LocalDate.parse("2026-08-12"), null, TaskStatus.TODO);
 
