@@ -7,7 +7,7 @@ import com.cotato.blankit.domain.notification.repository.UserNotificationSetting
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,7 +63,7 @@ class AuthControllerTest {
     private UserNotificationSettingRepository userNotificationSettingRepository;
 
     @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private AccessTokenTestFactory accessTokenTestFactory;
 
     @BeforeEach
     void setUp() {
@@ -257,10 +257,19 @@ class AuthControllerTest {
     void socialLoginFromSameDeviceIsAllowed() throws Exception {
         userRepository.save(User.create(SocialProvider.KAKAO, "same-device", "user@example.com", "서윤", null, 90));
 
-        mockMvc.perform(post("/api/auth/login")
+        String firstLoginResponse = mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("same-device", "device-a")))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String firstAccessToken = com.jayway.jsonpath.JsonPath.read(
+                firstLoginResponse, "$.data.accessToken");
+
+        mockMvc.perform(get("/api/users/me")
+                        .header("Authorization", "Bearer " + firstAccessToken))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/auth/login")
@@ -268,6 +277,11 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("same-device", "device-a")))
                 .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/users/me")
+                        .header("Authorization", "Bearer " + firstAccessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
     }
 
     @Test
@@ -422,7 +436,7 @@ class AuthControllerTest {
     @Test
     void getMeSuccess() throws Exception {
         User user = userRepository.save(User.create(SocialProvider.KAKAO, "me-1", "user@example.com", "서윤", null, 150));
-        String token = jwtTokenProvider.createAccessToken(user.getId());
+        String token = accessTokenTestFactory.createAccessToken(user.getId());
 
         mockMvc.perform(get("/api/users/me")
                         .header("Authorization", "Bearer " + token))

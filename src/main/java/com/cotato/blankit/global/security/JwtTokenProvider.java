@@ -40,10 +40,6 @@ public class JwtTokenProvider {
         this.refreshTokenExpirationMillis = refreshTokenExpirationMillis;
     }
 
-    public String createAccessToken(Long userId) {
-        return createToken(userId, ACCESS_TOKEN_TYPE, accessTokenExpirationMillis);
-    }
-
     public String createAccessToken(Long userId, String sessionId) {
         Instant now = Instant.now();
         return Jwts.builder()

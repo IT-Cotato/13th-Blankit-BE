@@ -9,7 +9,7 @@ import com.cotato.blankit.domain.task.repository.TaskStepRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,7 +67,7 @@ class TaskStepControllerTest {
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private TaskRepository taskRepository;
     @Autowired private TaskStepRepository taskStepRepository;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
+    @Autowired private AccessTokenTestFactory accessTokenTestFactory;
 
     @TestConfiguration
     static class FixedClockConfig {
@@ -87,7 +87,7 @@ class TaskStepControllerTest {
         otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "step-other", "other-step@example.com", "타인", null, 120));
         Category category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
         task = taskRepository.save(Task.create(user, category, "테스트 과업", LocalDate.of(2026, 12, 31), null));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
     }
 
     @Test

@@ -13,7 +13,7 @@ import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,7 +68,7 @@ class RecommendationControllerTest {
     @Autowired private TaskRepository taskRepository;
     @Autowired private FeedbackRepository feedbackRepository;
     @Autowired private TaskSessionRepository taskSessionRepository;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
+    @Autowired private AccessTokenTestFactory accessTokenTestFactory;
 
     @TestConfiguration
     static class FixedClockConfig {
@@ -85,7 +85,7 @@ class RecommendationControllerTest {
                 .apply(springSecurity())
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "rec-user", "rec@example.com", "추천유저", null, 120));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
         category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book",0, true));
     }
 

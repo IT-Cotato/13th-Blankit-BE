@@ -41,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (token != null) {
                 Long userId = jwtTokenProvider.getUserIdFromAccessToken(token);
                 String sessionId = jwtTokenProvider.getSessionIdFromAccessToken(token);
-                if (sessionId != null && !refreshTokenRepository
+                if (sessionId == null || !refreshTokenRepository
                         .existsByUserIdAndSessionIdAndExpiresAtAfter(userId, sessionId, LocalDateTime.now())) {
                     throw new CustomException(ErrorCode.INVALID_TOKEN);
                 }
