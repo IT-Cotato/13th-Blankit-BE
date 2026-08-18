@@ -2,6 +2,7 @@ package com.cotato.blankit.domain.feedback.repository;
 
 import com.cotato.blankit.domain.feedback.entity.DailyElapsedTime;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,4 +18,8 @@ public interface DailyElapsedTimeRepository extends JpaRepository<DailyElapsedTi
     long sumElapsedSecondsByUserIdAndDate(@Param("userId") Long userId, @Param("date") LocalDate date);
 
     List<DailyElapsedTime> findByUser_IdAndDateBetween(Long userId, LocalDate startDate, LocalDate endDate);
+
+    @Modifying
+    @Query("DELETE FROM DailyElapsedTime d WHERE d.taskSession.task.id = :taskId")
+    void deleteByTaskSession_Task_Id(@Param("taskId") Long taskId);
 }
