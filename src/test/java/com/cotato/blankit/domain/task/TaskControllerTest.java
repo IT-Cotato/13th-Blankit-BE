@@ -1334,6 +1334,28 @@ class TaskControllerTest {
     }
 
     @Test
+    void deleteTask_withPlayingSessionOnFutureOccurrence_isRejected() throws Exception {
+        Task sourceTask = saveTask(user, studyCategory, "반복 원본 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
+        repeatRuleRepository.save(RepeatRule.create(
+                sourceTask, RecurrenceType.WEEKLY, List.of(5),
+                RepeatMonthDays.none(), null, LocalDate.parse("2026-08-01"), null
+        ));
+        Task futureOccurrence = taskRepository.save(Task.createRepeatedOccurrence(sourceTask, LocalDate.parse("2026-08-08")));
+        notificationSettingRepository.save(NotificationSetting.create(futureOccurrence, 1440, true));
+        taskSessionRepository.save(
+                TaskSession.create(futureOccurrence, user, LocalDateTime.now(), null, 0, TaskSessionStatus.PLAYING));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", sourceTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TASK_SESSION_ACTIVE"));
+
+        assertThat(taskRepository.findById(sourceTask.getId())).isPresent();
+        assertThat(taskRepository.findById(futureOccurrence.getId())).isPresent();
+    }
+
+    @Test
     void deleteTask_withPausedSession_succeeds() throws Exception {
         Task task = saveTask(user, studyCategory, "일시정지 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
         TaskSession session = taskSessionRepository.save(
