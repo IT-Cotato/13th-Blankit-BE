@@ -257,6 +257,7 @@ public class TaskController {
     }
 
     @Operation(summary = "과업 삭제", description = "ERD에 task.is_deleted가 없어 현재는 hard delete합니다. 반복/알림은 삭제하고, 참조 중인 다른 과업은 similarTask 연결만 해제합니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "재생 중인 과업은 삭제할 수 없음 (TASK_SESSION_ACTIVE)")
     @DeleteMapping("/{taskId}")
     public ApiResponse<Void> deleteTask(
             @AuthenticationPrincipal CustomUserDetails userDetails,
