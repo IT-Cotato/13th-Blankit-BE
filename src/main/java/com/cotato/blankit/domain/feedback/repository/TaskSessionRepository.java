@@ -3,6 +3,7 @@ package com.cotato.blankit.domain.feedback.repository;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import com.cotato.blankit.domain.feedback.entity.enums.TaskSessionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,7 +22,9 @@ public interface TaskSessionRepository extends JpaRepository<TaskSession, Long> 
     @Query("select ts.task.id, coalesce(sum(ts.elapsedTime), 0) from TaskSession ts where ts.user.id = :userId and ts.task.id in :taskIds group by ts.task.id")
     List<Object[]> sumElapsedTimeByTaskIdsAndUserId(@Param("taskIds") Collection<Long> taskIds, @Param("userId") Long userId);
 
-    void deleteByTaskId(Long taskId);
+    @Modifying
+    @Query("DELETE FROM TaskSession ts WHERE ts.task.id = :taskId")
+    void deleteByTaskId(@Param("taskId") Long taskId);
 
     boolean existsByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long sessionId);
 

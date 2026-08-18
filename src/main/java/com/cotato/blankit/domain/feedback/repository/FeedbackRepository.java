@@ -3,6 +3,7 @@ package com.cotato.blankit.domain.feedback.repository;
 import com.cotato.blankit.domain.feedback.entity.Feedback;
 import com.cotato.blankit.domain.feedback.entity.TaskSession;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,7 +19,9 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
 
     List<Feedback> findByTask_IdAndIsDraftFalseOrderByCreatedAtAsc(Long taskId);
 
-    void deleteByTask_Id(Long taskId);
+    @Modifying
+    @Query("DELETE FROM Feedback f WHERE f.task.id = :taskId")
+    void deleteByTask_Id(@Param("taskId") Long taskId);
 
     @Query("""
             select f from Feedback f

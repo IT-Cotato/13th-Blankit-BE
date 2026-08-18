@@ -339,6 +339,7 @@ public class TaskService {
             );
             taskStepRepository.deleteAllByTaskId(occurrence.getId());
             feedbackRepository.deleteByTask_Id(occurrence.getId());
+            playIntervalRepository.deleteByTaskSession_Task_Id(occurrence.getId());
             taskSessionRepository.deleteByTaskId(occurrence.getId());
             playlistItemRepository.deleteByTask(occurrence);
             notificationSettingRepository.findByTaskId(occurrence.getId())
