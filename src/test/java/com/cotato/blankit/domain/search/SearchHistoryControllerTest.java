@@ -1,10 +1,11 @@
 package com.cotato.blankit.domain.search;
 
+import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.domain.search.repository.SearchHistoryRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +53,10 @@ class SearchHistoryControllerTest {
     private SearchHistoryRepository searchHistoryRepository;
 
     @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private AccessTokenTestFactory accessTokenTestFactory;
 
     @BeforeEach
     void setUp() {
@@ -60,11 +64,12 @@ class SearchHistoryControllerTest {
                 .apply(springSecurity())
                 .build();
         searchHistoryRepository.deleteAll();
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "history-user", "history@example.com", "히스토리", null, 120));
         otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "other-history-user", "other-history@example.com", "다른사용자", null, 120));
-        token = jwtTokenProvider.createAccessToken(user.getId());
-        otherToken = jwtTokenProvider.createAccessToken(otherUser.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
+        otherToken = accessTokenTestFactory.createAccessToken(otherUser.getId());
     }
 
     @Test

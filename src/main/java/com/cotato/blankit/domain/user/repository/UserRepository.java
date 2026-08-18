@@ -14,6 +14,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findBySocialProviderAndSocialId(SocialProvider socialProvider, String socialId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select user
+            from User user
+            where user.socialProvider = :socialProvider
+              and user.socialId = :socialId
+            """)
+    Optional<User> findBySocialProviderAndSocialIdForUpdate(
+            @Param("socialProvider") SocialProvider socialProvider,
+            @Param("socialId") String socialId
+    );
+
     boolean existsBySocialProviderAndSocialId(SocialProvider socialProvider, String socialId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

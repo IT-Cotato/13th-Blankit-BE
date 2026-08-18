@@ -28,7 +28,7 @@ import com.cotato.blankit.domain.task.service.RepeatDeadlineRefreshService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -126,7 +126,7 @@ class TaskControllerTest {
     private RepeatDeadlineRefreshService repeatDeadlineRefreshService;
 
     @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private AccessTokenTestFactory accessTokenTestFactory;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -151,7 +151,7 @@ class TaskControllerTest {
         studyCategory = categoryRepository.save(Category.create(user, "학업", "#FC5F5F", "book", 0, true));
         workCategory = categoryRepository.save(Category.create(user, "업무", "#FF9A33", "briefcase", 1, false));
         categoryRepository.save(Category.create(otherUser, "학업", "#FC5F5F", "book", 0, true));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
     }
 
     @Test
@@ -230,7 +230,7 @@ class TaskControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CATEGORY_COLOR_ALREADY_USED"));
 
-        String otherToken = jwtTokenProvider.createAccessToken(otherUser.getId());
+        String otherToken = accessTokenTestFactory.createAccessToken(otherUser.getId());
         mockMvc.perform(post("/api/categories")
                         .with(csrf())
                         .header("Authorization", "Bearer " + otherToken)
@@ -467,7 +467,7 @@ class TaskControllerTest {
     @Test
     void defaultCategoriesAreCreatedOnceAndNotRecreatedAfterAllDeleted() throws Exception {
         User freshUser = userRepository.save(User.create(SocialProvider.KAKAO, "fresh-category-user", "fresh@example.com", "신규", null, 120));
-        String freshToken = jwtTokenProvider.createAccessToken(freshUser.getId());
+        String freshToken = accessTokenTestFactory.createAccessToken(freshUser.getId());
 
         mockMvc.perform(get("/api/categories")
                         .header("Authorization", "Bearer " + freshToken))

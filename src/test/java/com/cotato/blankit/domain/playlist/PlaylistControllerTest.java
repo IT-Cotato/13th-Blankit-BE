@@ -19,7 +19,7 @@ import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,7 +76,7 @@ class PlaylistControllerTest {
     @Autowired private NotificationSettingRepository notificationSettingRepository;
     @Autowired private FeedbackRepository feedbackRepository;
     @Autowired private TaskSessionRepository taskSessionRepository;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
+    @Autowired private AccessTokenTestFactory accessTokenTestFactory;
 
     @BeforeEach
     void setUp() {
@@ -84,7 +84,7 @@ class PlaylistControllerTest {
                 .apply(springSecurity())
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "playlist-user", "playlist@example.com", "플레이리스트유저", null, 120));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
         Category category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
         taskA = taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 31), null));
         taskB = taskRepository.save(Task.create(user, category, "과업B", LocalDate.of(2026, 7, 31), null));

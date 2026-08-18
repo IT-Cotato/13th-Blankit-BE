@@ -8,7 +8,7 @@ import com.cotato.blankit.domain.user.service.UserService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +68,7 @@ class UserControllerTest {
     private UserRepository userRepository;
 
     @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private AccessTokenTestFactory accessTokenTestFactory;
 
     @Autowired
     private UserNotificationSettingRepository userNotificationSettingRepository;
@@ -95,7 +95,7 @@ class UserControllerTest {
                 null,
                 120
         ));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
     }
 
     @Test

@@ -321,11 +321,14 @@ CREATE TABLE refresh_token (
                                user_id           BIGINT       NOT NULL,
                                token             VARCHAR(512) NOT NULL COMMENT '토큰 원문 대신 SHA-256 해시 저장 권장 (DB 유출 대비)',
                                expires_at        DATETIME     NOT NULL COMMENT '만료 시각 - 스케줄러로 주기 삭제 필요 (Redis TTL 부재 보완)',
+                               installation_id   VARCHAR(255) NULL COMMENT '현재 로그인 기기의 Firebase Installation ID',
+                               session_id        VARCHAR(36)  NULL COMMENT 'Access Token 활성 세션 검증용 UUID',
                                created_at        DATETIME     NOT NULL,
                                updated_at        DATETIME     NOT NULL,
                                PRIMARY KEY (refresh_token_id),
-    -- 사용자당 유효 토큰 1개(단일 세션 정책) - 재로그인 시 upsert. 멀티 디바이스 허용 시 이 제약 제거 + device 컬럼 추가
+    -- 사용자당 유효 토큰 1개(단일 기기 세션 정책)
                                UNIQUE KEY uk_refresh_token_user (user_id),
+                               UNIQUE KEY uk_refresh_token_session_id (session_id),
     -- 재발급 요청 시 토큰 값으로 조회
                                KEY idx_refresh_token_token (token(255)),
                                CONSTRAINT fk_refresh_token_user FOREIGN KEY (user_id) REFERENCES `user` (user_id) ON DELETE CASCADE

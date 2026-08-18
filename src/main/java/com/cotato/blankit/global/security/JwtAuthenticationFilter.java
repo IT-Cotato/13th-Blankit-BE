@@ -1,5 +1,6 @@
 package com.cotato.blankit.global.security;
 
+import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.global.exception.CustomException;
 import com.cotato.blankit.global.exception.ErrorCode;
 import jakarta.servlet.FilterChain;
@@ -16,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Override
     protected void doFilterInternal(
@@ -37,6 +40,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = resolveToken(request);
             if (token != null) {
                 Long userId = jwtTokenProvider.getUserIdFromAccessToken(token);
+                String sessionId = jwtTokenProvider.getSessionIdFromAccessToken(token);
+                if (sessionId == null || !refreshTokenRepository
+                        .existsByUserIdAndSessionIdAndExpiresAtAfter(userId, sessionId, LocalDateTime.now())) {
+                    throw new CustomException(ErrorCode.INVALID_TOKEN);
+                }
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(String.valueOf(userId));
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());

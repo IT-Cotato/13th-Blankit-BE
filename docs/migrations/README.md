@@ -3,6 +3,19 @@
 이 디렉터리의 SQL 파일은 기존 운영 DB에 수동으로 한 번만 적용합니다.
 신규 DB는 [`docs/schema.sql`](../schema.sql)로 생성하므로 별도 마이그레이션이 필요하지 않습니다.
 
+## 단일 기기 로그인 식별자 추가
+
+단일 기기 로그인 정책을 배포하기 전에 아래 파일을 실행합니다.
+
+```text
+20260817_add_refresh_token_installation_id.sql
+20260817_add_refresh_token_session_id.sql
+```
+
+기존 로그인 세션의 `installation_id`와 `session_id`는 `NULL`로 유지되며, 배포 후 첫 로그인 또는
+토큰 재발급 시 값이 채워집니다. 새로 발급하는 Access Token은 `session_id`를 포함하며, 인증 요청마다
+현재 활성 Refresh Token의 세션과 일치하는지 검증합니다.
+
 ## Web Push 테이블 추가
 
 FID와 FCM token 구독 및 예약 작업을 위해 애플리케이션 배포 전에 아래 파일을 실행합니다.

@@ -5,7 +5,7 @@ import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,7 +51,7 @@ class TaskStatsControllerTest {
     @Autowired private WebApplicationContext webApplicationContext;
     @Autowired private UserRepository userRepository;
     @Autowired private CategoryRepository categoryRepository;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
+    @Autowired private AccessTokenTestFactory accessTokenTestFactory;
 
     private MockMvc mockMvc;
     private String token;
@@ -72,7 +72,7 @@ class TaskStatsControllerTest {
                 .build();
         User user = userRepository.save(User.create(SocialProvider.KAKAO, "stats-ctrl-user", "stats-ctrl@example.com", "통계유저", null, 120));
         categoryRepository.save(Category.create(user, "학업", "#FF5C5C", "book", 0, true));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
     }
 
     // ── GET /api/v1/tasks/stats/monthly ──────────────────────────────────────

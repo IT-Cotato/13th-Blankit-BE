@@ -6,10 +6,11 @@ import com.cotato.blankit.domain.search.repository.SearchHistoryRepository;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
+import com.cotato.blankit.domain.auth.repository.RefreshTokenRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,7 +64,10 @@ class SearchControllerTest {
     private SearchHistoryRepository searchHistoryRepository;
 
     @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private AccessTokenTestFactory accessTokenTestFactory;
 
     @BeforeEach
     void setUp() {
@@ -73,11 +77,12 @@ class SearchControllerTest {
         searchHistoryRepository.deleteAll();
         taskRepository.deleteAll();
         categoryRepository.deleteAll();
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "search-user", "search@example.com", "서치", null, 120));
         otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "other-search-user", "other-search@example.com", "다른사용자", null, 120));
         studyCategory = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
     }
 
     @Test

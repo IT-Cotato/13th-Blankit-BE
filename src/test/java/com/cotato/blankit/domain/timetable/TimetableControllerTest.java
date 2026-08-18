@@ -5,7 +5,7 @@ import com.cotato.blankit.domain.timetable.repository.TimetableRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,7 +60,7 @@ class TimetableControllerTest {
     private TimetableRepository timetableRepository;
 
     @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private AccessTokenTestFactory accessTokenTestFactory;
 
     @BeforeEach
     void setUp() {
@@ -69,8 +69,8 @@ class TimetableControllerTest {
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "timetable-user", "user@example.com", "서윤", null, null));
         otherUser = userRepository.save(User.create(SocialProvider.KAKAO, "timetable-other", "other@example.com", "다른사용자", null, null));
-        token = jwtTokenProvider.createAccessToken(user.getId());
-        otherToken = jwtTokenProvider.createAccessToken(otherUser.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
+        otherToken = accessTokenTestFactory.createAccessToken(otherUser.getId());
     }
 
     // ── 목록 조회 ──────────────────────────────────────────────

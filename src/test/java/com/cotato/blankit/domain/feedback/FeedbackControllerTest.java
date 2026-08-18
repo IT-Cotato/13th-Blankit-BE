@@ -21,7 +21,7 @@ import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
 import com.cotato.blankit.domain.user.entity.User;
 import com.cotato.blankit.domain.user.repository.UserRepository;
-import com.cotato.blankit.global.security.JwtTokenProvider;
+import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import jakarta.persistence.EntityManager;
@@ -86,7 +86,7 @@ class FeedbackControllerTest {
     @Autowired private DailyElapsedTimeRepository dailyElapsedTimeRepository;
     @Autowired private PlaylistRepository playlistRepository;
     @Autowired private PlaylistItemRepository playlistItemRepository;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
+    @Autowired private AccessTokenTestFactory accessTokenTestFactory;
     @PersistenceContext private EntityManager entityManager;
 
     @TestConfiguration
@@ -104,7 +104,7 @@ class FeedbackControllerTest {
                 .apply(springSecurity())
                 .build();
         user = userRepository.save(User.create(SocialProvider.KAKAO, "feedback-user", "feedback@example.com", "테스트유저", null, 120));
-        token = jwtTokenProvider.createAccessToken(user.getId());
+        token = accessTokenTestFactory.createAccessToken(user.getId());
         Category category = categoryRepository.save(Category.create(user, "학업", "#5C9EFF", "book", 0, true));
         taskA = taskRepository.save(Task.create(user, category, "과업A", LocalDate.of(2026, 7, 31), null));
         taskB = taskRepository.save(Task.create(user, category, "과업B", LocalDate.of(2026, 7, 31), null));
