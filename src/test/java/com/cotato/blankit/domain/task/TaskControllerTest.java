@@ -19,6 +19,10 @@ import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
 import com.cotato.blankit.domain.notification.push.entity.PushNotificationType;
 import com.cotato.blankit.domain.notification.push.repository.PushNotificationJobRepository;
+import com.cotato.blankit.domain.feedback.entity.DailyElapsedTime;
+import com.cotato.blankit.domain.feedback.entity.PlayInterval;
+import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
+import com.cotato.blankit.domain.feedback.repository.PlayIntervalRepository;
 import com.cotato.blankit.domain.feedback.repository.TaskSessionRepository;
 import com.cotato.blankit.domain.task.service.RepeatDeadlineRefreshService;
 import com.cotato.blankit.domain.user.entity.SocialProvider;
@@ -111,6 +115,12 @@ class TaskControllerTest {
 
     @Autowired
     private FeedbackRepository feedbackRepository;
+
+    @Autowired
+    private PlayIntervalRepository playIntervalRepository;
+
+    @Autowired
+    private DailyElapsedTimeRepository dailyElapsedTimeRepository;
 
     @Autowired
     private RepeatDeadlineRefreshService repeatDeadlineRefreshService;
@@ -1255,6 +1265,72 @@ class TaskControllerTest {
         assertThat(taskRepository.findById(task.getId())).isEmpty();
         assertThat(taskSessionRepository.findById(session.getTaskSessionId())).isEmpty();
         assertThat(feedbackRepository.findById(feedback.getFeedbackId())).isEmpty();
+    }
+
+    @Test
+    void deleteTask_withPlayInterval_succeeds() throws Exception {
+        Task task = saveTask(user, studyCategory, "플레이 인터벌 있는 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(task, user, LocalDateTime.now(), null, 600, TaskSessionStatus.PAUSED));
+        PlayInterval interval = playIntervalRepository.save(PlayInterval.start(session, LocalDateTime.now()));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(taskRepository.findById(task.getId())).isEmpty();
+        assertThat(taskSessionRepository.findById(session.getTaskSessionId())).isEmpty();
+        assertThat(playIntervalRepository.findById(interval.getId())).isEmpty();
+    }
+
+    @Test
+    void deleteTask_withDailyElapsedTime_succeeds() throws Exception {
+        Task task = saveTask(user, studyCategory, "소요시간 있는 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(task, user, LocalDateTime.now(), null, 600, TaskSessionStatus.PAUSED));
+        DailyElapsedTime elapsed = dailyElapsedTimeRepository.save(
+                DailyElapsedTime.create(session, LocalDate.parse("2026-08-01"), 600));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", task.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(taskRepository.findById(task.getId())).isEmpty();
+        assertThat(taskSessionRepository.findById(session.getTaskSessionId())).isEmpty();
+        assertThat(dailyElapsedTimeRepository.findById(elapsed.getId())).isEmpty();
+    }
+
+    @Test
+    void deleteTask_withFutureOccurrencesHavingSessionAndFeedbackAndPlayInterval_succeeds() throws Exception {
+        Task sourceTask = saveTask(user, studyCategory, "반복 원본 과업", LocalDate.parse("2026-08-01"), null, TaskStatus.TODO);
+        repeatRuleRepository.save(RepeatRule.create(
+                sourceTask, RecurrenceType.WEEKLY, List.of(5),
+                RepeatMonthDays.none(), null, LocalDate.parse("2026-08-01"), null
+        ));
+        Task futureOccurrence = taskRepository.save(Task.createRepeatedOccurrence(sourceTask, LocalDate.parse("2026-08-08")));
+        notificationSettingRepository.save(NotificationSetting.create(futureOccurrence, 1440, true));
+
+        TaskSession occurrenceSession = taskSessionRepository.save(
+                TaskSession.create(futureOccurrence, user, LocalDateTime.now(), null, 300, TaskSessionStatus.PAUSED));
+        Feedback occurrenceFeedback = feedbackRepository.save(
+                Feedback.create(occurrenceSession, futureOccurrence, user, 30, "회차 메모", true));
+        PlayInterval occurrenceInterval = playIntervalRepository.save(PlayInterval.start(occurrenceSession, LocalDateTime.now()));
+        DailyElapsedTime occurrenceElapsed = dailyElapsedTimeRepository.save(
+                DailyElapsedTime.create(occurrenceSession, LocalDate.parse("2026-08-08"), 300));
+
+        mockMvc.perform(delete("/api/tasks/{taskId}", sourceTask.getId())
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(taskRepository.findById(sourceTask.getId())).isEmpty();
+        assertThat(taskRepository.findById(futureOccurrence.getId())).isEmpty();
+        assertThat(taskSessionRepository.findById(occurrenceSession.getTaskSessionId())).isEmpty();
+        assertThat(feedbackRepository.findById(occurrenceFeedback.getFeedbackId())).isEmpty();
+        assertThat(playIntervalRepository.findById(occurrenceInterval.getId())).isEmpty();
+        assertThat(dailyElapsedTimeRepository.findById(occurrenceElapsed.getId())).isEmpty();
     }
 
     @Test

@@ -22,6 +22,7 @@ import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
 import com.cotato.blankit.domain.task.repository.TaskStepRepository;
+import com.cotato.blankit.domain.feedback.repository.DailyElapsedTimeRepository;
 import com.cotato.blankit.domain.feedback.repository.FeedbackRepository;
 import com.cotato.blankit.domain.feedback.service.FeedbackService;
 import com.cotato.blankit.domain.feedback.repository.PlayIntervalRepository;
@@ -65,6 +66,7 @@ public class TaskService {
     private final TaskSessionRepository taskSessionRepository;
     private final FeedbackRepository feedbackRepository;
     private final PlayIntervalRepository playIntervalRepository;
+    private final DailyElapsedTimeRepository dailyElapsedTimeRepository;
     private final PlaylistItemRepository playlistItemRepository;
     private final UserRepository userRepository;
     private final CategoryService categoryService;
@@ -222,6 +224,7 @@ public class TaskService {
         taskStepRepository.deleteAllByTaskId(task.getId());
         feedbackRepository.deleteByTask_Id(task.getId());
         playIntervalRepository.deleteByTaskSession_Task_Id(task.getId());
+        dailyElapsedTimeRepository.deleteByTaskSession_Task_Id(task.getId());
         taskSessionRepository.deleteByTaskId(task.getId());
         repeatRuleRepository.deleteByTaskId(task.getId());
         notificationSettingRepository.findByTaskId(task.getId()).ifPresent(notificationSettingRepository::delete);
@@ -339,6 +342,8 @@ public class TaskService {
             );
             taskStepRepository.deleteAllByTaskId(occurrence.getId());
             feedbackRepository.deleteByTask_Id(occurrence.getId());
+            playIntervalRepository.deleteByTaskSession_Task_Id(occurrence.getId());
+            dailyElapsedTimeRepository.deleteByTaskSession_Task_Id(occurrence.getId());
             taskSessionRepository.deleteByTaskId(occurrence.getId());
             playlistItemRepository.deleteByTask(occurrence);
             notificationSettingRepository.findByTaskId(occurrence.getId())
