@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -27,6 +28,9 @@ public interface TaskSessionRepository extends JpaRepository<TaskSession, Long> 
     void deleteByTaskId(@Param("taskId") Long taskId);
 
     boolean existsByTask_IdAndStatus(Long taskId, TaskSessionStatus status);
+
+    @Query("select count(ts) > 0 from TaskSession ts where ts.task.sourceTask.id = :sourceTaskId and ts.task.deadline > :deadline and ts.status = :status")
+    boolean existsBySourceTaskIdAndDeadlineAfterAndStatus(@Param("sourceTaskId") Long sourceTaskId, @Param("deadline") LocalDate deadline, @Param("status") TaskSessionStatus status);
 
     boolean existsByUser_IdAndStatusAndTaskSessionIdNot(Long userId, TaskSessionStatus status, Long sessionId);
 

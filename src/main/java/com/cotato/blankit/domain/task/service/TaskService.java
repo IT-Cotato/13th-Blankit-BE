@@ -220,6 +220,10 @@ public class TaskService {
         if (taskSessionRepository.existsByTask_IdAndStatus(taskId, TaskSessionStatus.PLAYING)) {
             throw new CustomException(ErrorCode.TASK_SESSION_ACTIVE);
         }
+        if (task.getSourceTask() == null
+                && taskSessionRepository.existsBySourceTaskIdAndDeadlineAfterAndStatus(taskId, LocalDate.now(clock), TaskSessionStatus.PLAYING)) {
+            throw new CustomException(ErrorCode.TASK_SESSION_ACTIVE);
+        }
         List<Long> removedOccurrenceIds = deleteFutureOccurrences(task);
         taskDeadlineScheduleService.cancelTask(taskId);
         removedOccurrenceIds.forEach(taskDeadlineScheduleService::cancelTask);
