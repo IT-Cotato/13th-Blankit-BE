@@ -22,7 +22,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,51 +67,17 @@ class TaskDeadlineNotificationScheduleServiceTest {
     }
 
     @Test
-    void oneDayNotificationIsTemporarilyScheduledTwoMinutesAfterCreation() {
+    void schedulesAtConfiguredDeadlineTimeMinusNotifyBefore() {
         service.synchronizeTask(task.getId());
 
         var jobs = PushJobTestQueries.findByUserAndType(
                 jobRepository, user.getId(), PushNotificationType.TASK_DEADLINE);
         assertThat(jobs).singleElement().satisfies(job -> {
-            assertThat(job.getScheduledAt()).isEqualTo(LocalDateTime.of(2026, 6, 1, 9, 2));
+            assertThat(job.getScheduledAt()).isEqualTo(LocalDateTime.of(2026, 6, 4, 9, 0));
             assertThat(job.getReferenceType()).isEqualTo("TASK");
             assertThat(job.getReferenceId()).isEqualTo(String.valueOf(task.getId()));
             assertThat(job.getClickUrl()).isEqualTo("/tasks/" + task.getId());
         });
-    }
-
-    @Test
-    void oneDayNotificationIsNotDueAtOneMinuteAndIsDueAtTwoMinutesWithoutDuplicateAfterSent() {
-        service.synchronizeTask(task.getId());
-
-        LocalDateTime createdAt = LocalDateTime.of(2026, 6, 1, 9, 0);
-        LocalDateTime leaseExpiredBefore = createdAt.minusMinutes(5);
-        assertThat(jobRepository.findClaimableForUpdate(
-                createdAt.plusMinutes(1), leaseExpiredBefore, PageRequest.of(0, 1))).isEmpty();
-
-        var dueJobs = jobRepository.findClaimableForUpdate(
-                createdAt.plusMinutes(2), leaseExpiredBefore, PageRequest.of(0, 1));
-        assertThat(dueJobs).singleElement().satisfies(job -> {
-            job.claim(createdAt.plusMinutes(2));
-            job.markSent(createdAt.plusMinutes(2));
-        });
-        jobRepository.flush();
-
-        assertThat(jobRepository.findClaimableForUpdate(
-                createdAt.plusMinutes(3), leaseExpiredBefore, PageRequest.of(0, 1))).isEmpty();
-    }
-
-    @Test
-    void threeDayNotificationKeepsOriginalDeadlineBasedSchedule() {
-        taskSetting.update(4320, true);
-
-        service.synchronizeTask(task.getId());
-
-        assertThat(PushJobTestQueries.findByUserAndType(
-                jobRepository, user.getId(), PushNotificationType.TASK_DEADLINE))
-                .singleElement()
-                .extracting(job -> job.getScheduledAt())
-                .isEqualTo(LocalDateTime.of(2026, 6, 2, 9, 0));
     }
 
     @Test
