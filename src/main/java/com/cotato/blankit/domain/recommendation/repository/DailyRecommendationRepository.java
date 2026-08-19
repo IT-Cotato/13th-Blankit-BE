@@ -16,4 +16,6 @@ public interface DailyRecommendationRepository extends JpaRepository<DailyRecomm
     long countByUser_IdAndRecommendedDateAndModeIn(Long userId, LocalDate date, List<String> modes);
 
     List<DailyRecommendation> findAllByUser_IdAndRecommendedDateAndModeIn(Long userId, LocalDate date, List<String> modes);
+
+    List<DailyRecommendation> findAllByUser_IdAndRecommendedDateBetweenAndMode(Long userId, LocalDate from, LocalDate to, String mode);
 }
