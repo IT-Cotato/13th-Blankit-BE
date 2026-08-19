@@ -3,7 +3,6 @@ package com.cotato.blankit.domain.notification.push.service;
 import com.cotato.blankit.domain.notification.push.entity.PushNotificationType;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
-import com.cotato.blankit.domain.task.entity.NotifyBeforeOption;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
@@ -18,8 +17,6 @@ import java.time.*;
 @Service
 @RequiredArgsConstructor
 public class TaskDeadlineNotificationScheduleService {
-    private static final long TEMP_FCM_TEST_DELAY_MINUTES = 2L;
-
     private final TaskRepository taskRepository;
     private final NotificationSettingRepository notificationSettingRepository;
     private final UserNotificationSettingRepository userSettingRepository;
@@ -60,14 +57,9 @@ public class TaskDeadlineNotificationScheduleService {
         NotificationSetting setting = notificationSettingRepository.findByTaskId(task.getId()).orElse(null);
         if (setting == null || !setting.isEnabled()) return;
 
-        LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime scheduledAt = LocalDateTime.of(task.getDeadline(), deadlineTime)
                 .minusMinutes(setting.getNotifyBefore());
-        if (setting.getNotifyBefore().equals(NotifyBeforeOption.ONE_DAY.getMinutes())) {
-            // TODO: TEMP FCM integration test. Restore the original 1-day-before policy after verification.
-            scheduledAt = now.plusMinutes(TEMP_FCM_TEST_DELAY_MINUTES);
-        }
-        if (!scheduledAt.isAfter(now)) return;
+        if (!scheduledAt.isAfter(LocalDateTime.now(clock))) return;
 
         PushNotificationContentFactory.Content content =
                 contentFactory.taskDeadline(task, setting.getNotifyBefore());
