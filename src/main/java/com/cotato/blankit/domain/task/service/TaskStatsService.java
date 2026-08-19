@@ -125,13 +125,16 @@ public class TaskStatsService {
                 .map(dr -> dr.getTotalRecommendedMinutes())
                 .orElseGet(() -> calcRecommendedMinutes(nonDoneTasks, today));
 
-        Map<LocalDate, Integer> pastCacheMap = dailyRecommendationRepository
-                .findAllByUser_IdAndRecommendedDateBetweenAndMode(userId, startDate, today.minusDays(1), "TODAY")
-                .stream()
-                .collect(Collectors.toMap(
-                        dr -> dr.getRecommendedDate(),
-                        dr -> dr.getTotalRecommendedMinutes()
-                ));
+        LocalDate lastPastDate = endDate.isBefore(today) ? endDate : today.minusDays(1);
+        Map<LocalDate, Integer> pastCacheMap = startDate.isAfter(lastPastDate)
+                ? Map.of()
+                : dailyRecommendationRepository
+                        .findAllByUser_IdAndRecommendedDateBetweenAndMode(userId, startDate, lastPastDate, "TODAY")
+                        .stream()
+                        .collect(Collectors.toMap(
+                                dr -> dr.getRecommendedDate(),
+                                dr -> dr.getTotalRecommendedMinutes()
+                        ));
 
         List<TaskMonthlyStatsResponse.DayStatsItem> dailyStats = new ArrayList<>();
         for (int day = 1; day <= daysInMonth; day++) {
