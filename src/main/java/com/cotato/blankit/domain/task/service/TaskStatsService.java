@@ -70,11 +70,17 @@ public class TaskStatsService {
             totalElapsedSeconds = (int) dailyElapsedTimeRepository.sumElapsedSecondsByUserIdAndDate(userId, date);
         }
 
-        int totalRecommendedMinutes = dailyRecommendationRepository
-                .findByUser_IdAndRecommendedDateAndMode(userId, date, "TODAY")
-                .map(dr -> dr.getTotalRecommendedMinutes())
-                .orElseGet(() -> calcRecommendedMinutes(
-                        taskRepository.findNonDoneTasksWithEstimatedTime(userId, date), date));
+        int totalRecommendedMinutes;
+        if (date.isAfter(today)) {
+            List<Task> tasks = taskRepository.findNonDoneTasksWithEstimatedTime(userId, today);
+            totalRecommendedMinutes = calcRecommendedMinutes(tasks, today, date);
+        } else {
+            totalRecommendedMinutes = dailyRecommendationRepository
+                    .findByUser_IdAndRecommendedDateAndMode(userId, date, "TODAY")
+                    .map(dr -> dr.getTotalRecommendedMinutes())
+                    .orElseGet(() -> calcRecommendedMinutes(
+                            taskRepository.findNonDoneTasksWithEstimatedTime(userId, date), date));
+        }
 
         List<TaskDailyStatsResponse.FeedbackTaskItem> feedbackTasks = List.of();
         if (!date.isAfter(today)) {
@@ -114,6 +120,19 @@ public class TaskStatsService {
 
         List<Task> nonDoneTasks = taskRepository.findNonDoneTasksWithEstimatedTime(userId, startDate);
 
+        int todayRecommendedMinutes = dailyRecommendationRepository
+                .findByUser_IdAndRecommendedDateAndMode(userId, today, "TODAY")
+                .map(dr -> dr.getTotalRecommendedMinutes())
+                .orElseGet(() -> calcRecommendedMinutes(nonDoneTasks, today));
+
+        Map<LocalDate, Integer> pastCacheMap = dailyRecommendationRepository
+                .findAllByUser_IdAndRecommendedDateBetweenAndMode(userId, startDate, today.minusDays(1), "TODAY")
+                .stream()
+                .collect(Collectors.toMap(
+                        dr -> dr.getRecommendedDate(),
+                        dr -> dr.getTotalRecommendedMinutes()
+                ));
+
         List<TaskMonthlyStatsResponse.DayStatsItem> dailyStats = new ArrayList<>();
         for (int day = 1; day <= daysInMonth; day++) {
             LocalDate date = LocalDate.of(year, month, day);
@@ -124,7 +143,14 @@ public class TaskStatsService {
                 actualMinutes = (int) Math.round(elapsedSeconds / 60.0);
             }
 
-            int recommendedMinutes = calcRecommendedMinutes(nonDoneTasks, date);
+            int recommendedMinutes;
+            if (date.isBefore(today)) {
+                recommendedMinutes = pastCacheMap.getOrDefault(date, calcRecommendedMinutes(nonDoneTasks, date));
+            } else if (date.equals(today)) {
+                recommendedMinutes = todayRecommendedMinutes;
+            } else {
+                recommendedMinutes = calcRecommendedMinutes(nonDoneTasks, today, date);
+            }
             dailyStats.add(new TaskMonthlyStatsResponse.DayStatsItem(date, actualMinutes, recommendedMinutes));
         }
 
@@ -132,11 +158,18 @@ public class TaskStatsService {
     }
 
     private int calcRecommendedMinutes(List<Task> tasks, LocalDate date) {
+        return calcRecommendedMinutes(tasks, date, date);
+    }
+
+    private int calcRecommendedMinutes(List<Task> tasks, LocalDate referenceDate, LocalDate filterDate) {
         return (int) Math.round(
                 tasks.stream()
                         .mapToDouble(t -> {
-                            long days = ChronoUnit.DAYS.between(date, t.getDeadline());
-                            return days > 0 ? (double) t.getEstimatedTime() / days : 0.0;
+                            long daysFromFilter    = ChronoUnit.DAYS.between(filterDate, t.getDeadline());
+                            long daysFromReference = ChronoUnit.DAYS.between(referenceDate, t.getDeadline());
+                            return (daysFromFilter > 0 && daysFromReference > 0)
+                                    ? (double) t.getEstimatedTime() / daysFromReference
+                                    : 0.0;
                         })
                         .sum()
         );
