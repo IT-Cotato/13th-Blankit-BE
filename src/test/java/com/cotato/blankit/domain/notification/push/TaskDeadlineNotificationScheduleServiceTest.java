@@ -81,6 +81,28 @@ class TaskDeadlineNotificationScheduleServiceTest {
     }
 
     @Test
+    void schedulesAtDeadlineTimeMinusThreeDays() {
+        taskSetting.update(4320, true);
+
+        service.synchronizeTask(task.getId());
+
+        var jobs = PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.TASK_DEADLINE);
+        assertThat(jobs).singleElement().satisfies(job ->
+                assertThat(job.getScheduledAt()).isEqualTo(LocalDateTime.of(2026, 6, 2, 9, 0)));
+    }
+
+    @Test
+    void doesNotScheduleWhenConfiguredTimeIsInThePast() {
+        taskSetting.update(10080, true);
+
+        service.synchronizeTask(task.getId());
+
+        assertThat(PushJobTestQueries.findByUserAndType(
+                jobRepository, user.getId(), PushNotificationType.TASK_DEADLINE)).isEmpty();
+    }
+
+    @Test
     void taskNotificationOffCancelsPendingJob() {
         service.synchronizeTask(task.getId());
         taskSetting = notificationSettingRepository.findByTaskId(task.getId()).orElseThrow();
