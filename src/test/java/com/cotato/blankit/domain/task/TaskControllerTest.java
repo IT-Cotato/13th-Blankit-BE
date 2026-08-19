@@ -171,7 +171,7 @@ class TaskControllerTest {
     }
 
     @Test
-    void creatingTaskSchedulesDeadlinePushWhenBothNotificationSettingsAreEnabled() throws Exception {
+    void creatingTaskSchedulesTemporaryTwoMinutePushWhenBothNotificationSettingsAreEnabled() throws Exception {
         UserNotificationSetting userSetting = UserNotificationSetting.createDefault(user);
         userSetting.update(true, false);
         userNotificationSettingRepository.saveAndFlush(userSetting);
@@ -195,7 +195,7 @@ class TaskControllerTest {
                 pushNotificationJobRepository, user.getId(), PushNotificationType.TASK_DEADLINE))
                 .singleElement()
                 .satisfies(job -> assertThat(job.getScheduledAt())
-                        .isEqualTo(LocalDateTime.of(2026, 6, 4, 9, 0)));
+                        .isEqualTo(LocalDateTime.of(2026, 6, 1, 9, 2)));
     }
 
     @Test
