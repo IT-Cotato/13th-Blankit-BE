@@ -17,6 +17,7 @@ import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -260,13 +261,24 @@ class RecommendationControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {10, 30})
-    void getThirtyMinutePackRecommendationAcceptsRangeBoundaries(int availableMinutes) throws Exception {
+    @CsvSource({"10, 6.0", "30, 18.0"})
+    void getThirtyMinutePackRecommendationCalculatesRangeBoundaries(
+            int availableMinutes,
+            double expectedProgressIncrease
+    ) throws Exception {
+        Task task = taskRepository.save(Task.create(
+                user, category, "경계값 과업", TODAY.plusDays(1), null, 100));
+        task.updateProgressRate(40);
+
         mockMvc.perform(get("/api/recommendations/pack30")
                         .param("availableMinutes", String.valueOf(availableMinutes))
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.availableMinutes").value(availableMinutes));
+                .andExpect(jsonPath("$.data.availableMinutes").value(availableMinutes))
+                .andExpect(jsonPath("$.data.tasks[0].taskId").value(task.getId()))
+                .andExpect(jsonPath("$.data.tasks[0].progressPerMinute").value(0.6))
+                .andExpect(jsonPath("$.data.tasks[0].expectedProgressIncrease")
+                        .value(expectedProgressIncrease));
     }
 
     @ParameterizedTest
