@@ -16,6 +16,8 @@ import com.cotato.blankit.domain.user.repository.UserRepository;
 import com.cotato.blankit.support.AccessTokenTestFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -235,23 +237,43 @@ class RecommendationControllerTest {
     @Test
     void getThirtyMinutePackRecommendationReturnsCalculatedTasks() throws Exception {
         Task task = taskRepository.save(Task.create(
-                user, category, "빠른 과업", TODAY.plusDays(1), null, 20));
+                user, category, "빠른 과업", TODAY.plusDays(1), null, 100));
         task.updateProgressRate(40);
+        TaskSession session = taskSessionRepository.save(
+                TaskSession.create(task, user, LocalDateTime.now(), LocalDateTime.now(), 600, TaskSessionStatus.DONE));
+        feedbackRepository.save(Feedback.create(session, task, user, 40, "52p까지 진행", false));
 
         mockMvc.perform(get("/api/recommendations/pack30")
-                        .param("availableMinutes", "30")
+                        .param("availableMinutes", "20")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.availableMinutes").value(30))
+                .andExpect(jsonPath("$.data.availableMinutes").value(20))
                 .andExpect(jsonPath("$.data.tasks[0].taskId").value(task.getId()))
-                .andExpect(jsonPath("$.data.tasks[0].progressPerMinute").value(3.0))
-                .andExpect(jsonPath("$.data.tasks[0].expectedProgressIncrease").value(60.0));
+                .andExpect(jsonPath("$.data.tasks[0].title").value("빠른 과업"))
+                .andExpect(jsonPath("$.data.tasks[0].categoryName").value("학업"))
+                .andExpect(jsonPath("$.data.tasks[0].categoryColor").value("#5C9EFF"))
+                .andExpect(jsonPath("$.data.tasks[0].categoryIconKey").value("book"))
+                .andExpect(jsonPath("$.data.tasks[0].currentProgressRate").value(40))
+                .andExpect(jsonPath("$.data.tasks[0].progressPerMinute").value(0.6))
+                .andExpect(jsonPath("$.data.tasks[0].expectedProgressIncrease").value(12.0))
+                .andExpect(jsonPath("$.data.tasks[0].memo").value("52p까지 진행"));
     }
 
-    @Test
-    void getThirtyMinutePackRecommendationRejectsOutOfRangeMinutes() throws Exception {
+    @ParameterizedTest
+    @ValueSource(ints = {10, 30})
+    void getThirtyMinutePackRecommendationAcceptsRangeBoundaries(int availableMinutes) throws Exception {
         mockMvc.perform(get("/api/recommendations/pack30")
-                        .param("availableMinutes", "31")
+                        .param("availableMinutes", String.valueOf(availableMinutes))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availableMinutes").value(availableMinutes));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {9, 31})
+    void getThirtyMinutePackRecommendationRejectsOutOfRangeMinutes(int availableMinutes) throws Exception {
+        mockMvc.perform(get("/api/recommendations/pack30")
+                        .param("availableMinutes", String.valueOf(availableMinutes))
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
