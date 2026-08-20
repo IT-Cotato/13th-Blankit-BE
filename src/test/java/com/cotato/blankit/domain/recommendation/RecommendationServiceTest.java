@@ -116,6 +116,10 @@ class RecommendationServiceTest {
         assertThat(response.availableMinutes()).isEqualTo(30);
         assertThat(response.tasks()).extracting(item -> item.taskId())
                 .containsExactly(fastest.getId(), second.getId(), third.getId());
+        assertThat(response.tasks()).allSatisfy(item -> {
+            assertThat(item.categoryName()).isEqualTo("학업");
+            assertThat(item.memo()).isNull();
+        });
         assertThat(response.tasks().get(0).progressPerMinute()).isEqualByComparingTo("5.0000");
         assertThat(response.tasks().get(0).expectedProgressIncrease()).isEqualByComparingTo("50.00");
         assertThat(response.tasks().get(1).expectedProgressIncrease()).isEqualByComparingTo("90.00");

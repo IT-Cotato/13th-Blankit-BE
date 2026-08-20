@@ -316,15 +316,18 @@ public class RecommendationService {
     public ThirtyMinutePackRecommendationResponse getThirtyMinutePackRecommendation(
             Long userId, int availableMinutes
     ) {
-        if (availableMinutes != 30) {
+        if (availableMinutes < 10 || availableMinutes > 30) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
         LocalDate today = LocalDate.now(clock);
+        List<Task> candidates = taskRepository.findActiveTasksForRecommendation(userId, today).stream()
+                .filter(task -> task.getEstimatedTime() != null && task.getEstimatedTime() > 0)
+                .filter(task -> progress(task) < 100)
+                .toList();
+        Map<Long, String> memoMap = getLatestMemoMap(candidates.stream().map(Task::getId).toList());
         List<ThirtyMinutePackRecommendationResponse.TaskItem> tasks =
-                taskRepository.findActiveTasksForRecommendation(userId, today).stream()
-                        .filter(task -> task.getEstimatedTime() != null && task.getEstimatedTime() > 0)
-                        .filter(task -> progress(task) < 100)
-                        .map(task -> toThirtyMinutePackItem(task, availableMinutes))
+                candidates.stream()
+                        .map(task -> toThirtyMinutePackItem(task, availableMinutes, memoMap))
                         .sorted(Comparator
                                 .comparing(ThirtyMinutePackRecommendationResponse.TaskItem::progressPerMinute)
                                 .reversed()
@@ -335,7 +338,7 @@ public class RecommendationService {
     }
 
     private ThirtyMinutePackRecommendationResponse.TaskItem toThirtyMinutePackItem(
-            Task task, int availableMinutes
+            Task task, int availableMinutes, Map<Long, String> memoMap
     ) {
         int currentProgress = progress(task);
         int remainingProgress = 100 - currentProgress;
@@ -345,8 +348,9 @@ public class RecommendationService {
                 .min(BigDecimal.valueOf(remainingProgress))
                 .setScale(2, RoundingMode.HALF_UP);
         return new ThirtyMinutePackRecommendationResponse.TaskItem(
-                task.getId(), task.getTitle(), task.getCategory().getColor(), task.getCategory().getIconKey(),
-                currentProgress, task.getEstimatedTime(), progressPerMinute, expectedIncrease);
+                task.getId(), task.getTitle(), task.getCategory().getName(), task.getCategory().getColor(),
+                task.getCategory().getIconKey(), currentProgress, task.getEstimatedTime(), progressPerMinute,
+                expectedIncrease, memoMap.get(task.getId()));
     }
 
     private int progress(Task task) {

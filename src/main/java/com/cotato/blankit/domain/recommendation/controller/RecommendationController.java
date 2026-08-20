@@ -62,7 +62,8 @@ public class RecommendationController {
     }
 
     @Operation(summary = "30분 Pack 과업 추천",
-            description = "시간표 사이 30분 공백 동안 분당 진행률을 가장 빠르게 높일 수 있는 활성 과업 최대 3개를 반환합니다.")
+            description = "시간표 사이 10분 이상 30분 이하의 공백 동안 분당 진행률을 가장 빠르게 높일 수 있는 " +
+                    "활성 과업 최대 3개와 카테고리, 최근 최종 제출 피드백 메모를 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "추천 조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "공백 시간 범위 오류"),
@@ -71,7 +72,7 @@ public class RecommendationController {
     @GetMapping("/pack30")
     public ApiResponse<ThirtyMinutePackRecommendationResponse> getThirtyMinutePackRecommendation(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam @Min(30) @Max(30) int availableMinutes
+            @RequestParam @Min(10) @Max(30) int availableMinutes
     ) {
         return ApiResponse.success(
                 recommendationService.getThirtyMinutePackRecommendation(userDetails.getUserId(), availableMinutes));
