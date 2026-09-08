@@ -227,21 +227,49 @@ class AuthControllerTest {
     }
 
     @Test
-    void socialLoginFromAnotherDeviceIsRejectedWhileSessionIsActive() throws Exception {
+    void socialLoginFromAnotherDeviceReplacesExistingSession() throws Exception {
         userRepository.save(User.create(SocialProvider.KAKAO, "single-device", "user@example.com", "서윤", null, 90));
 
-        mockMvc.perform(post("/api/auth/login")
+        String firstLoginResponse = mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("single-device", "device-a")))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String firstAccessToken = com.jayway.jsonpath.JsonPath.read(firstLoginResponse, "$.data.accessToken");
+        String firstRefreshToken = com.jayway.jsonpath.JsonPath.read(firstLoginResponse, "$.data.refreshToken");
 
-        mockMvc.perform(post("/api/auth/login")
+        String secondLoginResponse = mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("single-device", "device-b")))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("ANOTHER_DEVICE_ALREADY_LOGGED_IN"));
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String secondAccessToken = com.jayway.jsonpath.JsonPath.read(secondLoginResponse, "$.data.accessToken");
+
+        mockMvc.perform(get("/api/users/me")
+                        .header("Authorization", "Bearer " + firstAccessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_TOKEN"));
+
+        mockMvc.perform(post("/api/auth/reissue")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "%s"
+                                }
+                                """.formatted(firstRefreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_REFRESH_TOKEN"));
+
+        mockMvc.perform(get("/api/users/me")
+                        .header("Authorization", "Bearer " + secondAccessToken))
+                .andExpect(status().isOk());
 
         org.assertj.core.api.Assertions.assertThat(refreshTokenRepository.findByUserId(
                         userRepository.findBySocialProviderAndSocialId(SocialProvider.KAKAO, "single-device")
@@ -250,7 +278,7 @@ class AuthControllerTest {
                 .isPresent()
                 .get()
                 .extracting(com.cotato.blankit.domain.auth.entity.RefreshToken::getInstallationId)
-                .isEqualTo("device-a");
+                .isEqualTo("device-b");
     }
 
     @Test
