@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.OptimisticLockException;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -141,20 +140,14 @@ public class AuthService {
             String installationId,
             String sessionId
     ) {
-        LocalDateTime now = LocalDateTime.now();
         refreshTokenRepository.findByUserIdForUpdate(user.getId())
                 .ifPresentOrElse(
-                        token -> {
-                            if (token.blocks(installationId, now)) {
-                                throw new CustomException(ErrorCode.ANOTHER_DEVICE_ALREADY_LOGGED_IN);
-                            }
-                            token.rotate(
-                                    refreshToken,
-                                    jwtTokenProvider.getRefreshTokenExpiresAt(),
-                                    installationId,
-                                    sessionId
-                            );
-                        },
+                        token -> token.rotate(
+                                refreshToken,
+                                jwtTokenProvider.getRefreshTokenExpiresAt(),
+                                installationId,
+                                sessionId
+                        ),
                         () -> refreshTokenRepository.save(RefreshToken.create(
                                 user,
                                 refreshToken,

@@ -71,9 +71,4 @@ public class RefreshToken extends BaseEntity {
         this.sessionId = sessionId;
     }
 
-    public boolean blocks(String requestedInstallationId, LocalDateTime now) {
-        return expiresAt.isAfter(now)
-                && installationId != null
-                && !installationId.equals(requestedInstallationId);
-    }
 }
