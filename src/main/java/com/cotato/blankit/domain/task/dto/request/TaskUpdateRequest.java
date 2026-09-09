@@ -34,12 +34,6 @@ public record TaskUpdateRequest(
         TaskStatus status,
 
         @Schema(description = "중요 표시", example = "false")
-        Boolean starred,
-
-        @Schema(description = "비슷한 이전 완료 과업 ID", example = "12", nullable = true)
-        Long similarTaskId,
-
-        @Schema(description = "true이면 similarTask 연결을 해제합니다.", example = "false")
-        Boolean clearSimilarTask
+        Boolean starred
 ) {
 }

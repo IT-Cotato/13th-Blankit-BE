@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Schema(description = "과업 상세 응답")
 public record TaskDetailResponse(
@@ -37,10 +38,6 @@ public record TaskDetailResponse(
         LocalDateTime createdAt,
         @Schema(description = "수정일")
         LocalDateTime updatedAt,
-        @Schema(description = "비슷한 이전 과업 ID", example = "12", nullable = true)
-        Long similarTaskId,
-        @Schema(description = "비슷한 이전 과업명", example = "자료구조 과제 제출", nullable = true)
-        String similarTaskTitle,
         @Schema(description = "반복으로 생성된 과업의 원본 과업 ID. 원본 과업이면 null입니다.", example = "1", nullable = true)
         Long sourceTaskId,
         @Schema(description = "반복으로 생성된 과업의 원본 과업명. 원본 과업이면 null입니다.", example = "주간 회의", nullable = true)
@@ -48,16 +45,18 @@ public record TaskDetailResponse(
         @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
         Integer progressRate,
         @Schema(description = "총 수행 시간(초). task_session.elapsed_time 합계입니다.", example = "5400")
-        Long totalElapsedTime
+        Long totalElapsedTime,
+        @Schema(description = "과업에 등록된 챕터 목록")
+        List<TaskChapterResponse> chapters
 ) {
 
     public static TaskDetailResponse from(
             Task task,
             NotificationSetting notificationSetting,
             RepeatRule repeatRule,
-            long totalElapsedTime
+            long totalElapsedTime,
+            List<TaskChapterResponse> chapters
     ) {
-        Task similarTask = task.getSimilarTask();
         Task sourceTask = task.getSourceTask();
         return new TaskDetailResponse(
                 task.getId(),
@@ -72,12 +71,11 @@ public record TaskDetailResponse(
                 repeatRule == null ? null : RepeatRuleResponse.from(repeatRule),
                 task.getCreatedAt(),
                 task.getUpdatedAt(),
-                similarTask == null ? null : similarTask.getId(),
-                similarTask == null ? null : similarTask.getTitle(),
                 sourceTask == null ? null : sourceTask.getId(),
                 sourceTask == null ? null : sourceTask.getTitle(),
                 task.getProgressRate(),
-                totalElapsedTime
+                totalElapsedTime,
+                chapters
         );
     }
 }

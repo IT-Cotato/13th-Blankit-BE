@@ -6,7 +6,6 @@ import com.cotato.blankit.domain.task.dto.request.TaskUpdateRequest;
 import com.cotato.blankit.domain.task.dto.response.TaskCalendarResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDetailResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskFormOptionsResponse;
-import com.cotato.blankit.domain.task.dto.response.TaskHistoryResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskListResponse;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
 import com.cotato.blankit.domain.task.service.TaskService;
@@ -43,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.util.List;
 
-@Tag(name = "Task", description = "홈 화면 과업 및 이전 완료 과업 API")
+@Tag(name = "Task", description = "홈 화면 과업 API")
 @Validated
 @RestController
 @RequiredArgsConstructor
@@ -67,13 +66,13 @@ public class TaskController {
 
     @Operation(
             summary = "과업 생성",
-            description = "일반 과업은 deadline이 필수이며 사용자가 선택한 날짜를 저장합니다. 반복 과업은 repeatRule.startDate와 반복 조건으로 서버가 가장 가까운 deadline을 계산하며, endDate는 생략할 수 있습니다. notifyBefore 생략 시 1440, notificationEnabled 생략 시 true입니다. notifyBefore는 1440, 4320, 10080만 허용합니다. repeatRule이 없으면 repeat_rule 레코드를 만들지 않습니다. similarTaskId는 nullable입니다. similarTaskId가 없으면 직접 입력한 estimatedTime(분)을 저장하고, 있으면 유사 과업의 총 소요시간을 estimatedTime으로 반영합니다.",
+            description = "마감일과 하나 이상의 챕터를 함께 등록합니다. 챕터는 전달 순서대로 저장됩니다. 일반 과업은 deadline이 필수이며, 반복 과업은 repeatRule 조건으로 서버가 가장 가까운 deadline을 계산합니다. notifyBefore 생략 시 1440, notificationEnabled 생략 시 true입니다.",
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     content = @Content(
                             mediaType = "application/json",
                             examples = {
                                     @ExampleObject(
-                                            name = "일반 과업 - 유사 과업 없음",
+                                            name = "일반 과업",
                                             value = """
                                                     {
                                                       "title": "알고리즘 과제 제출",
@@ -81,8 +80,7 @@ public class TaskController {
                                                       "notifyBefore": 1440,
                                                       "notificationEnabled": true,
                                                       "categoryId": 1,
-                                                      "estimatedTime": 90,
-                                                      "similarTaskId": null
+                                                      "chapters": ["1장 자료구조", "2장 알고리즘"]
                                                     }
                                                     """
                                     ),
@@ -100,8 +98,7 @@ public class TaskController {
                                                         "startDate": "2026-08-12",
                                                         "endDate": "2026-12-31"
                                                       },
-                                                      "estimatedTime": 60,
-                                                      "similarTaskId": null
+                                                      "chapters": ["1주차 개념", "1주차 문제 풀이"]
                                                     }
                                                     """
                                     )
@@ -184,8 +181,7 @@ public class TaskController {
 
     @Operation(
             summary = "과업 수정",
-            description = "전달된 필드만 수정합니다. similarTask 연결 해제는 clearSimilarTask=true로 요청합니다."
-                    + " repeatRule 필드가 전달되면 반복 설정 전체를 교체하고 deadline도 다시 계산합니다. clearRepeatRule=true이면 repeat_rule을 삭제하며 단일 deadline을 함께 전달해야 합니다.",
+            description = "전달된 필드만 수정합니다. repeatRule 필드가 전달되면 반복 설정 전체를 교체하고 deadline도 다시 계산합니다. clearRepeatRule=true이면 repeat_rule을 삭제하며 단일 deadline을 함께 전달해야 합니다.",
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     content = @Content(
                             mediaType = "application/json",
@@ -220,14 +216,6 @@ public class TaskController {
                                                       "categoryId": 1,
                                                       "status": "TODO",
                                                       "starred": false
-                                                    }
-                                                    """
-                                    ),
-                                    @ExampleObject(
-                                            name = "유사 과업 연결 해제",
-                                            value = """
-                                                    {
-                                                      "clearSimilarTask": true
                                                     }
                                                     """
                                     )
@@ -266,34 +254,5 @@ public class TaskController {
     ) {
         taskService.deleteTask(userDetails.getUserId(), taskId);
         return ApiResponse.success();
-    }
-
-    @Operation(
-            summary = "이전 완료 과업 검색",
-            description = "비슷한 과업 선택 화면에서 사용합니다. 현재 로그인한 사용자의 DONE 과업만 조회하며, totalElapsedTime은 task_session.elapsed_time 합계입니다. 카드 완료 일자는 deadline입니다."
-    )
-    @GetMapping("/history")
-    public ApiResponse<PageResponse<TaskHistoryResponse>> getHistory(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Parameter(description = "과업명 검색어", example = "알고리즘")
-            @RequestParam(required = false)
-            String keyword,
-            @Parameter(description = "카테고리 ID", example = "1")
-            @RequestParam(required = false)
-            Long categoryId,
-            @Parameter(description = "페이지 번호", example = "0")
-            @RequestParam(defaultValue = "0")
-            int page,
-            @Parameter(description = "페이지 크기", example = "20")
-            @RequestParam(defaultValue = "20")
-            int size
-    ) {
-        return ApiResponse.success(taskService.getHistory(
-                userDetails.getUserId(),
-                keyword,
-                categoryId,
-                page,
-                size
-        ));
     }
 }

@@ -30,10 +30,6 @@ public record TaskListResponse(
         TaskStatus status,
         @Schema(description = "마감일", example = "2026-08-12")
         LocalDate deadline,
-        @Schema(description = "비슷한 과업 연결 여부", example = "true")
-        boolean hasSimilarTask,
-        @Schema(description = "비슷한 이전 과업 ID", example = "12", nullable = true)
-        Long similarTaskId,
         @Schema(description = "반복 생성 원본 과업 ID. 원본 과업이면 null입니다.", example = "1", nullable = true)
         Long sourceTaskId,
         @Schema(description = "과업 전체 진행률 (%)", example = "45", nullable = true)
@@ -47,7 +43,6 @@ public record TaskListResponse(
 ) {
 
     public static TaskListResponse from(Task task, LocalDate today, String memo) {
-        Long similarTaskId = task.getSimilarTask() == null ? null : task.getSimilarTask().getId();
         Long sourceTaskId = task.getSourceTask() == null ? null : task.getSourceTask().getId();
         return new TaskListResponse(
                 task.getId(),
@@ -59,8 +54,6 @@ public record TaskListResponse(
                 calculateRecommendedMinutes(task.getEstimatedTime(), task.getDeadline(), today),
                 task.getStatus(),
                 task.getDeadline(),
-                similarTaskId != null,
-                similarTaskId,
                 sourceTaskId,
                 task.getProgressRate(),
                 task.getCreatedAt(),

@@ -10,14 +10,15 @@ import com.cotato.blankit.domain.task.dto.request.TaskUpdateRequest;
 import com.cotato.blankit.domain.task.dto.response.ReminderRangeResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskDetailResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskFormOptionsResponse;
-import com.cotato.blankit.domain.task.dto.response.TaskHistoryResponse;
 import com.cotato.blankit.domain.task.dto.response.TaskListResponse;
+import com.cotato.blankit.domain.task.dto.response.TaskChapterResponse;
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.NotifyBeforeOption;
 import com.cotato.blankit.domain.task.entity.RepeatMonthDays;
 import com.cotato.blankit.domain.task.entity.RepeatRule;
 import com.cotato.blankit.domain.task.entity.Task;
 import com.cotato.blankit.domain.task.entity.TaskStatus;
+import com.cotato.blankit.domain.task.entity.TaskStep;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
@@ -47,12 +48,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -97,8 +96,6 @@ public class TaskService {
         validateTitle(request.title());
         User user = getUserForUpdate(userId);
         Category category = resolveCategory(userId, request.categoryId());
-        Task similarTask = resolveSimilarTaskForCreate(userId, request.similarTaskId());
-        Integer estimatedTime = resolveEstimatedTime(userId, similarTask, request.estimatedTime());
         RepeatDeadlineCalculator.RepeatRuleData repeatRuleData = request.repeatRule() == null
                 ? null
                 : validateAndNormalizeRepeatRule(request.repeatRule());
@@ -109,9 +106,10 @@ public class TaskService {
                 category,
                 request.title().trim(),
                 deadline,
-                similarTask,
-                estimatedTime
+                null,
+                null
         ));
+        List<TaskStep> chapters = saveChapters(task, request.chapters());
 
         NotificationSetting notificationSetting = notificationSettingRepository.save(NotificationSetting.create(
                 task,
@@ -125,7 +123,7 @@ public class TaskService {
             repeatDeadlineRefreshService.generateNextOccurrencesForTask(task.getId());
         }
 
-        return TaskDetailResponse.from(task, notificationSetting, repeatRule, 0L);
+        return TaskDetailResponse.from(task, notificationSetting, repeatRule, 0L, toChapterResponses(chapters));
     }
 
     @Transactional(readOnly = true)
@@ -167,10 +165,6 @@ public class TaskService {
 
     @Transactional
     public TaskDetailResponse updateTask(Long userId, Long taskId, TaskUpdateRequest request) {
-        boolean changesSimilarTask = request.similarTaskId() != null || Boolean.TRUE.equals(request.clearSimilarTask());
-        if (changesSimilarTask) {
-            getUserForUpdate(userId);
-        }
         Task task = getTaskByUser(taskId, userId);
         RepeatRule existingRepeatRule = repeatRuleRepository.findByTaskId(task.getId()).orElse(null);
 
@@ -192,7 +186,6 @@ public class TaskService {
         }
         List<Long> notificationSyncTaskIds = updateNotificationSetting(task, request);
         List<Long> removedOccurrenceIds = updateDeadlineAndRepeatRule(task, request, existingRepeatRule);
-        updateSimilarTask(userId, task, request);
         taskRepository.flush();
         notificationSettingRepository.flush();
         removedOccurrenceIds.forEach(taskDeadlineScheduleService::cancelTask);
@@ -237,31 +230,6 @@ public class TaskService {
         repeatRuleRepository.deleteByTaskId(task.getId());
         notificationSettingRepository.findByTaskId(task.getId()).ifPresent(notificationSettingRepository::delete);
         taskRepository.deleteById(task.getId());
-    }
-
-    @Transactional(readOnly = true)
-    public PageResponse<TaskHistoryResponse> getHistory(
-            Long userId,
-            String keyword,
-            Long categoryId,
-            int page,
-            int size
-    ) {
-        Page<Task> history = taskRepository.searchHistory(
-                userId,
-                LikeQueryUtils.normalizeAndEscapeOptionalKeyword(keyword),
-                categoryId,
-                createPageable(page, size)
-        );
-        Map<Long, Long> elapsedTimes = getElapsedTimeMap(userId, history.getContent());
-        return PageResponse.of(
-                history.getContent().stream()
-                        .map(task -> TaskHistoryResponse.from(task, elapsedTimes.getOrDefault(task.getId(), 0L)))
-                        .toList(),
-                history.getNumber(),
-                history.getSize(),
-                history.getTotalElements()
-        );
     }
 
     private List<Long> updateNotificationSetting(Task task, TaskUpdateRequest request) {
@@ -361,25 +329,6 @@ public class TaskService {
         return futureOccurrences.stream().map(Task::getId).toList();
     }
 
-    private void updateSimilarTask(Long userId, Task task, TaskUpdateRequest request) {
-        boolean clearSimilarTask = Boolean.TRUE.equals(request.clearSimilarTask());
-        if (clearSimilarTask && request.similarTaskId() != null) {
-            throw new CustomException(ErrorCode.INVALID_SIMILAR_TASK);
-        }
-        if (clearSimilarTask) {
-            task.clearSimilarTask();
-            return;
-        }
-        if (request.similarTaskId() != null) {
-            if (task.getId().equals(request.similarTaskId())) {
-                throw new CustomException(ErrorCode.SELF_SIMILAR_TASK_NOT_ALLOWED);
-            }
-            Task similarTask = resolveSimilarTaskForUpdate(userId, task, request.similarTaskId());
-            task.updateSimilarTask(similarTask);
-            task.updateEstimatedTime(resolveEstimatedTime(userId, similarTask, null));
-        }
-    }
-
     private Category resolveCategory(Long userId, Long categoryId) {
         if (categoryId != null) {
             return categoryService.getActiveCategory(userId, categoryId);
@@ -389,52 +338,6 @@ public class TaskService {
             throw new CustomException(ErrorCode.CATEGORY_REQUIRED);
         }
         return activeCategories.get(0);
-    }
-
-    private Task resolveSimilarTaskForCreate(Long userId, Long similarTaskId) {
-        if (similarTaskId == null) {
-            return null;
-        }
-        Task similarTask = taskRepository.findByIdAndUserId(similarTaskId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_SIMILAR_TASK));
-        validateSimilarTaskDone(similarTask);
-        return similarTask;
-    }
-
-    private Integer resolveEstimatedTime(Long userId, Task similarTask, Integer requestedEstimatedTime) {
-        if (similarTask == null) {
-            return requestedEstimatedTime;
-        }
-        long elapsedSeconds = taskSessionRepository.sumElapsedTimeByTaskIdAndUserId(similarTask.getId(), userId);
-        return Math.toIntExact((elapsedSeconds + 59) / 60);
-    }
-
-    private Task resolveSimilarTaskForUpdate(Long userId, Task task, Long similarTaskId) {
-        Task similarTask = taskRepository.findByIdAndUserId(similarTaskId, userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_SIMILAR_TASK));
-        validateSimilarTaskDone(similarTask);
-        validateNoSimilarCycle(task, similarTask);
-        return similarTask;
-    }
-
-    private void validateSimilarTaskDone(Task similarTask) {
-        if (similarTask.getStatus() != TaskStatus.DONE) {
-            throw new CustomException(ErrorCode.SIMILAR_TASK_NOT_DONE);
-        }
-    }
-
-    private void validateNoSimilarCycle(Task task, Task similarTask) {
-        Task cursor = similarTask;
-        Set<Long> visitedTaskIds = new HashSet<>();
-        while (cursor != null) {
-            if (!visitedTaskIds.add(cursor.getId())) {
-                throw new CustomException(ErrorCode.CYCLIC_SIMILAR_TASK_NOT_ALLOWED);
-            }
-            if (task.getId().equals(cursor.getId())) {
-                throw new CustomException(ErrorCode.CYCLIC_SIMILAR_TASK_NOT_ALLOWED);
-            }
-            cursor = cursor.getSimilarTask();
-        }
     }
 
     private RepeatRule toRepeatRule(Task task, RepeatDeadlineCalculator.RepeatRuleData data) {
@@ -598,24 +501,22 @@ public class TaskService {
                 task,
                 getNotificationSetting(task),
                 repeatRuleRepository.findByTaskId(task.getId()).orElse(null),
-                taskSessionRepository.sumElapsedTimeByTaskIdAndUserId(task.getId(), userId)
+                taskSessionRepository.sumElapsedTimeByTaskIdAndUserId(task.getId(), userId),
+                toChapterResponses(taskStepRepository.findByTaskIdOrderBySortOrderAscTaskStepIdAsc(task.getId()))
         );
     }
 
-    private Map<Long, Long> getElapsedTimeMap(Long userId, List<Task> tasks) {
-        List<Long> taskIds = tasks.stream().map(Task::getId).toList();
-        if (taskIds.isEmpty()) {
-            return Map.of();
-        }
-        return taskSessionRepository.sumElapsedTimeByTaskIdsAndUserId(taskIds, userId).stream()
-                .collect(Collectors.toMap(
-                        row -> (Long) row[0],
-                        row -> ((Number) row[1]).longValue()
-                ));
+    private List<TaskStep> saveChapters(Task task, List<String> chapterTitles) {
+        List<TaskStep> chapters = java.util.stream.IntStream.range(0, chapterTitles.size())
+                .mapToObj(index -> TaskStep.create(task, chapterTitles.get(index).trim(), index))
+                .toList();
+        return taskStepRepository.saveAll(chapters);
     }
 
-    private Pageable createPageable(int page, int size) {
-        return org.springframework.data.domain.PageRequest.of(Math.max(page, 0), normalizeSize(size));
+    private List<TaskChapterResponse> toChapterResponses(List<TaskStep> chapters) {
+        return chapters.stream()
+                .map(TaskChapterResponse::from)
+                .toList();
     }
 
     private Pageable createTaskPageable(int page, int size) {

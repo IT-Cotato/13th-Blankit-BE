@@ -30,11 +30,15 @@ public class TaskStep extends BaseEntity {
     private int sortOrder;
 
     public static TaskStep create(Task task, String title) {
+        return create(task, title, 0);
+    }
+
+    public static TaskStep create(Task task, String title, int sortOrder) {
         TaskStep step = new TaskStep();
         step.task = task;
         step.title = title;
         step.progressRate = 0;
-        step.sortOrder = 0;
+        step.sortOrder = sortOrder;
         return step;
     }
 

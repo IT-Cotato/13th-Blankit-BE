@@ -2,10 +2,11 @@ package com.cotato.blankit.domain.task.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Schema(description = "과업 생성 요청")
 public record TaskCreateRequest(
@@ -29,11 +30,8 @@ public record TaskCreateRequest(
         @Schema(description = "카테고리 ID. 생략 시 가장 먼저 생성된 활성 카테고리를 사용합니다.", example = "1")
         Long categoryId,
 
-        @Schema(description = "직접 입력한 예상 소요 시간(분). similarTaskId가 없을 때 task.estimated_time에 저장합니다.", example = "90", nullable = true)
-        @PositiveOrZero(message = "예상 시간은 0 이상이어야 합니다.")
-        Integer estimatedTime,
-
-        @Schema(description = "비슷한 이전 완료 과업 ID. 비슷한 경험이 없으면 전달하지 않거나 null로 전달합니다.", example = "12", nullable = true)
-        Long similarTaskId
+        @Schema(description = "과업을 나눈 챕터 제목 목록. 전달 순서대로 저장합니다.", example = "[\"1장 자료구조\", \"2장 알고리즘\"]")
+        @NotEmpty(message = "챕터는 하나 이상 등록해야 합니다.")
+        List<@NotBlank(message = "챕터 제목은 필수입니다.") @Size(max = 100, message = "챕터 제목은 최대 100자까지 입력할 수 있습니다.") String> chapters
 ) {
 }

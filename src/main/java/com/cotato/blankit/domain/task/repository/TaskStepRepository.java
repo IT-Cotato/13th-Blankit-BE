@@ -13,6 +13,8 @@ public interface TaskStepRepository extends JpaRepository<TaskStep, Long> {
 
     List<TaskStep> findByTaskIdOrderByTaskStepIdAsc(Long taskId);
 
+    List<TaskStep> findByTaskIdOrderBySortOrderAscTaskStepIdAsc(Long taskId);
+
     Optional<TaskStep> findByTaskStepIdAndTaskId(Long taskStepId, Long taskId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)

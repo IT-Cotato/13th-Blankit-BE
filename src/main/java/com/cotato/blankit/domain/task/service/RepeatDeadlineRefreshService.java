@@ -4,9 +4,11 @@ import com.cotato.blankit.domain.notification.push.service.TaskDeadlineNotificat
 import com.cotato.blankit.domain.task.entity.NotificationSetting;
 import com.cotato.blankit.domain.task.entity.RepeatRule;
 import com.cotato.blankit.domain.task.entity.Task;
+import com.cotato.blankit.domain.task.entity.TaskStep;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
+import com.cotato.blankit.domain.task.repository.TaskStepRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,7 @@ public class RepeatDeadlineRefreshService {
     private final RepeatRuleRepository repeatRuleRepository;
     private final TaskRepository taskRepository;
     private final NotificationSettingRepository notificationSettingRepository;
+    private final TaskStepRepository taskStepRepository;
     private final RepeatDeadlineCalculator repeatDeadlineCalculator;
     private final TaskDeadlineNotificationScheduleService taskDeadlineNotificationScheduleService;
     private final Clock clock;
@@ -80,6 +83,7 @@ public class RepeatDeadlineRefreshService {
                         Task.createRepeatedOccurrence(sourceTask, nextDeadline)
                 );
                 copyNotificationSetting(sourceTask, occurrence);
+                copyChapters(sourceTask, occurrence);
                 createdTaskIds.add(occurrence.getId());
                 createdCount++;
             }
@@ -96,6 +100,15 @@ public class RepeatDeadlineRefreshService {
                         setting.isEnabled()
                 ))
                 .ifPresent(notificationSettingRepository::save);
+    }
+
+    private void copyChapters(Task sourceTask, Task occurrence) {
+        List<TaskStep> chapters = taskStepRepository
+                .findByTaskIdOrderBySortOrderAscTaskStepIdAsc(sourceTask.getId())
+                .stream()
+                .map(source -> TaskStep.create(occurrence, source.getTitle(), source.getSortOrder()))
+                .toList();
+        taskStepRepository.saveAll(chapters);
     }
 
     private void scheduleDeadlineNotifications(List<Long> createdTaskIds) {

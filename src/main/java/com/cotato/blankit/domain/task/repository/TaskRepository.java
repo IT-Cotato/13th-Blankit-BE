@@ -53,23 +53,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             Pageable pageable
     );
 
-    @EntityGraph(attributePaths = {"category"})
-    @Query("""
-            select t
-            from Task t
-            where t.user.id = :userId
-              and t.status = com.cotato.blankit.domain.task.entity.TaskStatus.DONE
-              and (:categoryId is null or t.category.id = :categoryId)
-              and (:keyword is null or lower(t.title) like lower(concat('%', :keyword, '%')) escape '\\')
-            order by t.updatedAt desc, t.id desc
-            """)
-    Page<Task> searchHistory(
-            @Param("userId") Long userId,
-            @Param("keyword") String keyword,
-            @Param("categoryId") Long categoryId,
-            Pageable pageable
-    );
-
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update Task t
