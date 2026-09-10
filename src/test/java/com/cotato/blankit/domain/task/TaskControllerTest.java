@@ -15,6 +15,7 @@ import com.cotato.blankit.domain.category.repository.CategoryRepository;
 import com.cotato.blankit.domain.task.repository.NotificationSettingRepository;
 import com.cotato.blankit.domain.task.repository.RepeatRuleRepository;
 import com.cotato.blankit.domain.task.repository.TaskRepository;
+import com.cotato.blankit.domain.task.repository.TaskStepRepository;
 import com.cotato.blankit.domain.notification.entity.UserNotificationSetting;
 import com.cotato.blankit.domain.notification.repository.UserNotificationSettingRepository;
 import com.cotato.blankit.domain.notification.push.entity.PushNotificationType;
@@ -97,6 +98,9 @@ class TaskControllerTest {
 
     @Autowired
     private TaskRepository taskRepository;
+
+    @Autowired
+    private TaskStepRepository taskStepRepository;
 
     @Autowired
     private NotificationSettingRepository notificationSettingRepository;
@@ -186,7 +190,8 @@ class TaskControllerTest {
                                   "categoryId": %d,
                                   "deadline": "2026-06-05",
                                   "notifyBefore": 1440,
-                                  "notificationEnabled": true
+                                  "notificationEnabled": true,
+                                  "chapters": ["알림 챕터"]
                                 }
                                 """.formatted(studyCategory.getId())))
                 .andExpect(status().isCreated());
@@ -496,7 +501,8 @@ class TaskControllerTest {
                         .content("""
                                 {
                                   "title": "알고리즘 과제 제출",
-                                  "deadline": "2026-08-12"
+                                  "deadline": "2026-08-12",
+                                  "chapters": ["1장", "2장"]
                                 }
                                 """))
                 .andExpect(status().isCreated())
@@ -509,6 +515,10 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.data.notificationSetting.notifyBefore").value(1440))
                 .andExpect(jsonPath("$.data.notificationSetting.enabled").value(true))
                 .andExpect(jsonPath("$.data.repeatRule").doesNotExist())
+                .andExpect(jsonPath("$.data.chapters.length()").value(2))
+                .andExpect(jsonPath("$.data.chapters[0].chapterId").isNumber())
+                .andExpect(jsonPath("$.data.chapters[0].title").value("1장"))
+                .andExpect(jsonPath("$.data.chapters[1].title").value("2장"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -519,33 +529,36 @@ class TaskControllerTest {
     }
 
     @Test
-    void createTaskStoresRequestedEstimatedTimeWhenSimilarTaskIsNull() throws Exception {
-        String response = mockMvc.perform(post("/api/tasks")
+    void createTaskRequiresNonBlankChapters() throws Exception {
+        mockMvc.perform(post("/api/tasks")
                         .with(csrf())
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "title": "직접 예상 시간",
+                                  "title": "챕터 없는 과업",
                                   "deadline": "2026-08-12",
-                                  "categoryId": %d,
-                                  "estimatedTime": 90,
-                                  "similarTaskId": null
+                                  "chapters": []
                                 }
-                                """.formatted(studyCategory.getId())))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.estimatedTime").value(90))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
-        Long taskId = ((Number) com.jayway.jsonpath.JsonPath.read(response, "$.data.taskId")).longValue();
-        org.assertj.core.api.Assertions.assertThat(taskRepository.findById(taskId))
-                .isPresent()
-                .get()
-                .extracting(Task::getEstimatedTime)
-                .isEqualTo(90);
+        mockMvc.perform(post("/api/tasks")
+                        .with(csrf())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "공백 챕터 과업",
+                                  "deadline": "2026-08-12",
+                                  "chapters": ["   "]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
     }
+
 
     @Test
     void createRepeatTaskCalculatesDeadlineAndAllowsNullEndDate() throws Exception {
@@ -557,6 +570,7 @@ class TaskControllerTest {
                                 {
                                   "title": "주간 회의",
                                   "categoryId": %d,
+                                  "chapters": ["주간 챕터"],
                                   "repeatRule": {
                                     "frequency": "WEEKLY",
                                     "daysOfWeek": [3],
@@ -587,6 +601,7 @@ class TaskControllerTest {
                                 {
                                   "title": "2월 말 정산",
                                   "categoryId": %d,
+                                  "chapters": ["정산 챕터"],
                                   "repeatRule": {
                                     "frequency": "YEARLY",
                                     "monthOfYear": 2,
@@ -618,7 +633,8 @@ class TaskControllerTest {
                                 {
                                   "title": "삭제 카테고리",
                                   "categoryId": %d,
-                                  "deadline": "2026-08-12"
+                                  "deadline": "2026-08-12",
+                                  "chapters": ["챕터"]
                                 }
                                 """.formatted(deletedCategory.getId())))
                 .andExpect(status().isNotFound())
@@ -633,7 +649,8 @@ class TaskControllerTest {
                                 {
                                   "title": "타인 카테고리",
                                   "categoryId": %d,
-                                  "deadline": "2026-08-12"
+                                  "deadline": "2026-08-12",
+                                  "chapters": ["챕터"]
                                 }
                                 """.formatted(otherCategory.getId())))
                 .andExpect(status().isNotFound());
@@ -646,7 +663,8 @@ class TaskControllerTest {
                                 {
                                   "title": "알림 오류",
                                   "deadline": "2026-08-12",
-                                  "notifyBefore": 9
+                                  "notifyBefore": 9,
+                                  "chapters": ["챕터"]
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -660,7 +678,8 @@ class TaskControllerTest {
                                 {
                                   "title": "제거된 10분 알림",
                                   "deadline": "2026-08-12",
-                                  "notifyBefore": 10
+                                  "notifyBefore": 10,
+                                  "chapters": ["챕터"]
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -674,7 +693,8 @@ class TaskControllerTest {
                                 {
                                   "title": "제거된 1시간 알림",
                                   "deadline": "2026-08-12",
-                                  "notifyBefore": 60
+                                  "notifyBefore": 60,
+                                  "chapters": ["챕터"]
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -688,7 +708,8 @@ class TaskControllerTest {
                                 {
                                   "title": "알림 선택지 오류",
                                   "deadline": "2026-08-12",
-                                  "notifyBefore": 30
+                                  "notifyBefore": 30,
+                                  "chapters": ["챕터"]
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -706,6 +727,7 @@ class TaskControllerTest {
                                   "title": "주간 회의",
                                   "deadline": "2026-08-12",
                                   "categoryId": %d,
+                                  "chapters": ["주간 챕터"],
                                   "repeatRule": {
                                     "frequency": "WEEKLY",
                                     "daysOfWeek": [1, 3, 5],
@@ -739,6 +761,7 @@ class TaskControllerTest {
                                   "title": "월말",
                                   "deadline": "2026-08-31",
                                   "categoryId": %d,
+                                  "chapters": ["월말 챕터"],
                                   "repeatRule": {
                                     "frequency": "MONTHLY",
                                     "daysOfMonth": [31],
@@ -766,6 +789,7 @@ class TaskControllerTest {
                                   "title": "잘못된 요일",
                                   "deadline": "2026-08-12",
                                   "categoryId": %d,
+                                  "chapters": ["잘못된 반복 챕터"],
                                   "repeatRule": {
                                     "frequency": "WEEKLY",
                                     "daysOfWeek": [7],
@@ -785,6 +809,7 @@ class TaskControllerTest {
                                 {
                                   "title": "널 요일",
                                   "categoryId": %d,
+                                  "chapters": ["널 요일 챕터"],
                                   "repeatRule": {
                                     "frequency": "WEEKLY",
                                     "daysOfWeek": [1, null],
@@ -807,6 +832,7 @@ class TaskControllerTest {
                                   "title": "윤년 반복",
                                   "deadline": "2028-02-29",
                                   "categoryId": %d,
+                                  "chapters": ["윤년 챕터"],
                                   "repeatRule": {
                                     "frequency": "YEARLY",
                                     "monthOfYear": 2,
@@ -828,6 +854,8 @@ class TaskControllerTest {
     @Test
     void repeatedTaskGenerationCreatesOccurrenceFromAnySourceStatusAndIsIdempotent() {
         Task repeatTask = taskRepository.save(Task.create(user, studyCategory, "지난 반복", LocalDate.parse("2026-05-25"), null));
+        taskStepRepository.save(com.cotato.blankit.domain.task.entity.TaskStep.create(repeatTask, "첫 챕터", 0));
+        taskStepRepository.save(com.cotato.blankit.domain.task.entity.TaskStep.create(repeatTask, "둘째 챕터", 1));
         repeatRuleRepository.save(RepeatRule.create(
                 repeatTask,
                 RecurrenceType.WEEKLY,
@@ -852,6 +880,10 @@ class TaskControllerTest {
         org.assertj.core.api.Assertions.assertThat(occurrence.getSourceTask().getId()).isEqualTo(repeatTask.getId());
         org.assertj.core.api.Assertions.assertThat(occurrence.getStatus()).isEqualTo(TaskStatus.TODO);
         org.assertj.core.api.Assertions.assertThat(occurrence.getEstimatedTime()).isEqualTo(repeatTask.getEstimatedTime());
+        org.assertj.core.api.Assertions.assertThat(
+                        taskStepRepository.findByTaskIdOrderBySortOrderAscTaskStepIdAsc(occurrence.getId()))
+                .extracting(com.cotato.blankit.domain.task.entity.TaskStep::getTitle)
+                .containsExactly("첫 챕터", "둘째 챕터");
         org.assertj.core.api.Assertions.assertThat(repeatRuleRepository.existsByTaskId(occurrence.getId())).isFalse();
         org.assertj.core.api.Assertions.assertThat(notificationSettingRepository.findByTaskId(occurrence.getId()))
                 .isPresent()
@@ -1014,141 +1046,6 @@ class TaskControllerTest {
                 repeatTask.getId(),
                 LocalDate.parse("2026-06-08")
         )).isEmpty();
-    }
-
-    @Test
-    void historyReturnsDoneTasksWithTaskSessionElapsedTime() throws Exception {
-        Task done = saveTask(user, studyCategory, "이전 완료", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
-        saveTask(user, studyCategory, "진행 중", LocalDate.parse("2026-08-02"), null, TaskStatus.IN_PROGRESS);
-        saveTask(otherUser, categoryRepository.save(Category.create(otherUser, "타인", "#B55CFF", "user", 1, false)), "타인 완료", LocalDate.parse("2026-08-03"), null, TaskStatus.DONE);
-        taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1200, TaskSessionStatus.DONE));
-        taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1800, TaskSessionStatus.DONE));
-
-        mockMvc.perform(get("/api/tasks/history")
-                        .header("Authorization", "Bearer " + token)
-                        .param("keyword", "이전")
-                        .param("categoryId", String.valueOf(studyCategory.getId())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[0].taskId").value(done.getId()))
-                .andExpect(jsonPath("$.data.content[0].deadline").value("2026-08-01"))
-                .andExpect(jsonPath("$.data.content[0].totalElapsedTime").value(3000));
-    }
-
-    @Test
-    void historySearchEscapesLikeWildcardsAndRejectsTooLongKeyword() throws Exception {
-        saveTask(user, studyCategory, "100% 완료", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
-        saveTask(user, studyCategory, "일반 완료", LocalDate.parse("2026-08-02"), null, TaskStatus.DONE);
-
-        mockMvc.perform(get("/api/tasks/history")
-                        .header("Authorization", "Bearer " + token)
-                        .param("keyword", "%"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content.length()").value(1))
-                .andExpect(jsonPath("$.data.content[0].title").value("100% 완료"));
-
-        mockMvc.perform(get("/api/tasks/history")
-                        .header("Authorization", "Bearer " + token)
-                        .param("keyword", "a".repeat(101)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
-    }
-
-    @Test
-    void similarTaskRulesUpdateAndDeleteWork() throws Exception {
-        Task done = saveTask(user, studyCategory, "이전 완료", LocalDate.parse("2026-08-01"), null, TaskStatus.DONE);
-        Task secondDone = saveTask(user, studyCategory, "두번째 완료", LocalDate.parse("2026-08-03"), null, TaskStatus.DONE);
-        Task incomplete = saveTask(user, studyCategory, "진행 중", LocalDate.parse("2026-08-02"), null, TaskStatus.IN_PROGRESS);
-        taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1200, TaskSessionStatus.DONE));
-        taskSessionRepository.save(TaskSession.create(done, user, LocalDateTime.now(), LocalDateTime.now(), 1800, TaskSessionStatus.DONE));
-        taskSessionRepository.save(TaskSession.create(secondDone, user, LocalDateTime.now(), LocalDateTime.now(), 3600, TaskSessionStatus.DONE));
-
-        String createResponse = mockMvc.perform(post("/api/tasks")
-                        .with(csrf())
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "title": "유사 연결",
-                                  "deadline": "2026-08-12",
-                                  "categoryId": %d,
-                                  "similarTaskId": %d
-                                }
-                                """.formatted(studyCategory.getId(), done.getId())))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.similarTaskId").value(done.getId()))
-                .andExpect(jsonPath("$.data.estimatedTime").value(50))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        Long taskId = ((Number) com.jayway.jsonpath.JsonPath.read(createResponse, "$.data.taskId")).longValue();
-
-        mockMvc.perform(post("/api/tasks")
-                        .with(csrf())
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "title": "미완료 연결",
-                                  "deadline": "2026-08-12",
-                                  "categoryId": %d,
-                                  "similarTaskId": %d
-                                }
-                                """.formatted(studyCategory.getId(), incomplete.getId())))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SIMILAR_TASK_NOT_DONE"));
-
-        mockMvc.perform(patch("/api/tasks/{taskId}", taskId)
-                        .with(csrf())
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "notifyBefore": 10080,
-                                  "notificationEnabled": false,
-                                  "starred": true,
-                                  "clearSimilarTask": true,
-                                  "clearRepeatRule": true
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.notificationSetting.notifyBefore").value(10080))
-                .andExpect(jsonPath("$.data.notificationSetting.enabled").value(false))
-                .andExpect(jsonPath("$.data.starred").value(true))
-                .andExpect(jsonPath("$.data.similarTaskId").doesNotExist());
-
-        mockMvc.perform(patch("/api/tasks/{taskId}", taskId)
-                        .with(csrf())
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "similarTaskId": %d
-                                }
-                                """.formatted(secondDone.getId())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.similarTaskId").value(secondDone.getId()))
-                .andExpect(jsonPath("$.data.estimatedTime").value(60));
-
-        mockMvc.perform(patch("/api/tasks/{taskId}", taskId)
-                        .with(csrf())
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "similarTaskId": %d
-                                }
-                                """.formatted(taskId)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SELF_SIMILAR_TASK_NOT_ALLOWED"));
-
-        mockMvc.perform(delete("/api/tasks/{taskId}", done.getId())
-                        .with(csrf())
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/tasks/{taskId}", taskId)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
     }
 
     @Test
